@@ -1,0 +1,23 @@
+@import 'tailwindcss';
+/* Tailwind v4: токены темы здесь, отдельный tailwind.config.js не нужен. */
+@theme {
+  --color-brand: #5543db;
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+@layer base {
+  body {
+    @apply m-0 bg-slate-50 font-sans text-slate-900 antialiased;
+  }
+  button:not(:disabled),
+  a {
+    touch-action: manipulation;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

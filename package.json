@@ -1,0 +1,60 @@
+{
+  "name": "vue-fsd-starter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.15.0 <25"
+  },
+  "scripts": {
+    "dev": "vite --mode development",
+    "dev:pre-prod": "vite --mode preprod",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
+    "build": "npm run build:prod",
+    "build:dev": "npm run typecheck && vite build --mode development",
+    "build:pre-prod": "npm run typecheck && vite build --mode preprod",
+    "build:prod": "npm run typecheck && vite build --mode production",
+    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "lint:fsd": "steiger src",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest",
+    "test:unit": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "check": "npm run format:check && npm run lint && npm run lint:fsd && npm run typecheck && npm run test:coverage && npm run test:architecture",
+    "test:architecture": "node tooling/eslint/fsd.test.mjs"
+  },
+  "dependencies": {
+    "reka-ui": "2.10.4",
+    "vue": "3.5.42",
+    "vue-router": "4.6.4",
+    "zod": "4.6.2"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@eslint/js": "10.0.1",
+    "@feature-sliced/steiger-plugin": "0.7.0",
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/node": "24.13.4",
+    "@vitejs/plugin-vue": "6.0.8",
+    "@vitest/coverage-v8": "5.0.0",
+    "@vue/test-utils": "2.5.0",
+    "eslint": "10.10.0",
+    "eslint-plugin-vue": "10.11.0",
+    "globals": "16.5.0",
+    "jsdom": "26.1.0",
+    "prettier": "3.9.6",
+    "steiger": "0.6.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.0",
+    "vite": "8.3.0",
+    "vitest": "5.0.0",
+    "vue-tsc": "3.3.11"
+  }
+}

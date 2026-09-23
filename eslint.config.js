@@ -5,7 +5,15 @@ import vue from 'eslint-plugin-vue'
 import globals from 'globals'
 import prettier from 'eslint-config-prettier'
 export default tseslint.config(
-  { ignores: ['dist/**', 'coverage/**', 'playwright-report/**', 'test-results/**'] },
+  {
+    ignores: [
+      'dist/**',
+      'coverage/**',
+      'playwright-report/**',
+      'test-results/**',
+      'src/shared/api/generated/**',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...vue.configs['flat/recommended'],

@@ -1,1 +1,21 @@
+/**
+ * Общие визуальные примитивы. Не содержат бизнес-правил LidRadar и
+ * принимают уже подготовленные подписи.
+ */
 export { default as UiButton } from './UiButton.vue'
+export { default as UiSpinner } from './UiSpinner.vue'
+export { default as UiField } from './UiField.vue'
+export { default as UiInput } from './UiInput.vue'
+export { default as UiTextarea } from './UiTextarea.vue'
+export { default as UiPasswordInput } from './UiPasswordInput.vue'
+export { default as UiSelect } from './UiSelect.vue'
+export type { UiSelectOption } from './UiSelect.vue'
+export { default as UiAlert } from './UiAlert.vue'
+export { default as UiBadge } from './UiBadge.vue'
+export { default as UiSkeleton } from './UiSkeleton.vue'
+export { default as UiCard } from './UiCard.vue'
+export { default as UiEmptyState } from './UiEmptyState.vue'
+export { default as UiErrorState } from './UiErrorState.vue'
+export { default as UiPageHeader } from './UiPageHeader.vue'
+export { default as UiDialog } from './UiDialog.vue'
+export { default as UiAccessDenied } from './UiAccessDenied.vue'

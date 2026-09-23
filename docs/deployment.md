@@ -2,9 +2,11 @@
 
 ## GitHub Actions
 
-`.github/workflows/ci.yml` запускает quality gate, сборки трёх сред, E2E на четырёх browser-профилях и Docker smoke. Настройте branch protection: обязательны quality, builds, e2e, container; запретите merge при провале. Для другой CI переносите те же команды.
+`.github/workflows/ci.yml` запускает quality gate (`npm run check`), сборки трёх сред, E2E на четырёх browser-профилях и smoke контейнера. Настройте branch protection: обязательны quality, builds, e2e, container. Для другой CI переносите те же команды.
 
-Dependabot проверяет npm, Actions и Docker. Зависимости npm закреплены точными версиями и lockfile. Docker base images и Actions сейчас закреплены тегами; для контролируемой поставки замените на проверенные digest/commit SHA и настройте их обновление. `npm audit` используйте при обновлениях и перед релизом; не применяйте `--force` автоматически.
+`npm run check` включает `npm run api:check`: если снимок контракта в `contracts/openapi.yaml` обновили без перегенерации типов (или правили `generated/` вручную), конвейер остановится. Порядок обновления контракта — в [environments.md](environments.md).
+
+Dependabot проверяет npm, Actions и Docker. Зависимости закреплены точными версиями и lockfile. `npm audit` выполняйте при обновлениях и перед релизом; `--force` не применяйте автоматически.
 
 ## Docker
 
@@ -12,29 +14,30 @@ Dependabot проверяет npm, Actions и Docker. Зависимости npm
 docker compose up --build -d
 # http://127.0.0.1:8080
 APP_MODE=preprod docker compose up --build -d
-# остановка
- docker compose down
+docker compose down
 ```
 
-Multi-stage build, непривилегированный Nginx на 8080, read-only filesystem, tmpfs /tmp, dropped capabilities, healthcheck. nginx.conf задаёт SPA fallback и кеширование: assets год, HTML без долгого кеша. Dotfiles закрыты. `/api` по умолчанию 503. Настройте reverse proxy к реальному backend; DNS-имя upstream должно разрешаться внутри контейнера.
+Multi-stage build, непривилегированный Nginx на 8080, read-only filesystem, tmpfs `/tmp`, dropped capabilities, healthcheck. `deploy/nginx.conf` задаёт SPA fallback и кеширование (assets — год, HTML — без кеша), закрывает dotfiles и отдаёт `/api` как 503, пока не настроен `proxy_pass` к backend.
 
-TLS и HSTS настройте на ingress. Для внешнего API добавьте его точный origin в CSP connect-src и CORS backend. Для CDN/шрифтов/аналитики явно обновляйте CSP. Не расширяйте script-src до unsafe-inline ради устранения ошибок.
+Для работы сессии `/api` должен обслуживаться с того же origin, что и приложение: cookie `lidradar_session` HttpOnly, и клиент отправляет её с `credentials: 'include'`. Если backend вынесен на другой origin, задайте `VITE_API_ORIGIN` при сборке, добавьте origin в CSP `connect-src` и включите на backend CORS с credentials для точного origin приложения.
+
+TLS и HSTS настраиваются на ingress. Для CDN, шрифтов или аналитики явно обновляйте CSP; не расширяйте `script-src` до `unsafe-inline`. Шрифт Inter поставляется из `public/fonts`, внешних источников у приложения нет.
 
 ## Dev → pre-prod → prod
 
-1. PR: обязательные проверки из CI.
-2. Merge: собрать артефакт из фиксированного commit, сохранить commit SHA и версию lockfile в релизной записи.
-3. Pre-prod: передать адрес backend на этапе сборки, развернуть в отдельной среде, прогнать smoke и ручную приёмку.
-4. Prod: выпуск того же commit с prod-конфигурацией после approval в CI environment; сохранить предыдущий образ/артефакт для rollback.
-5. После выпуска: healthcheck, загрузка страницы, API, ошибки браузера; при деградации вернуть предыдущий артефакт вместе с его конфигурацией.
+1. PR: обязательные проверки CI; при изменении контракта — синхронизация снимка и перегенерация типов в том же PR.
+2. Merge: собрать артефакт из фиксированного commit; в релизной записи сохранить commit SHA, версию lockfile и `backendCommit` из `contracts/source.json` — так видно, с какой версией API совместима сборка.
+3. Pre-prod: передать `VITE_API_ORIGIN` (если нужен), развернуть в отдельной среде вместе с совместимым backend, прогнать smoke и ручную приёмку.
+4. Prod: выпуск того же commit с prod-конфигурацией после approval в CI environment; сохранить предыдущий образ для rollback.
+5. После выпуска: healthcheck, загрузка страницы, `/api/v1/auth/me` через ingress, ошибки браузера; при деградации вернуть предыдущий артефакт вместе с его конфигурацией.
 
-Автоматический деплой намеренно не привязан к облаку: сервер, registry, домены и способ доступа не указаны. Настройте защищённые GitHub Environments `pre-prod` и `prod`, environment-scoped secrets, отдельную учётную запись с минимальными правами; затем добавьте deployment job под свою инфраструктуру. Текущий CI ничего не публикует.
+Автоматический деплой намеренно не привязан к облаку. Настройте защищённые GitHub Environments `pre-prod` и `prod`, environment-scoped secrets и отдельную учётную запись с минимальными правами; затем добавьте deployment job под свою инфраструктуру. Текущий CI ничего не публикует.
 
 ## Перед реальным prod
 
-- Отключить demo-mode, подключить и протестировать backend и серверное сохранение.
-- Настроить auth/CSRF, обработку сессий и права; не хранить долгоживущие токены в localStorage.
-- Подключить сбор ошибок и метрик по требованиям проекта; не отправлять персональные данные автоматически.
-- Настроить домен, HTTPS, CSP, API и timeouts.
+- Настроить `proxy_pass` `/api` на backend и проверить cookie сессии, выход и истечение сессии через ingress.
+- Убедиться, что backend выпущен с тем же или совместимым контрактом (`contracts/source.json`).
+- Подключить сбор ошибок и метрик по требованиям проекта; `traceId` из `ApiError` — ключ для сопоставления с логами backend. Персональные данные автоматически не отправлять.
+- Настроить домен, HTTPS, CSP и таймауты ingress не короче клиентского (15 с).
 - Проверить браузеры целевой аудитории: target es2022 и Tailwind v4 рассчитаны на современные браузеры.
-- Проверить rollback и доступ к логам. Не публиковать source maps; если нужны error-tracking maps, загружать приватно.
+- Проверить rollback и доступ к логам. Source maps prod не публикуются; при необходимости загружать их приватно в систему сбора ошибок.

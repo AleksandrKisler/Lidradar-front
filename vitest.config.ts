@@ -6,7 +6,8 @@ export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   test: {
     environment: 'jsdom',
-    env: { VITE_APP_ENV: 'dev', VITE_API_BASE_URL: '/api', VITE_DEMO_MODE: 'true' },
+    // Абсолютный origin: Request в Node не принимает относительные адреса.
+    env: { VITE_APP_ENV: 'dev', VITE_API_ORIGIN: 'http://api.test' },
     include: ['src/**/*.test.ts', 'tests/unit/**/*.test.ts'],
     clearMocks: true,
     coverage: {
@@ -17,9 +18,11 @@ export default defineConfig({
         'src/**/model/**/*.ts',
         'src/shared/config/env.ts',
         'src/shared/api/**/*.ts',
+        'src/shared/lib/**/*.ts',
         'src/entities/**/api/**/*.ts',
+        'src/app/router/guards.ts',
       ],
-      exclude: ['**/index.ts', '**/*.test.ts'],
+      exclude: ['**/index.ts', '**/*.test.ts', '**/generated/**', '**/*.d.ts'],
       thresholds: { lines: 85, statements: 85, functions: 85, branches: 80 },
     },
   },

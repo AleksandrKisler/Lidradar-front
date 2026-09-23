@@ -1,0 +1,6 @@
+export { default as CompanyPage } from './ui/CompanyPage.vue'
+export { default as OnboardingResumePage } from './ui/OnboardingResumePage.vue'
+export { default as LocationPage } from './ui/LocationPage.vue'
+export { default as ServicesPage } from './ui/ServicesPage.vue'
+export { default as ChannelPage } from './ui/ChannelPage.vue'
+export { routeForStep } from './model/steps'

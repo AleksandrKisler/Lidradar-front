@@ -1,6 +1,6 @@
-# Vue FSD Starter
+# LidRadar Web
 
-Vue 3 + TypeScript + Vite + Reka UI + Tailwind CSS v4. Переносимый шаблон с примером интерфейса LidRadar, тестами и конфигурациями окружений. Это основа проекта, а не готовая CRM: backend и постоянное хранение не входят в поставку.
+Веб-клиент LidRadar: Vue 3, TypeScript, Vite, Tailwind CSS v4, Reka UI, Pinia, TanStack Query. Архитектура — Feature-Sliced Design. Backend и контракт API живут в отдельном репозитории (`Lidradar`, каталог `backend/`, файл `docs/api/openapi.yaml`); сюда контракт копируется снимком и превращается в типы.
 
 ## Быстрый старт
 
@@ -11,87 +11,65 @@ npm ci
 npm run dev
 ```
 
-Открыть http://127.0.0.1:5173. Используйте npm и сохранённый `package-lock.json`. Node указан в `.nvmrc`; рекомендуемая версия для команды и CI — одна и та же.
+Приложение открывается на http://127.0.0.1:5173 и проксирует `/api` на учебный стенд backend `http://127.0.0.1:8081`. Стенд поднимается из репозитория backend командой `make frontend-up` (описание, учётные записи и файл с паролем — в его `docs/runbooks/frontend-development.md`). Пароль стенда не попадает в этот репозиторий, скриншоты и логи.
 
-По умолчанию **все окружения работают в демо-режиме**. Никаких реальных запросов или сохранения статуса: изменения сбрасываются при обновлении. Это позволяет запустить шаблон без backend. Перед реальным запуском отключите демо и реализуйте API по [инструкции](docs/environments.md).
+Node закреплён в `.nvmrc`; `engine-strict` не даст поставить зависимости другой версией.
 
 ## Команды
 
-| Команда                  | Назначение                                                  |
-| ------------------------ | ----------------------------------------------------------- |
-| `npm run dev`            | Локальная разработка, HMR, `.env.development`               |
-| `npm run dev:pre-prod`   | Dev-сервер с настройками pre-prod; это не production-сборка |
-| `npm run build:dev`      | Сборка с dev-настройками и sourcemaps                       |
-| `npm run build:pre-prod` | Оптимизированная pre-prod-сборка                            |
-| `npm run build:prod`     | Оптимизированная prod-сборка, без sourcemaps                |
-| `npm run preview`        | Проверка готового dist, не production-сервер                |
-| `npm run check`          | Форматирование, ESLint, FSD, типы, тесты и coverage         |
-| `npm run test`           | Vitest в watch-режиме                                       |
-| `npm run test:unit`      | Однократный запуск Vitest                                   |
-| `npm run test:coverage`  | Покрытие бизнес-логики, отчёт coverage/index.html           |
-| `npm run test:e2e`       | Браузерные тесты собранного pre-prod                        |
-| `npm run test:e2e:ui`    | Интерактивная отладка Playwright                            |
-| `npm run format`         | Форматировать исходники и конфигурации                      |
+| Команда                     | Назначение                                                                    |
+| --------------------------- | ----------------------------------------------------------------------------- |
+| `npm run dev`               | Локальная разработка с HMR и proxy `/api` → стенд                             |
+| `npm run build:prod`        | Проверка типов и production-сборка без source maps                            |
+| `npm run build:pre-prod`    | Та же сборка с настройками pre-prod                                           |
+| `npm run preview`           | Раздача готового `dist` на 4173 (не production-сервер)                        |
+| `npm run check`             | Полный quality gate: формат, ESLint, Steiger, контракт, типы, тесты, покрытие |
+| `npm run test:unit`         | Vitest однократно                                                             |
+| `npm run test:coverage`     | Vitest с порогами покрытия, отчёт `coverage/index.html`                       |
+| `npm run test:e2e`          | Playwright на собранном pre-prod с мок-API                                    |
+| `npm run api:sync`          | Скопировать `openapi.yaml` из репозитория backend в `contracts/`              |
+| `npm run api:generate`      | Перегенерировать `src/shared/api/generated/schema.d.ts`                       |
+| `npm run api:check`         | Убедиться, что сгенерированные типы соответствуют снимку контракта            |
+| `npm run lint` / `lint:fsd` | ESLint с локальным правилом FSD / Steiger                                     |
+| `npm run format`            | Prettier                                                                      |
 
-Перед первым E2E: `npx playwright install` (Linux CI: `npx playwright install --with-deps`).
+Перед первым E2E: `npx playwright install` (в Linux CI — `--with-deps`).
+
+## Что уже есть
+
+- **Транспорт**: типизированный клиент `openapi-fetch` по сгенерированной схеме, единый `ApiError`, обязательный `X-Tenant-ID` у tenant-scoped операций, `X-Request-ID`, таймаут, запрет машинных путей; поток сигналов `/events` через streaming `fetch` с backoff и полной ресинхронизацией после разрыва.
+- **Сессия**: HttpOnly cookie backend, хранилище Pinia только для `/auth/me`, выбор организации с проверкой членства, guard-ы маршрутов, обработка истечения сессии без цикла обновлений.
+- **Экраны**: вход, регистрация, выбор рабочего пространства, создание организации, оболочка с навигацией по правам, Radar (сводка и лента активных рисков с фильтрами и постраничной загрузкой), карточка риска (`/risks/:riskId`: причина, контекст переписки и сделки, рекомендация, история, команды «взять в работу» и «закрыть», запись действий и исходов с ключом идемпотентности), подтверждение оплаты с атрибуцией «возвращённая / обычная / неизвестна», вердикт по сигналу (подтвердился / ложное срабатывание с причиной и предупреждением о каскаде), realtime-обновления по SSE с честным индикатором состояния потока, диалоги (список с поиском и фильтром «с риском», переписка только для чтения с подгрузкой ранних сообщений), онбординг с возобновлением по серверному статусу (компания → точка и график → услуги → источник) и настройки владельца (компания, точки, недельный график, каталог услуг), интеграции источников (Telegram-бот и webhook с одноразовыми секретами, живая проверка связи, отключение), уведомления (личная привязка Telegram по одноразовой ссылке с ограниченной проверкой статуса, настройки по пяти типам риска с полным `PUT`, тихими часами через полночь и сбросом к значению по умолчанию; доступны владельцу и менеджеру), команда (участники с защитой последнего владельца, смена роли и отзыв доступа с подтверждением, одноразовые коды приглашений и их приём сеансом без организации).
+- **Качество**: строгий TypeScript, ESLint + Steiger для FSD, Vitest с порогами покрытия, Playwright с axe, CI-конвейер и контейнер Nginx.
+
+Дальнейшие блоки (аналитика, приватность, админка) добавляются по той же схеме; их порядок и требования описаны в `docs/front-end/` репозитория backend.
 
 ## Структура
 
 ```text
 src/
-  app/                         # точка входа, Router, глобальная тема
-    router/
-    styles/
-  pages/                       # композиция страниц и маршрутов
-    radar/ui/
-    not-found/ui/
-  widgets/                     # самостоятельные блоки страницы
-    risk-workspace/ui/
-  features/                    # пользовательские действия
-    acknowledge-risk/ui/
-  entities/                    # предметные сущности и их API
-    risk/{api,model}/
-  shared/                      # независимые от предметной области модули
-    api/                       # HTTP-клиент и ошибки
-    config/                    # валидация публичных переменных
-    ui/                        # общие визуальные примитивы
-    lib/                       # место для общих утилит
-public/                        # файлы, копируемые без преобразований
-tests/                        # ниже отдельные unit и e2e
-  unit/
-  e2e/
-deploy/                        # Nginx и инструкция по размещению
-.github/workflows/             # CI
-.vscode/                       # рекомендуемые расширения и форматирование
-tooling/eslint/                # дополнительный контроль FSD и тесты правила
-docs/                          # архитектура, окружения, тесты, выпуск
+  app/            # вход, провайдеры (Pinia, Query, контекст API), маршруты и guard-ы, layouts, тема
+  pages/          # login, register, workspaces, onboarding, radar, risk, conversations, integrations, settings, not-found
+  widgets/        # app-shell, radar-summary, risk-feed, risk-workspace, conversation-list, conversation-thread, onboarding-progress, integrations-list
+  features/       # auth-session, select-workspace, create-organization, risk-commands, record-action, record-outcome, confirm-revenue, risk-feedback, edit-organization, manage-locations, edit-business-hours, manage-services, connect-channel, disconnect-channel, check-channel-health
+  entities/       # session, organization, location, service, integration, risk, revenue, conversation
+  shared/
+    api/          # generated/ (типы контракта), client/ (клиент, ошибки, контекст, ключи)
+    config/       # проверка VITE_* при старте
+    lib/          # деньги, даты, путь возврата, сигналы отмены, UUID
+    ui/           # Ui* примитивы
+contracts/        # снимок openapi.yaml и его источник
+scripts/          # синхронизация и проверка контракта
+tests/            # unit/ (Vitest) и e2e/ (Playwright)
+tooling/eslint/   # локальное правило FSD и его тесты
+deploy/           # Nginx
+docs/             # архитектура, окружения, тесты, выпуск, результаты проверки
 ```
-
-Внешние импорты идут через `index.ts`; внутри слайса — относительные пути. Полные правила в [architecture.md](docs/architecture.md).
-
-## Что настроить в первую очередь
-
-1. Название приложения в `package.json`, `index.html`, `src/app/App.vue`.
-2. Цвета и типографику в `src/app/styles/main.css`: Tailwind v4 использует `@theme`.
-3. Backend: переменные окружений и `src/entities/risk/api/get-risk.ts`.
-4. Авторизацию, политику сессий, CSRF и права на сервере; frontend не является границей доступа.
-5. Домены, TLS, API-прокси и CSP в ingress/Nginx.
-6. Репозиторий и защищённые окружения вашей CI/CD-системы.
 
 ## Документация
 
-- [Архитектура и расширение](docs/architecture.md)
-- [Dev / pre-prod / prod и API](docs/environments.md)
+- [Архитектура](docs/architecture.md)
+- [Окружения, стенд и контракт API](docs/environments.md)
 - [Тесты и quality gates](docs/testing.md)
-- [Docker, CI и выпуск](docs/deployment.md)
-- [Результаты проверки шаблона](docs/validation.md)
-
-## Первичные источники
-
-- [Vue + TypeScript](https://vuejs.org/guide/typescript/overview.html)
-- [FSD](https://feature-sliced.design/docs/reference/layers)
-- [Reka UI](https://reka-ui.com/docs/overview/introduction)
-- [Tailwind + Vite](https://tailwindcss.com/docs/installation/using-vite)
-- [Vite modes](https://vite.dev/guide/env-and-mode)
-- [Vitest](https://vitest.dev/guide/)
-- [Playwright](https://playwright.dev/docs/intro)
+- [CI, контейнер и выпуск](docs/deployment.md)
+- [Результаты проверки](docs/validation.md)

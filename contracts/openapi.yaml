@@ -1,0 +1,2533 @@
+openapi: 3.1.0
+info:
+  title: LidRadar API
+  version: 1.0.0
+  description: >-
+    Целевой контракт MVP. Пути без расширения x-lidradar-runtime-status уже
+    подключены к рабочему API. Значение planned означает, что контракт
+    зафиксирован для будущего этапа, но маршрут ещё не доступен в cmd/api.
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: /
+    description: Current LidRadar API origin
+security:
+  - sessionCookie: []
+paths:
+  /internal/v1/ai/nodes/heartbeat:
+    post:
+      summary: Renew AI node readiness and leases owned by this node
+      operationId: heartbeatAINode
+      security: [{ aiNodeBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/AINodeId' }
+        - { $ref: '#/components/parameters/AITimestamp' }
+        - { $ref: '#/components/parameters/AIRequestId' }
+        - { $ref: '#/components/parameters/AISignature' }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/AINodeHeartbeatRequest' } } }
+      responses:
+        '204': { description: Heartbeat accepted and current leases renewed. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/AINodeUnauthorized' }
+  /internal/v1/ai/jobs/claim:
+    post:
+      summary: Atomically lease one available AI job
+      description: Returns prompts only for tenants explicitly assigned to the authenticated node and only when the model version matches.
+      operationId: claimAIJob
+      security: [{ aiNodeBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/AINodeId' }
+        - { $ref: '#/components/parameters/AITimestamp' }
+        - { $ref: '#/components/parameters/AIRequestId' }
+        - { $ref: '#/components/parameters/AISignature' }
+      responses:
+        '200': { description: One job leased to the authenticated node., content: { application/json: { schema: { $ref: '#/components/schemas/AIJobClaim' } } } }
+        '204': { description: No compatible job is currently available. }
+        '401': { $ref: '#/components/responses/AINodeUnauthorized' }
+  /internal/v1/ai/jobs/{aiJobId}/started:
+    parameters:
+      - { $ref: '#/components/parameters/AIJobId' }
+      - { $ref: '#/components/parameters/AINodeId' }
+      - { $ref: '#/components/parameters/AITimestamp' }
+      - { $ref: '#/components/parameters/AIRequestId' }
+      - { $ref: '#/components/parameters/AISignature' }
+    post:
+      summary: Mark a leased AI job as running and create its durable run
+      operationId: startAIJob
+      security: [{ aiNodeBearer: [] }]
+      responses:
+        '200': { description: Durable run created or returned idempotently., content: { application/json: { schema: { $ref: '#/components/schemas/AIJobStarted' } } } }
+        '401': { $ref: '#/components/responses/AINodeUnauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/AILeaseLost' }
+  /internal/v1/ai/jobs/{aiJobId}/complete:
+    parameters:
+      - { $ref: '#/components/parameters/AIJobId' }
+      - { $ref: '#/components/parameters/AINodeId' }
+      - { $ref: '#/components/parameters/AITimestamp' }
+      - { $ref: '#/components/parameters/AIRequestId' }
+      - { $ref: '#/components/parameters/AISignature' }
+    post:
+      summary: Persist and validate a successful inference result
+      operationId: completeAIJob
+      security: [{ aiNodeBearer: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/AIJobCompleteRequest' } } }
+      responses:
+        '204': { description: 'Run recorded as applied, stale, or rejected; invalid and stale results do not mutate business state.' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/AINodeUnauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/AILeaseLost' }
+  /internal/v1/ai/jobs/{aiJobId}/failed:
+    parameters:
+      - { $ref: '#/components/parameters/AIJobId' }
+      - { $ref: '#/components/parameters/AINodeId' }
+      - { $ref: '#/components/parameters/AITimestamp' }
+      - { $ref: '#/components/parameters/AIRequestId' }
+      - { $ref: '#/components/parameters/AISignature' }
+    post:
+      summary: Record a technical inference failure and schedule bounded retry
+      operationId: failAIJob
+      security: [{ aiNodeBearer: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/AIJobFailedRequest' } } }
+      responses:
+        '204': { description: Failure recorded; job moved to RETRY or DEAD. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/AINodeUnauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/AILeaseLost' }
+  /api/v1/auth/register:
+    post:
+      summary: Register a LidRadar user
+      operationId: registerUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201':
+          description: User registered and an opaque server-side session created.
+          headers: { Set-Cookie: { $ref: '#/components/headers/SessionCookie' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/AuthResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/v1/auth/login:
+    post:
+      summary: Log in with email and password
+      operationId: loginUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Credentials accepted and an opaque server-side session created.
+          headers: { Set-Cookie: { $ref: '#/components/headers/SessionCookie' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/AuthResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/v1/auth/logout:
+    post:
+      summary: Revoke the current session
+      operationId: logoutUser
+      responses:
+        '204':
+          description: Session revoked or already absent.
+          headers: { Set-Cookie: { $ref: '#/components/headers/SessionCookie' } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/auth/refresh:
+    post:
+      summary: Rotate the current opaque session
+      operationId: refreshSession
+      responses:
+        '200':
+          description: Current session revoked and replaced.
+          headers: { Set-Cookie: { $ref: '#/components/headers/SessionCookie' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/AuthResponse' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/v1/auth/me:
+    get:
+      summary: Get the authenticated user and active memberships
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: Authenticated user and organizations available for explicit tenant selection.
+          content: { application/json: { schema: { $ref: '#/components/schemas/AuthMeResponse' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/organizations:
+    post:
+      summary: Create an Organization tenant and OWNER membership
+      operationId: createOrganization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateOrganizationRequest' }
+      responses:
+        '201':
+          description: Organization and OWNER membership created atomically.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Organization' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/organization:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }]
+    get:
+      summary: Get the selected Organization
+      operationId: getOrganization
+      responses:
+        '200':
+          description: Selected tenant organization.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Organization' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      summary: Update OWNER-managed Organization settings
+      operationId: updateOrganization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateOrganizationRequest' }
+      responses:
+        '200':
+          description: Organization updated.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Organization' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/organization/ml-consent:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }]
+    get:
+      summary: Состояние ML-согласия организации
+      description: Явное, активное и отзываемое согласие на использование реальных переписок и обратной связи в наборах данных (§70). Без него данные служат только сервису.
+      operationId: getMLConsent
+      responses:
+        '200':
+          description: Действующее согласие либо его отсутствие.
+          content: { application/json: { schema: { $ref: '#/components/schemas/MLConsentStatus' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      summary: Выдать ML-согласие от имени владельца
+      operationId: grantMLConsent
+      responses:
+        '201':
+          description: Согласие выдано.
+          content: { application/json: { schema: { $ref: '#/components/schemas/MLConsentStatus' } } }
+        '200':
+          description: Согласие уже действовало; повтор ничего не меняет.
+          content: { application/json: { schema: { $ref: '#/components/schemas/MLConsentStatus' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    delete:
+      summary: Отозвать ML-согласие
+      operationId: revokeMLConsent
+      responses:
+        '204': { description: Согласие отозвано либо уже отсутствовало; история выдач сохраняется. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/organization/onboarding:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }]
+    get:
+      summary: Авторитетный статус онбординга организации
+      description: 'Для любого активного участника. Статус выводится детерминированно из данных, сервер не хранит «пройденные шаги» (ADR 0045): обязательны организация, активная точка с полным недельным графиком, активная услуга и хотя бы один не отключённый канал; личная привязка Telegram необязательна и считается по текущему пользователю. nextStep — первый невыполненный обязательный шаг, затем первый невыполненный необязательный, иначе null.'
+      operationId: getOnboardingStatus
+      responses:
+        '200':
+          description: Статус и факты, из которых он выведен.
+          content: { application/json: { schema: { $ref: '#/components/schemas/OnboardingStatus' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/organization/members:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }]
+    get:
+      summary: Список участников организации
+      description: Требует member.manage (OWNER). Включает отозванных участников со статусом DISABLED; адрес почты и имя берутся из учётной записи.
+      operationId: listMembers
+      responses:
+        '200':
+          description: Участники организации в порядке присоединения.
+          content: { application/json: { schema: { $ref: '#/components/schemas/MemberList' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/organization/members/{userId}:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+      - { $ref: '#/components/parameters/UserId' }
+    patch:
+      summary: Сменить роль участника
+      description: 'Требует member.manage. Действует только для активного членства; понижение последнего активного владельца (в том числе собственное) отклоняется. Записывается аудит MEMBER_ROLE_CHANGED.'
+      operationId: changeMemberRole
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateMemberRoleRequest' } } } }
+      responses:
+        '200': { description: Обновлённое членство., content: { application/json: { schema: { $ref: '#/components/schemas/Membership' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: 'LAST_OWNER — последний активный владелец не понижается; MEMBER_DISABLED — членство отозвано.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    delete:
+      summary: Отозвать доступ участника
+      description: 'Требует member.manage. Членство переходит в DISABLED и сохраняется (на него ссылаются неизменяемые факты); повтор идемпотентен; последний активный владелец защищён. Записывается аудит MEMBER_REVOKED.'
+      operationId: revokeMember
+      responses:
+        '204': { description: Доступ отозван либо уже был отозван. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: LAST_OWNER — последний активный владелец не отзывается., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/v1/organization/invitations:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }]
+    get:
+      summary: Список приглашений организации
+      description: Требует member.manage. Код приглашения не возвращается никогда; состояние выводится из отметок принятия, отзыва и срока действия.
+      operationId: listInvitations
+      responses:
+        '200':
+          description: Приглашения от новых к старым.
+          content: { application/json: { schema: { $ref: '#/components/schemas/InvitationList' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      summary: Выпустить одноразовый код приглашения
+      description: 'Требует member.manage. Приглашение не привязано к адресу почты (у MVP нет почтовой инфраструктуры и нет поверхности для перебора адресов): владелец передаёт код сотруднику сам. Код показывается ровно один раз, в базе хранится только SHA-256; срок действия 7 дней. Записывается аудит MEMBER_INVITED (ADR 0045).'
+      operationId: createInvitation
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateInvitationRequest' } } } }
+      responses:
+        '201':
+          description: Приглашение и его открытый код.
+          content: { application/json: { schema: { $ref: '#/components/schemas/IssuedInvitation' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/organization/invitations/{invitationId}:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+      - { $ref: '#/components/parameters/InvitationId' }
+    delete:
+      summary: Отозвать приглашение
+      description: Требует member.manage. Ожидающее приглашение отзывается (аудит INVITATION_REVOKED); повторный отзыв идемпотентен; принятое приглашение отозвать нельзя.
+      operationId: revokeInvitation
+      responses:
+        '204': { description: Приглашение отозвано либо уже было отозвано. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: INVITATION_USED — приглашение уже принято., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/v1/invitations/accept:
+    post:
+      summary: Принять приглашение по коду
+      description: 'Только сеанс, без X-Tenant-ID: организацию определяет приглашение. Создаёт активное членство с ролью приглашения или восстанавливает ранее отозванное; после успеха организация появляется в /auth/me. Записывается аудит INVITATION_ACCEPTED от имени нового участника.'
+      operationId: acceptInvitation
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AcceptInvitationRequest' } } } }
+      responses:
+        '200':
+          description: Членство создано или восстановлено.
+          content: { application/json: { schema: { $ref: '#/components/schemas/AcceptedInvitation' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Код неизвестен., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: 'INVITATION_EXPIRED, INVITATION_REVOKED, INVITATION_USED — код больше не действует; ALREADY_MEMBER — пользователь уже активный участник этой организации.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/v1/locations:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }]
+    get:
+      summary: List locations in the selected tenant
+      operationId: listLocations
+      responses:
+        '200':
+          description: Tenant-scoped locations with weekly business hours.
+          content: { application/json: { schema: { $ref: '#/components/schemas/LocationList' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      summary: Create a tenant Location
+      description: 'A new location is always active; the field active is rejected with 400 here and changed only through PATCH (GAP-CONTRACT-019).'
+      operationId: createLocation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateLocationRequest' }
+      responses:
+        '201':
+          description: Location created.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Location' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/locations/{locationId}:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+      - { $ref: '#/components/parameters/LocationId' }
+    patch:
+      summary: Update a tenant Location
+      operationId: updateLocation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateLocationRequest' }
+      responses:
+        '200':
+          description: Location updated.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Location' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/locations/{locationId}/business-hours:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+      - { $ref: '#/components/parameters/LocationId' }
+    put:
+      summary: Replace a Location weekly business-hours schedule
+      operationId: replaceLocationBusinessHours
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BusinessHoursRequest' }
+      responses:
+        '200':
+          description: Timezone and complete seven-day schedule replaced atomically.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Location' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/services:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }]
+    get:
+      summary: List Service Catalog items in the selected tenant
+      operationId: listServiceCatalogItems
+      responses:
+        '200':
+          description: All active and inactive tenant services, ordered with active items first.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ServiceCatalogList' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      summary: Create a Service Catalog item
+      operationId: createServiceCatalogItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateServiceCatalogItemRequest' }
+      responses:
+        '201':
+          description: Service created. Missing price boundaries remain null.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ServiceCatalogItem' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/services/{serviceId}:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+      - { $ref: '#/components/parameters/ServiceId' }
+    patch:
+      summary: Update a Service Catalog item
+      operationId: updateServiceCatalogItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateServiceCatalogItemRequest' }
+      responses:
+        '200':
+          description: Tenant-scoped service updated.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ServiceCatalogItem' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      summary: Deactivate a Service Catalog item
+      description: This operation is idempotent and preserves the row for later audit and historical references.
+      operationId: deactivateServiceCatalogItem
+      responses:
+        '204': { description: Service deactivated or already inactive. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/integrations:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }]
+    get:
+      summary: List channel connections in the selected tenant
+      operationId: listChannelConnections
+      responses:
+        '200':
+          description: Tenant-scoped channel connections and their last persisted health state.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ChannelConnectionList' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/integrations/{provider}/connect:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+      - { $ref: '#/components/parameters/ConnectorProvider' }
+    post:
+      summary: Create a channel connection
+      description: 'OWNER-only (integration.manage). The webhook secret may be omitted: the server then issues a 256-bit base64url secret, returns it once in this response for providers without remote registration and persists only its SHA-256 verifier. CONNECTED_BUSINESS_BOT also requires botToken submitted once over TLS; the token is encrypted at rest with the connection as associated data, never logged and never returned (ADR 0045).'
+      operationId: connectChannel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConnectChannelRequest' }
+      responses:
+        '201':
+          description: 'Connection created. A Telegram connection is ACTIVE after setWebhook/getWebhookInfo verification, or ERROR with a safe code when remote provisioning failed. webhookSecret is present only when the server generated it for a provider whose sender must be configured by the operator.'
+          content: { application/json: { schema: { $ref: '#/components/schemas/ConnectedChannel' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { description: Telegram provisioning is not configured safely., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/v1/integrations/{connectionId}:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+      - { $ref: '#/components/parameters/ConnectionId' }
+    delete:
+      summary: Disconnect a channel connection
+      description: OWNER-only, idempotent soft disconnect. Raw-event history is preserved.
+      operationId: disconnectChannel
+      responses:
+        '204': { description: Connection disconnected or already disconnected. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { description: 'The local connection is disconnected, but Telegram webhook removal could not be verified.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/v1/integrations/{connectionId}/health:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+      - { $ref: '#/components/parameters/ConnectionId' }
+    get:
+      summary: Get the last persisted channel health
+      description: 'Reads the persisted state only; checkedAt is the read time, not a live probe. Use POST …/health/check for a live verification.'
+      operationId: getChannelHealth
+      responses:
+        '200':
+          description: Tenant-scoped connection health.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ConnectionHealth' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/integrations/{connectionId}/health/check:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+      - { $ref: '#/components/parameters/ConnectionId' }
+    post:
+      summary: Run a live health check
+      description: 'OWNER-only. For CONNECTED_BUSINESS_BOT the server calls getWebhookInfo and compares the registered URL: ACTIVE on match, ERROR/TELEGRAM_WEBHOOK_MISMATCH on a different URL, ERROR/TELEGRAM_WEBHOOK_CHECK_FAILED when Telegram is unreachable; the result is persisted (verification REMOTE). Providers without remote registration and DISCONNECTED connections return the persisted state unchanged (verification LOCAL).'
+      operationId: checkChannelHealth
+      responses:
+        '200':
+          description: Health after the check and where it came from.
+          content: { application/json: { schema: { $ref: '#/components/schemas/HealthCheck' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { description: Credentials cannot be decrypted in this process (CONNECTOR_UNAVAILABLE)., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/v1/webhooks/{provider}/{tenantId}/{connectionId}:
+    parameters:
+      - { $ref: '#/components/parameters/ConnectorProvider' }
+      - { $ref: '#/components/parameters/WebhookTenantId' }
+      - { $ref: '#/components/parameters/ConnectionId' }
+      - name: X-LidRadar-Webhook-Secret
+        in: header
+        required: false
+        description: Required for TEST, IMPORT, and GENERIC_WEBHOOK connections.
+        schema: { type: string, minLength: 16, maxLength: 256 }
+      - name: X-Telegram-Bot-Api-Secret-Token
+        in: header
+        required: false
+        description: Required for CONNECTED_BUSINESS_BOT events and populated by Telegram from the registered secret_token.
+        schema: { type: string, minLength: 16, maxLength: 256, pattern: '^[A-Za-z0-9_-]+$' }
+    post:
+      summary: Persist a provider webhook event
+      description: Authenticates first, then atomically persists the raw event and pending normalization work. Returns before normalization or AI processing. Body limit is 1 MiB.
+      operationId: receiveChannelWebhook
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        '202':
+          description: Event persisted, or a validly authenticated malformed event persisted as FAILED.
+          content: { application/json: { schema: { $ref: '#/components/schemas/WebhookReceipt' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/WebhookUnauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: The external event ID already exists with a different payload., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '413': { description: Webhook body exceeds 1 MiB., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '503': { description: Connection is disconnected or its provider adapter is unavailable., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/v1/conversations:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+    get:
+      summary: Получить список переписок выбранной организации
+      description: 'Требует разрешение conversation.read. Каждая строка несёт контакт, канал, превью последнего сообщения, сводку активных рисков и внешнюю ссылку (ADR 0044). Порядок — от недавно изменённых переписок (updated_at, id); курсор привязан к набору фильтров и с другими фильтрами отвергается 400.'
+      operationId: listConversations
+      parameters:
+        - { name: search, in: query, description: 'Подстрока имени, телефона (по цифрам) или почты контакта без учёта регистра; до 100 символов.', schema: { type: string, maxLength: 100 } }
+        - { name: withRisk, in: query, description: 'true — только переписки с активным риском (OPEN, ACKNOWLEDGED, ACTED).', schema: { type: boolean } }
+        - { name: locationId, in: query, schema: { type: string, format: uuid } }
+        - { name: connectionId, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/ConversationStatus' } }
+        - { name: limit, in: query, description: Размер страницы; по умолчанию 50., schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: cursor, in: query, description: Непрозрачный курсор из предыдущего ответа., schema: { type: string } }
+      responses:
+        '200':
+          description: Переписки только выбранной организации.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ConversationPage' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/conversations/{conversationId}:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+      - { $ref: '#/components/parameters/ConversationId' }
+    get:
+      summary: Получить переписку и связанный контакт
+      description: Каноническая переписка не зависит от канала; снимок канала и внешняя ссылка добавлены для экрана диалога и строятся сервером.
+      operationId: getConversation
+      responses:
+        '200':
+          description: Каноническая переписка, контакт, снимок канала и безопасная внешняя ссылка.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ConversationDetail' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/conversations/{conversationId}/messages:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+      - { $ref: '#/components/parameters/ConversationId' }
+    get:
+      summary: Получить сообщения переписки
+      description: Сообщения возвращаются от новых к старым; удаление у поставщика отмечается временем providerDeletedAt и не стирает историю.
+      operationId: listConversationMessages
+      parameters:
+        - { name: limit, in: query, description: Размер страницы; по умолчанию 50., schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: cursor, in: query, description: Непрозрачный курсор из предыдущего ответа., schema: { type: string } }
+      responses:
+        '200':
+          description: Канонические сообщения с метаданными вложений.
+          content: { application/json: { schema: { $ref: '#/components/schemas/MessagePage' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/opportunities/{opportunityId}:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+      - { $ref: '#/components/parameters/OpportunityId' }
+    get:
+      summary: Получить коммерческую возможность и полную историю этапов
+      operationId: getOpportunity
+      responses:
+        '200':
+          description: Возможность выбранной организации и неизменяемая история от NEW до текущего этапа.
+          content: { application/json: { schema: { $ref: '#/components/schemas/OpportunityDetail' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      summary: Вручную перевести возможность на допустимый этап
+      operationId: changeOpportunityStage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangeOpportunityStageRequest' }
+      responses:
+        '200':
+          description: Актуальное состояние возможности. Повтор текущего этапа идемпотентен.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Opportunity' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: 'Переход назад, повторное открытие или преждевременный WON запрещены.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/v1/radar:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }]
+    get:
+      summary: Получить сводку Radar
+      description: 'Требует risks.read: денежные показатели сводки видны и менеджеру (ADR 0044). Фильтры совпадают с GET /risks; счётчики и потенциал считаются по активным рискам внутри фильтра, возвращённая выручка — по всем отобранным рискам.'
+      operationId: getRadarSummary
+      parameters:
+        - { $ref: '#/components/parameters/RiskStatusFilter' }
+        - { $ref: '#/components/parameters/RiskActiveFilter' }
+        - { name: locationId, in: query, schema: { type: string, format: uuid } }
+        - { name: severity, in: query, schema: { $ref: '#/components/schemas/RiskSeverity' } }
+        - { name: riskType, in: query, schema: { $ref: '#/components/schemas/RiskType' } }
+      responses:
+        '200':
+          description: Сводка организации. Денежные значения представлены точными десятичными строками в основной валюте организации.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RadarSummary' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/risks:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }]
+    get:
+      summary: Получить список рисков организации
+      description: 'Требует risks.read. Каждый элемент — обогащённая карточка риска (контакт, услуга, канал, превью последнего сообщения, внешняя ссылка), собранная без запросов на строку (ADR 0044). Курсор привязан к набору фильтров, включая статусы: с другими фильтрами он отвергается 400.'
+      operationId: listRisks
+      parameters:
+        - { $ref: '#/components/parameters/RiskStatusFilter' }
+        - { $ref: '#/components/parameters/RiskActiveFilter' }
+        - { name: locationId, in: query, schema: { type: string, format: uuid } }
+        - { name: severity, in: query, schema: { $ref: '#/components/schemas/RiskSeverity' } }
+        - { name: riskType, in: query, schema: { $ref: '#/components/schemas/RiskType' } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Риски в порядке серверного приоритета и непрозрачный курсор продолжения.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/RiskDetail' } }
+                  nextCursor: { type: [string, 'null'] }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/risks/{riskId}:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }, { $ref: '#/components/parameters/RiskId' }]
+    get:
+      summary: Получить детали риска
+      description: Требует risks.read. Связанные объекты присутствуют всегда; null означает отсутствие связи или ещё не созданную владеющим модулем запись.
+      operationId: getRisk
+      responses:
+        '200':
+          description: Риск и связанные данные, уже созданные владеющими модулями.
+          content: { application/json: { schema: { $ref: '#/components/schemas/RiskDetail' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/risks/{riskId}/acknowledge:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }, { $ref: '#/components/parameters/RiskId' }]
+    post:
+      summary: Подтвердить просмотр риска
+      operationId: acknowledgeRisk
+      responses:
+        '200': { description: Текущее состояние риска; повтор команды идемпотентен., content: { application/json: { schema: { $ref: '#/components/schemas/Risk' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/risks/{riskId}/resolve:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }, { $ref: '#/components/parameters/RiskId' }]
+    post:
+      summary: Закрыть риск
+      operationId: resolveRisk
+      responses:
+        '200': { description: Текущее состояние риска; повтор команды идемпотентен., content: { application/json: { schema: { $ref: '#/components/schemas/Risk' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/risks/precision:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }]
+    get:
+      summary: Точность рисков по типам за окно обнаружения
+      description: Каждый риск учитывается один раз по последнему вердикту (LR-BE-RM-019); coverageRate — доля рисков окна с обратной связью, reliable — покрытие не ниже minimumCoverage. Требует analytics.read.
+      operationId: getRiskPrecision
+      parameters:
+        - { name: from, in: query, required: false, description: 'Начало окна обнаружения (RFC 3339); по умолчанию — с начала.', schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: false, description: 'Конец окна обнаружения (RFC 3339, исключительно); по умолчанию — сейчас.', schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Отчёт по пяти типам риска.
+          content: { application/json: { schema: { $ref: '#/components/schemas/RiskPrecisionReport' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/risks/{riskId}/feedback:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }, { $ref: '#/components/parameters/RiskId' }]
+    post:
+      summary: Записать вердикт по риску
+      description: Append-only факт со снимком риска и сделки на момент вердикта. FALSE_POSITIVE закрывает активный риск как ложное срабатывание; причина NOT_A_LEAD дополнительно закрывает сделку как LOST. Требует risks.manage.
+      operationId: recordRiskFeedback
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RiskFeedbackRequest' } } }
+      responses:
+        '201':
+          description: Вердикт сохранён.
+          content: { application/json: { schema: { $ref: '#/components/schemas/RiskFeedback' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/notifications/telegram-link-token:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }]
+    post:
+      summary: Выпустить одноразовую ссылку привязки Telegram
+      description: Открытый код возвращается только внутри startUrl, хранится только его SHA-256 отпечаток; срок действия — 15 минут.
+      operationId: issueTelegramLinkToken
+      responses:
+        '201':
+          description: Одноразовая ссылка создана для текущего участника выбранной организации.
+          content: { application/json: { schema: { $ref: '#/components/schemas/TelegramLinkToken' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/notifications/telegram-link:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }]
+    get:
+      summary: Получить состояние личной Telegram-привязки
+      operationId: getTelegramLinkStatus
+      responses:
+        '200':
+          description: Состояние привязки без раскрытия Telegram user ID и chat ID.
+          content: { application/json: { schema: { $ref: '#/components/schemas/TelegramLinkStatus' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    delete:
+      summary: Отключить личную Telegram-привязку
+      operationId: disableTelegramLink
+      responses:
+        '204': { description: Привязка отключена либо уже отсутствовала. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/notifications/preferences:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }]
+    get:
+      summary: Получить личные настройки уведомлений по типам риска
+      description: Возвращает пять записей — сохранённых или действующих по умолчанию (§46). Тихие часы и время сводки считаются в часовом поясе организации (§3.7).
+      operationId: listNotificationPreferences
+      responses:
+        '200':
+          description: Настройки текущего участника выбранной организации.
+          content: { application/json: { schema: { $ref: '#/components/schemas/NotificationPreferenceList' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/notifications/preferences/{riskType}:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }, { $ref: '#/components/parameters/NotificationRiskType' }]
+    put:
+      summary: Заменить личную настройку уведомлений для типа риска
+      description: Полная замена без частичных обновлений. Совпадающие границы тихих часов отклоняются; интервал через полночь трактуется как [start, 24:00) ∪ [00:00, end).
+      operationId: putNotificationPreference
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/NotificationPreferenceRequest' } } }
+      responses:
+        '200':
+          description: Сохранённая настройка.
+          content: { application/json: { schema: { $ref: '#/components/schemas/NotificationPreference' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    delete:
+      summary: Сбросить настройку типа риска к значению по умолчанию
+      operationId: resetNotificationPreference
+      responses:
+        '204': { description: Настройка удалена либо уже действовала по умолчанию. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/risks/{riskId}/recommendation:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }, { $ref: '#/components/parameters/RiskId' }]
+    post:
+      summary: Создать или получить детерминированную рекомендацию по риску
+      description: Требует risks.manage. Тип риска читается сервером из PostgreSQL; команда не обращается к AI.
+      operationId: ensureRiskRecommendation
+      responses:
+        '200': { description: Созданная ранее либо новая шаблонная рекомендация., content: { application/json: { schema: { $ref: '#/components/schemas/Recommendation' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/risks/{riskId}/actions:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }, { $ref: '#/components/parameters/RiskId' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+    post:
+      summary: Записать неизменяемое корректирующее действие
+      description: 'Требует action.manage (у OWNER и MANAGER есть). Переход по внешней ссылке фиксируется клиентом явно как действие OPEN_CONVERSATION. Риск переходит в ACTED.'
+      operationId: createRiskAction
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [type], properties: { type: { $ref: '#/components/schemas/ActionType' }, note: { type: string, maxLength: 2000 } } } } } }
+      responses:
+        '200': { description: Ранее сохранённый ответ при точном повторе., content: { application/json: { schema: { $ref: '#/components/schemas/Action' } } } }
+        '201': { description: Неизменяемое действие создано вместе с аудитом., content: { application/json: { schema: { $ref: '#/components/schemas/Action' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: Ключ идемпотентности использован с другим содержимым., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/v1/opportunities/{opportunityId}/outcomes:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+      - { $ref: '#/components/parameters/OpportunityId' }
+      - { $ref: '#/components/parameters/IdempotencyKey' }
+    post:
+      summary: Записать неизменяемый исход коммерческой возможности
+      description: Требует outcome.manage (у OWNER и MANAGER есть).
+      operationId: createOpportunityOutcome
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [status], properties: { status: { $ref: '#/components/schemas/OutcomeStatus' }, note: { type: string, maxLength: 2000 } } } } } }
+      responses:
+        '200': { description: Ранее сохранённый ответ при точном повторе., content: { application/json: { schema: { $ref: '#/components/schemas/Outcome' } } } }
+        '201': { description: Неизменяемый исход создан вместе с аудитом., content: { application/json: { schema: { $ref: '#/components/schemas/Outcome' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: Ключ идемпотентности использован с другим содержимым., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/v1/analytics/payments:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }]
+    get:
+      summary: Последние подтверждённые оплаты окна
+      description: 'Требует analytics.read. Окно задаётся как у сводки; события идут от новых к старым (confirmedAt, id) со всеми валютами, каждое несёт свою атрибуцию, сделку, переписку, контакт и услугу. Возвратов в модели нет: событие неизменяемо и положительно. Курсор действует только внутри своего окна.'
+      operationId: listAnalyticsPayments
+      parameters:
+        - { name: from, in: query, required: false, schema: { type: string, format: date }, description: Начальная дата YYYY-MM-DD включительно. }
+        - { name: to, in: query, required: false, schema: { type: string, format: date }, description: Конечная дата YYYY-MM-DD включительно. }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Страница оплат окна.
+          content: { application/json: { schema: { $ref: '#/components/schemas/PaymentPage' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/analytics/summary:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }]
+    get:
+      summary: Сводка базовой аналитики за окно календарных дат
+      description: 'Показатели считаются из необработанных фактов модулей одним снимком (ADR 0039). Окно задаётся датами включительно в часовом поясе организации; по умолчанию — 30 дней, включая сегодняшний; не длиннее 366 дней. Деньги — только в валюте организации. Дневной ряд series заполнен нулями по каждой дате окна (дни считаются в часовом поясе организации), attribution всегда содержит RECOVERED, ORGANIC и UNKNOWN. Требует analytics.read.' 
+      operationId: getAnalyticsSummary
+      parameters:
+        - { name: from, in: query, required: false, schema: { type: string, format: date }, description: Начальная дата YYYY-MM-DD включительно. }
+        - { name: to, in: query, required: false, schema: { type: string, format: date }, description: Конечная дата YYYY-MM-DD включительно. }
+      responses:
+        '200':
+          description: Сводка за окно.
+          content: { application/json: { schema: { $ref: '#/components/schemas/AnalyticsSummary' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/admin/me:
+    get:
+      summary: Является ли текущий пользователь платформенным администратором
+      operationId: getAdminMe
+      responses:
+        '200': { description: Признак права PLATFORM_ADMIN., content: { application/json: { schema: { type: object, required: [userId, platformAdmin], properties: { userId: { type: string, format: uuid }, platformAdmin: { type: boolean } } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/admin/admins:
+    get:
+      summary: История выдач права PLATFORM_ADMIN
+      operationId: listPlatformAdmins
+      responses:
+        '200': { description: 'Все выдачи, включая отозванные.', content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/PlatformAdmin' } } } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+    post:
+      summary: Выдать право PLATFORM_ADMIN существующему пользователю
+      description: Первый администратор появляется только через команду platform-admin grant. Повтор для действующего права возвращает 200 без новой записи.
+      operationId: grantPlatformAdmin
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [email], properties: { email: { type: string, format: email }, note: { type: string, maxLength: 500 } } } } } }
+      responses:
+        '201': { description: 'Право выдано, аудит записан.', content: { application/json: { schema: { $ref: '#/components/schemas/PlatformAdmin' } } } }
+        '200': { description: Право уже действовало., content: { application/json: { schema: { $ref: '#/components/schemas/PlatformAdmin' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/admin/admins/{userId}:
+    parameters: [{ name: userId, in: path, required: true, schema: { type: string, format: uuid } }]
+    delete:
+      summary: Отозвать право PLATFORM_ADMIN
+      operationId: revokePlatformAdmin
+      responses:
+        '204': { description: Право отозвано либо уже отсутствовало; строка сохраняется. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+  /api/v1/admin/organizations:
+    get:
+      summary: Организации с ключевыми счётчиками
+      operationId: adminOrganizations
+      responses:
+        '200': { description: Все организации платформы., content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/AdminOrganization' } } } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+  /api/v1/admin/connections:
+    get:
+      summary: Состояние каналов всех организаций
+      operationId: adminConnections
+      responses:
+        '200': { description: Каналы с очередью сырых событий., content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/AdminConnection' } } } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+  /api/v1/admin/queue:
+    get:
+      summary: Панель очередей
+      description: Счётчики §67 для заданий, исходящего журнала, AI-заданий, доставок и просроченных проверок одним снимком.
+      operationId: adminQueue
+      responses:
+        '200': { description: Состояние очередей., content: { application/json: { schema: { $ref: '#/components/schemas/AdminQueueStats' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+  /api/v1/admin/jobs:
+    get:
+      summary: Последние фоновые задания
+      operationId: adminJobs
+      parameters:
+        - { name: tenantId, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: status, in: query, required: false, schema: { type: string, enum: [PENDING, PROCESSING, RETRY, SUCCEEDED, DEAD] } }
+        - { name: type, in: query, required: false, schema: { type: string } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+      responses:
+        '200': { description: 'Задания, новые первыми.', content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/AdminJob' } } } } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+  /api/v1/admin/dead-letters:
+    get:
+      summary: Мёртвые элементы, которые ещё никто не отложил
+      operationId: adminDeadLetters
+      parameters: [{ name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }]
+      responses:
+        '200': { description: 'Мёртвые задания, события, AI-задания и доставки.', content: { application/json: { schema: { $ref: '#/components/schemas/AdminDeadLetters' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+  /api/v1/admin/jobs/{jobId}/retry:
+    parameters: [{ $ref: '#/components/parameters/AdminJobId' }]
+    post:
+      summary: Вернуть мёртвое задание в очередь
+      operationId: adminRetryJob
+      responses:
+        '200': { description: Задание снова ожидает выполнения; аудит записан., content: { application/json: { schema: { $ref: '#/components/schemas/AdminJob' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/AdminConflict' }
+  /api/v1/admin/jobs/{jobId}/discard:
+    parameters: [{ $ref: '#/components/parameters/AdminJobId' }]
+    post:
+      summary: Отложить мёртвое задание
+      operationId: adminDiscardJob
+      responses:
+        '200': { description: Задание помечено отложенным и уходит из панели., content: { application/json: { schema: { $ref: '#/components/schemas/AdminJob' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/AdminConflict' }
+  /api/v1/admin/outbox/{eventId}/replay:
+    parameters: [{ $ref: '#/components/parameters/AdminEventId' }]
+    post:
+      summary: Повторить мёртвое событие исходящего журнала
+      operationId: adminReplayEvent
+      responses:
+        '200': { description: Событие снова ожидает доставки., content: { application/json: { schema: { $ref: '#/components/schemas/AdminOutboxEvent' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/AdminConflict' }
+  /api/v1/admin/outbox/{eventId}/discard:
+    parameters: [{ $ref: '#/components/parameters/AdminEventId' }]
+    post:
+      summary: Отложить мёртвое событие
+      operationId: adminDiscardEvent
+      responses:
+        '200': { description: Событие отложено., content: { application/json: { schema: { $ref: '#/components/schemas/AdminOutboxEvent' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/AdminConflict' }
+  /api/v1/admin/ai/jobs/{jobId}/retry:
+    parameters: [{ $ref: '#/components/parameters/AdminJobId' }]
+    post:
+      summary: Вернуть мёртвое AI-задание в очередь
+      description: Подчиняется правилу «одно ожидающее AI-задание на переписку»; при более новом ожидающем задании отвечает 409.
+      operationId: adminRetryAIJob
+      responses:
+        '200': { description: AI-задание снова ожидает узел., content: { application/json: { schema: { $ref: '#/components/schemas/AdminAIJob' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/AdminConflict' }
+  /api/v1/admin/ai/jobs/{jobId}/discard:
+    parameters: [{ $ref: '#/components/parameters/AdminJobId' }]
+    post:
+      summary: Отложить мёртвое AI-задание
+      operationId: adminDiscardAIJob
+      responses:
+        '200': { description: AI-задание отложено., content: { application/json: { schema: { $ref: '#/components/schemas/AdminAIJob' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/AdminConflict' }
+  /api/v1/admin/notifications/deliveries/{deliveryId}/discard:
+    parameters: [{ name: deliveryId, in: path, required: true, schema: { type: string, format: uuid } }]
+    post:
+      summary: Отложить мёртвую доставку уведомления
+      operationId: adminDiscardDelivery
+      responses:
+        '200': { description: Доставка отложена., content: { application/json: { schema: { $ref: '#/components/schemas/AdminDelivery' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/AdminConflict' }
+  /api/v1/admin/ai/nodes:
+    get:
+      summary: AI-узлы с допущенными организациями и загрузкой
+      operationId: adminAINodes
+      responses:
+        '200': { description: Узлы без секретов., content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/AdminAINode' } } } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+  /api/v1/admin/ai/runs:
+    get:
+      summary: AI-прогоны без сырого вывода модели
+      operationId: adminAIRuns
+      parameters:
+        - { name: tenantId, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: status, in: query, required: false, schema: { type: string, enum: [RUNNING, SUCCEEDED, FAILED] } }
+        - { name: applicationStatus, in: query, required: false, schema: { type: string, enum: [PENDING, APPLIED, STALE, REJECTED] } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+      responses:
+        '200': { description: 'Прогоны, новые первыми.', content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/AdminAIRun' } } } } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+  /api/v1/admin/ai/tenants/{tenantId}/conversations/{conversationId}/summary:
+    parameters:
+      - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { $ref: '#/components/parameters/ConversationId' }
+    get:
+      summary: Семантический результат переписки с признаком доверия фактов
+      description: Слабые факты (0.65–0.849) видны с trusted=false (LR-BE-RM-017); текст резюме не раскрывается.
+      operationId: adminConversationSummary
+      responses:
+        '200': { description: Последний применённый результат., content: { application/json: { schema: { $ref: '#/components/schemas/AdminConversationSummary' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/admin/usage:
+    get:
+      summary: Потребление организаций за окно UTC
+      description: 'Основа стоимости AI на организацию (§68): сообщения, сырые события, задания, AI-задания и прогоны с длительностью, риски, уведомления и доставки. По умолчанию последние 30 дней; не длиннее 366 дней.'
+      operationId: adminUsage
+      parameters:
+        - { name: from, in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: false, schema: { type: string, format: date-time } }
+      responses:
+        '200': { description: Потребление по организациям., content: { application/json: { schema: { $ref: '#/components/schemas/AdminUsageReport' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+  /api/v1/admin/trace/tenants/{tenantId}/messages/{messageId}:
+    parameters:
+      - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: messageId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: Цепочка от сообщения до выручки
+      description: 'Message → Job → AIRun → Semantic Result → Risk → Notification → Action → Outcome → Revenue (LR-BE-2310) без текста сообщения, промптов и сырого вывода.'
+      operationId: adminTrace
+      responses:
+        '200': { description: Восстановленная цепочка., content: { application/json: { schema: { $ref: '#/components/schemas/AdminTrace' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdminForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/events:
+    parameters: [{ $ref: '#/components/parameters/TenantId' }]
+    get:
+      summary: Получать сигналы об изменениях организации
+      operationId: streamInvalidations
+      description: 'Требует risks.read. Временные сигналы в границах организации без бизнес-состояния; после сигнала клиент перечитывает авторитетный REST-ресурс. Буфер подписчика — 16 сигналов: при переполнении сервер отбрасывает накопленные сигналы и посылает один маркер resync.required с телом {"reason":"BUFFER_OVERFLOW"}, после которого клиент перечитывает сводку и открытые списки целиком. Повтора событий (Last-Event-ID) нет; комментарий-heartbeat каждые 20 секунд.'
+      responses:
+        '200': { description: "Поток text/event-stream с событиями risk.changed, risk.acknowledged, risk.resolved, risk.false_positive (данные {\"resourceId\": uuid}) и resync.required (данные {\"reason\": \"BUFFER_OVERFLOW\"})." }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { description: Шина сигналов не инициализирована в этом процессе (код UNAVAILABLE); клиент продолжает работать по REST с периодическим перечитыванием., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/v1/opportunities/{opportunityId}/revenue:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+      - { $ref: '#/components/parameters/OpportunityId' }
+      - { $ref: '#/components/parameters/IdempotencyKey' }
+    post:
+      summary: Подтвердить выручку коммерческой возможности
+      description: Событие, его единственная формальная атрибуция, ключ идемпотентности и аудит записываются одной транзакцией. Для RECOVERED обязательна 30-дневная цепочка Risk → Action → Outcome той же организации и возможности.
+      operationId: confirmRevenue
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ConfirmRevenueRequest' } } } }
+      responses:
+        '200': { description: Ранее сохранённое подтверждение при точном повторе., content: { application/json: { schema: { $ref: '#/components/schemas/RevenueConfirmation' } } } }
+        '201': { description: Подтверждённая выручка и её единственная атрибуция., content: { application/json: { schema: { $ref: '#/components/schemas/RevenueConfirmation' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: 'Два кода: IDEMPOTENCY_CONFLICT — ключ идемпотентности использован с другим содержимым (повторить с новым ключом); RECOVERED_ALREADY_ATTRIBUTED — у возможности уже есть атрибуция RECOVERED, последующие оплаты подтверждаются как ORGANIC по явному решению пользователя.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/v1/revenue/confirmed-recovered:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+    get:
+      summary: Получить подтверждённую возвращённую выручку
+      description: Суммируются только CONFIRMED-события с формальной атрибуцией RECOVERED; валюты никогда не смешиваются.
+      operationId: getConfirmedRecoveredRevenue
+      parameters: [{ name: currency, in: query, required: true, schema: { type: string, pattern: '^[A-Z]{3}$' } }]
+      responses:
+        '200': { description: Формальная возвращённая выручка в одной валюте., content: { application/json: { schema: { $ref: '#/components/schemas/Money' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: lidradar_session
+    aiNodeBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: LidRadar AI node secret
+  parameters:
+    TenantId: { name: X-Tenant-ID, in: header, required: true, description: Explicit Organization tenant selected from /auth/me memberships., schema: { type: string, format: uuid } }
+    LocationId: { name: locationId, in: path, required: true, schema: { type: string, format: uuid } }
+    ServiceId: { name: serviceId, in: path, required: true, schema: { type: string, format: uuid } }
+    ConnectorProvider: { name: provider, in: path, required: true, schema: { $ref: '#/components/schemas/ConnectorProvider' } }
+    ConnectionId: { name: connectionId, in: path, required: true, schema: { type: string, format: uuid } }
+    ConversationId: { name: conversationId, in: path, required: true, schema: { type: string, format: uuid } }
+    OpportunityId: { name: opportunityId, in: path, required: true, schema: { type: string, format: uuid } }
+    WebhookTenantId: { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+    RiskId: { name: riskId, in: path, required: true, schema: { type: string, format: uuid } }
+    UserId: { name: userId, in: path, required: true, schema: { type: string, format: uuid } }
+    InvitationId: { name: invitationId, in: path, required: true, schema: { type: string, format: uuid } }
+    RiskStatusFilter: { name: status, in: query, required: false, style: form, explode: true, description: 'Один или несколько статусов (повторяющийся параметр либо через запятую). Несовместим с active.', schema: { type: array, minItems: 1, uniqueItems: true, items: { $ref: '#/components/schemas/RiskStatus' } } }
+    RiskActiveFilter: { name: active, in: query, required: false, description: 'true — активные статусы OPEN, ACKNOWLEDGED, ACTED; false — терминальные RESOLVED, FALSE_POSITIVE, IGNORED, EXPIRED. Несовместим со status.', schema: { type: boolean } }
+    AdminJobId: { name: jobId, in: path, required: true, schema: { type: string, format: uuid } }
+    AdminEventId: { name: eventId, in: path, required: true, schema: { type: string, format: uuid } }
+    NotificationRiskType: { name: riskType, in: path, required: true, schema: { $ref: '#/components/schemas/RiskType' } }
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 1, maxLength: 255 } }
+    AINodeId: { name: X-LidRadar-Node-ID, in: header, required: true, schema: { type: string, format: uuid } }
+    AITimestamp: { name: X-LidRadar-Timestamp, in: header, required: true, description: UTC RFC3339Nano timestamp inside the configured replay window., schema: { type: string, format: date-time } }
+    AIRequestId: { name: X-LidRadar-Request-ID, in: header, required: true, description: Unique request nonce retained only for the replay window., schema: { type: string, format: uuid } }
+    AISignature: { name: X-LidRadar-Signature, in: header, required: true, description: 'HMAC-SHA256 over method, path, timestamp, request ID, and SHA-256 body hash.', schema: { type: string, pattern: '^sha256=[0-9a-f]{64}$' } }
+    AIJobId: { name: aiJobId, in: path, required: true, schema: { type: string, format: uuid } }
+  responses:
+    BadRequest: { description: 'Request body, tenant selector, or domain value is invalid.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Unauthorized: { description: 'Opaque session cookie is missing, expired, revoked, or invalid.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    WebhookUnauthorized: { description: The provider webhook secret is missing or invalid. The payload is not persisted., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Forbidden: { description: Request origin is not trusted or Membership does not grant the required named permission., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    NotFound: { description: Resource does not exist in the authenticated tenant, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Conflict: { description: A unique resource already exists., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    AdminForbidden: { description: The session user is not an active PLATFORM_ADMIN., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    AdminConflict: { description: 'The object state does not allow the command (not DEAD, already discarded, or a newer queued AI job exists).', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    RateLimited: { description: Authentication request limit exceeded; the response does not reveal whether an account exists., headers: { Retry-After: { $ref: '#/components/headers/RetryAfter' } }, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    AINodeUnauthorized: { description: 'AI node credentials, timestamp, nonce, body hash, or request signature are invalid.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    AILeaseLost: { description: The AI job lease expired or belongs to another node., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  headers:
+    RetryAfter:
+      description: Seconds until the current authentication limit window expires.
+      schema: { type: integer, minimum: 1 }
+    SessionCookie:
+      description: HttpOnly SameSite=Strict opaque session cookie; Secure is mandatory in staging and production.
+      schema: { type: string }
+  schemas:
+    AINodeHeartbeatRequest:
+      type: object
+      additionalProperties: false
+      required: [status, modelVersion, availableSlots]
+      properties:
+        status: { type: string, enum: [READY, OFFLINE] }
+        modelVersion: { type: string, minLength: 1, maxLength: 200 }
+        availableSlots: { type: integer, minimum: 0, maximum: 1 }
+    AIJobClaim:
+      type: object
+      additionalProperties: false
+      required: [id, tenantId, jobType, entityType, entityId, prompt, baseConversationRevision, analysisThroughMessageId, modelVersion, promptVersion, schemaVersion, leaseUntil]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        jobType: { type: string, enum: [ANALYZE_CONVERSATION] }
+        entityType: { type: string, enum: [CONVERSATION] }
+        entityId: { type: string, format: uuid }
+        prompt: { type: string, minLength: 1, writeOnly: true }
+        baseConversationRevision: { type: integer, format: int64, minimum: 1 }
+        analysisThroughMessageId: { type: string, format: uuid }
+        modelVersion: { type: string }
+        promptVersion: { type: string }
+        schemaVersion: { type: string }
+        leaseUntil: { type: string, format: date-time }
+    AIJobStarted:
+      type: object
+      additionalProperties: false
+      required: [runId]
+      properties: { runId: { type: string, format: uuid } }
+    AIJobCompleteRequest:
+      type: object
+      additionalProperties: false
+      required: [runId, output]
+      properties:
+        runId: { type: string, format: uuid }
+        output: { type: string, minLength: 1, maxLength: 1048576, writeOnly: true }
+    AIJobFailedRequest:
+      type: object
+      additionalProperties: false
+      required: [runId, errorCode]
+      properties:
+        runId: { type: string, format: uuid }
+        errorCode: { type: string, pattern: '^[A-Z0-9_]{1,100}$' }
+    Error:
+      type: object
+      required: [error]
+      properties: { error: { type: object, required: [code, message, traceId], properties: { code: { type: string }, message: { type: string }, details: { type: object, additionalProperties: true }, traceId: { type: string } } } }
+    User:
+      type: object
+      required: [id, email, displayName, status, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string }
+        status: { type: string, enum: [ACTIVE, DISABLED] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password, displayName]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 12, maxLength: 1024, writeOnly: true }
+        displayName: { type: string, minLength: 1, maxLength: 200 }
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 1, maxLength: 1024, writeOnly: true }
+    AuthResponse:
+      type: object
+      required: [user]
+      properties: { user: { $ref: '#/components/schemas/User' } }
+    MembershipSummary:
+      type: object
+      required: [tenantId, organizationName, role]
+      properties:
+        tenantId: { type: string, format: uuid }
+        organizationName: { type: string }
+        role: { type: string, enum: [OWNER, MANAGER] }
+    AuthMeResponse:
+      type: object
+      required: [user, memberships]
+      properties:
+        user: { $ref: '#/components/schemas/User' }
+        memberships: { type: array, items: { $ref: '#/components/schemas/MembershipSummary' } }
+    Membership:
+      type: object
+      required: [id, tenantId, userId, role, status, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        role: { type: string, enum: [OWNER, MANAGER] }
+        status: { type: string, enum: [ACTIVE, INVITED, DISABLED] }
+        revokedAt: { type: string, format: date-time, description: Присутствует только у отозванного членства. }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Member:
+      type: object
+      required: [membershipId, userId, email, displayName, role, status, revokedAt, createdAt, updatedAt]
+      properties:
+        membershipId: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string }
+        role: { type: string, enum: [OWNER, MANAGER] }
+        status: { type: string, enum: [ACTIVE, INVITED, DISABLED] }
+        revokedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    MemberList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: '#/components/schemas/Member' } } }
+    UpdateMemberRoleRequest:
+      type: object
+      additionalProperties: false
+      required: [role]
+      properties:
+        role: { type: string, enum: [OWNER, MANAGER] }
+    InvitationStatus: { type: string, enum: [PENDING, ACCEPTED, REVOKED, EXPIRED] }
+    Invitation:
+      type: object
+      required: [id, role, note, status, createdBy, createdAt, expiresAt, acceptedAt, acceptedBy, revokedAt, revokedBy]
+      properties:
+        id: { type: string, format: uuid }
+        role: { type: string, enum: [OWNER, MANAGER] }
+        note: { type: [string, 'null'], maxLength: 500 }
+        status: { $ref: '#/components/schemas/InvitationStatus' }
+        createdBy: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        acceptedAt: { type: [string, 'null'], format: date-time }
+        acceptedBy: { type: [string, 'null'], format: uuid }
+        revokedAt: { type: [string, 'null'], format: date-time }
+        revokedBy: { type: [string, 'null'], format: uuid }
+    InvitationList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: '#/components/schemas/Invitation' } } }
+    CreateInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [role]
+      properties:
+        role: { type: string, enum: [OWNER, MANAGER] }
+        note: { type: [string, 'null'], maxLength: 500, description: 'Пометка владельца (например, имя сотрудника); не раскрывается принимающему.' }
+    IssuedInvitation:
+      type: object
+      required: [invitation, code]
+      properties:
+        invitation: { $ref: '#/components/schemas/Invitation' }
+        code: { type: string, pattern: '^[A-Za-z0-9_-]{43}$', description: Открытый код; показывается один раз и не хранится на сервере. }
+    AcceptInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code: { type: string, pattern: '^[A-Za-z0-9_-]{43}$', writeOnly: true }
+    AcceptedInvitation:
+      type: object
+      required: [membership]
+      properties:
+        membership: { $ref: '#/components/schemas/MembershipSummary' }
+    OnboardingStep:
+      type: object
+      required: [key, required, done]
+      properties:
+        key: { type: string, enum: [ORGANIZATION, LOCATION, SERVICES, CHANNEL, TELEGRAM_LINK] }
+        required: { type: boolean }
+        done: { type: boolean }
+    OnboardingFacts:
+      type: object
+      required: [activeLocations, locationsWithSchedule, activeServices, connections, liveConnections, telegramLinked]
+      properties:
+        activeLocations: { type: integer, minimum: 0 }
+        locationsWithSchedule: { type: integer, minimum: 0, description: Активные точки с графиком на все семь дней. }
+        activeServices: { type: integer, minimum: 0 }
+        connections: { type: integer, minimum: 0 }
+        liveConnections: { type: integer, minimum: 0, description: 'Подключения в любом статусе, кроме DISCONNECTED.' }
+        telegramLinked: { type: boolean, description: Личная привязка Telegram текущего пользователя. }
+    OnboardingStatus:
+      type: object
+      required: [complete, nextStep, steps, facts, computedAt]
+      properties:
+        complete: { type: boolean, description: Все обязательные шаги выполнены. }
+        nextStep: { type: [string, 'null'], enum: [ORGANIZATION, LOCATION, SERVICES, CHANNEL, TELEGRAM_LINK, null] }
+        steps: { type: array, minItems: 5, maxItems: 5, items: { $ref: '#/components/schemas/OnboardingStep' } }
+        facts: { $ref: '#/components/schemas/OnboardingFacts' }
+        computedAt: { type: string, format: date-time }
+    Organization:
+      type: object
+      required: [id, name, defaultTimezone, defaultCurrency, status, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        defaultTimezone: { type: string, description: IANA timezone name. }
+        defaultCurrency: { type: string, pattern: '^[A-Z]{3}$' }
+        status: { type: string, enum: [ACTIVE, SUSPENDED, ARCHIVED] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CreateOrganizationRequest:
+      type: object
+      additionalProperties: false
+      required: [name, defaultTimezone]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        defaultTimezone: { type: string, minLength: 1 }
+        defaultCurrency: { type: string, pattern: '^[A-Za-z]{3}$', default: RUB }
+    UpdateOrganizationRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        defaultTimezone: { type: string, minLength: 1 }
+        defaultCurrency: { type: string, pattern: '^[A-Za-z]{3}$' }
+    BusinessHour:
+      type: object
+      additionalProperties: false
+      required: [weekday, closed]
+      properties:
+        weekday: { type: integer, minimum: 1, maximum: 7 }
+        closed: { type: boolean }
+        opensAt: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+        closesAt: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+    Location:
+      type: object
+      required: [id, name, timezone, responseThresholdMinutes, active, businessHours, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        timezone: { type: string, description: IANA timezone name. }
+        responseThresholdMinutes: { type: integer, minimum: 1, maximum: 1440 }
+        active: { type: boolean }
+        businessHours: { type: array, items: { $ref: '#/components/schemas/BusinessHour' } }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    LocationList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: '#/components/schemas/Location' } } }
+    CreateLocationRequest:
+      type: object
+      additionalProperties: false
+      required: [name, timezone]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        timezone: { type: string, minLength: 1 }
+        responseThresholdMinutes: { type: integer, minimum: 1, maximum: 1440, default: 45 }
+    UpdateLocationRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        timezone: { type: string, minLength: 1 }
+        responseThresholdMinutes: { type: integer, minimum: 1, maximum: 1440 }
+        active: { type: boolean }
+    BusinessHoursRequest:
+      type: object
+      additionalProperties: false
+      required: [timezone, days]
+      properties:
+        timezone: { type: string, minLength: 1 }
+        days: { type: array, minItems: 7, maxItems: 7, items: { $ref: '#/components/schemas/BusinessHour' } }
+    ServiceCatalogItem:
+      type: object
+      required: [id, locationId, name, normalizedName, priceFrom, priceTo, currency, active, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        locationId: { type: [string, 'null'], format: uuid }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        normalizedName: { type: string, minLength: 1, maxLength: 200, readOnly: true }
+        priceFrom: { $ref: '#/components/schemas/NullableCatalogPrice' }
+        priceTo: { $ref: '#/components/schemas/NullableCatalogPrice' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ServiceCatalogList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: '#/components/schemas/ServiceCatalogItem' } } }
+    NullableCatalogPrice:
+      type: [string, 'null']
+      pattern: '^[0-9]{1,12}\.[0-9]{2}$'
+      description: Exact NUMERIC(14,2) amount as a JSON string, or null when no reliable price is known.
+    CreateServiceCatalogItemRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        locationId: { type: [string, 'null'], format: uuid }
+        priceFrom: { type: [string, 'null'], pattern: '^[0-9]{1,12}(\.[0-9]{1,2})?$' }
+        priceTo: { type: [string, 'null'], pattern: '^[0-9]{1,12}(\.[0-9]{1,2})?$' }
+        currency: { type: string, pattern: '^[A-Za-z]{3}$', default: RUB }
+    UpdateServiceCatalogItemRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        locationId: { type: [string, 'null'], format: uuid }
+        priceFrom: { type: [string, 'null'], pattern: '^[0-9]{1,12}(\.[0-9]{1,2})?$' }
+        priceTo: { type: [string, 'null'], pattern: '^[0-9]{1,12}(\.[0-9]{1,2})?$' }
+        currency: { type: string, pattern: '^[A-Za-z]{3}$' }
+        active: { type: boolean, description: May be set true to reactivate an item; DELETE sets it false. }
+    ConnectorProvider:
+      type: string
+      enum: [TEST, IMPORT, GENERIC_WEBHOOK, CONNECTED_BUSINESS_BOT]
+    ConnectionStatus:
+      type: string
+      enum: [ACTIVE, DEGRADED, ERROR, DISCONNECTED]
+    ConnectorCapability:
+      type: string
+      enum:
+        - CAN_RECEIVE_MESSAGES
+        - CAN_SEND_MESSAGES
+        - CAN_IMPORT_HISTORY
+        - CAN_RECEIVE_EDITS
+        - CAN_RECEIVE_DELETES
+        - CAN_RECEIVE_ATTACHMENTS
+        - CAN_IDENTIFY_CONTACT
+    ChannelConnection:
+      type: object
+      required: [id, locationId, provider, name, status, capabilities, lastEventAt, lastSuccessAt, lastErrorAt, lastErrorCode, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        locationId: { type: [string, 'null'], format: uuid }
+        provider: { $ref: '#/components/schemas/ConnectorProvider' }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        status: { $ref: '#/components/schemas/ConnectionStatus' }
+        capabilities: { type: array, minItems: 1, uniqueItems: true, items: { $ref: '#/components/schemas/ConnectorCapability' } }
+        lastEventAt: { type: [string, 'null'], format: date-time }
+        lastSuccessAt: { type: [string, 'null'], format: date-time }
+        lastErrorAt: { type: [string, 'null'], format: date-time }
+        lastErrorCode: { type: [string, 'null'], maxLength: 100 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ChannelConnectionList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: '#/components/schemas/ChannelConnection' } } }
+    ConnectionHealth:
+      type: object
+      required: [status, lastEventAt, lastSuccessAt, lastErrorAt, lastErrorCode, checkedAt]
+      properties:
+        status: { $ref: '#/components/schemas/ConnectionStatus' }
+        lastEventAt: { type: [string, 'null'], format: date-time }
+        lastSuccessAt: { type: [string, 'null'], format: date-time }
+        lastErrorAt: { type: [string, 'null'], format: date-time }
+        lastErrorCode: { type: [string, 'null'], maxLength: 100 }
+        checkedAt: { type: string, format: date-time }
+    ConnectedChannel:
+      description: Подключение вместе с секретом webhook, выпущенным сервером в этом запросе.
+      allOf:
+        - $ref: '#/components/schemas/ChannelConnection'
+        - type: object
+          required: [webhookSecret]
+          properties:
+            webhookSecret: { type: [string, 'null'], description: 'Открытый секрет, показанный один раз; null, если секрет задал клиент или поставщик регистрируется сервером (Telegram).' }
+    HealthCheck:
+      type: object
+      required: [health, verification]
+      properties:
+        health: { $ref: '#/components/schemas/ConnectionHealth' }
+        verification: { type: string, enum: [REMOTE, LOCAL], description: 'REMOTE — результат живого запроса к поставщику; LOCAL — сохранённое состояние без удалённой регистрации.' }
+    ConnectChannelRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        locationId: { type: [string, 'null'], format: uuid }
+        webhookSecret: { type: string, minLength: 16, maxLength: 256, writeOnly: true, description: 'Необязателен: без него секрет выпускает сервер и возвращает один раз в ответе.' }
+        botToken:
+          type: string
+          minLength: 26
+          maxLength: 149
+          pattern: '^[0-9]{5,20}:[A-Za-z0-9_-]{20,128}$'
+          writeOnly: true
+          description: Required only for CONNECTED_BUSINESS_BOT and rejected for other providers.
+    WebhookReceipt:
+      type: object
+      required: [rawEventId, status, duplicate]
+      properties:
+        rawEventId: { type: string, format: uuid }
+        status: { type: string, enum: [RECEIVED, FAILED] }
+        duplicate: { type: boolean }
+    Contact:
+      type: object
+      additionalProperties: false
+      required: [id, displayName, phoneNormalized, emailNormalized, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: [string, 'null'], maxLength: 200 }
+        phoneNormalized: { type: [string, 'null'], maxLength: 40 }
+        emailNormalized: { type: [string, 'null'], format: email, maxLength: 254 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ConversationStatus:
+      type: string
+      enum: [ACTIVE, ARCHIVED]
+    MessageDirection:
+      type: string
+      enum: [INCOMING, OUTGOING, SYSTEM]
+    MessageType:
+      type: string
+      enum: [TEXT, IMAGE, VOICE, AUDIO, VIDEO, DOCUMENT, OTHER]
+    Conversation:
+      type: object
+      additionalProperties: false
+      required: [id, locationId, connectionId, contactId, externalId, status, firstMessageAt, lastMessageAt, lastMessageDirection, revision, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        locationId: { type: [string, 'null'], format: uuid }
+        connectionId: { type: string, format: uuid }
+        contactId: { type: string, format: uuid }
+        externalId: { type: string, minLength: 1, maxLength: 512 }
+        status: { $ref: '#/components/schemas/ConversationStatus' }
+        firstMessageAt: { type: [string, 'null'], format: date-time }
+        lastMessageAt: { type: [string, 'null'], format: date-time }
+        lastMessageDirection:
+          oneOf:
+            - { $ref: '#/components/schemas/MessageDirection' }
+            - { type: 'null' }
+        revision: { type: integer, format: int64, minimum: 0, description: Атомарно увеличивается при каждом фактическом изменении сообщения. }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ChannelSummary:
+      type: object
+      additionalProperties: false
+      required: [connectionId, provider, name, status]
+      properties:
+        connectionId: { type: string, format: uuid }
+        provider: { $ref: '#/components/schemas/ConnectorProvider' }
+        name: { type: string }
+        status: { $ref: '#/components/schemas/ConnectionStatus' }
+    ExternalLink:
+      description: 'Безопасная ссылка на собеседника во внешнем клиенте: строится только сервером по разрешённой схеме (сейчас tg://user?id=<число> для Telegram). Клиент никогда не собирает URL из externalId.'
+      type: object
+      additionalProperties: false
+      required: [url, kind, unavailableReason]
+      properties:
+        url: { type: [string, 'null'], pattern: '^tg://user\?id=[1-9][0-9]{0,19}$' }
+        kind: { type: [string, 'null'], enum: [TELEGRAM_USER, null] }
+        unavailableReason: { type: [string, 'null'], enum: [PROVIDER_UNSUPPORTED, IDENTITY_UNKNOWN, null] }
+    ContactSummary:
+      type: object
+      additionalProperties: false
+      required: [id, displayName]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: [string, 'null'], maxLength: 200 }
+    MessagePreview:
+      description: 'Последнее не удалённое у поставщика сообщение; preview — до 140 символов текста с нормализованными пробелами, null для сообщений без текста.'
+      type: object
+      additionalProperties: false
+      required: [id, direction, type, preview, sentAt]
+      properties:
+        id: { type: string, format: uuid }
+        direction: { $ref: '#/components/schemas/MessageDirection' }
+        type: { $ref: '#/components/schemas/MessageType' }
+        preview: { type: [string, 'null'], maxLength: 140 }
+        sentAt: { type: string, format: date-time }
+    ActiveRisks:
+      type: object
+      additionalProperties: false
+      required: [count, maxSeverity]
+      properties:
+        count: { type: integer, minimum: 0, description: 'Активные риски (OPEN, ACKNOWLEDGED, ACTED) по всем сделкам переписки.' }
+        maxSeverity: { oneOf: [{ $ref: '#/components/schemas/RiskSeverity' }, { type: 'null' }] }
+    ConversationListItem:
+      type: object
+      additionalProperties: false
+      required: [conversation, contact, channel, lastMessage, activeRisks, externalLink]
+      properties:
+        conversation: { $ref: '#/components/schemas/Conversation' }
+        contact: { $ref: '#/components/schemas/ContactSummary' }
+        channel: { $ref: '#/components/schemas/ChannelSummary' }
+        lastMessage: { oneOf: [{ $ref: '#/components/schemas/MessagePreview' }, { type: 'null' }] }
+        activeRisks: { $ref: '#/components/schemas/ActiveRisks' }
+        externalLink: { $ref: '#/components/schemas/ExternalLink' }
+    ConversationDetail:
+      type: object
+      additionalProperties: false
+      required: [conversation, contact, channel, externalLink]
+      properties:
+        conversation: { $ref: '#/components/schemas/Conversation' }
+        contact: { $ref: '#/components/schemas/Contact' }
+        channel: { $ref: '#/components/schemas/ChannelSummary' }
+        externalLink: { $ref: '#/components/schemas/ExternalLink' }
+    ConversationPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ConversationListItem' } }
+        nextCursor: { type: [string, 'null'], description: 'Непрозрачный курсор следующей страницы или null; привязан к набору фильтров.' }
+    Message:
+      type: object
+      additionalProperties: false
+      required: [id, conversationId, connectionId, externalId, direction, type, text, senderExternalId, replyToMessageId, sentAt, receivedAt, providerDeletedAt, metadata, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        conversationId: { type: string, format: uuid }
+        connectionId: { type: string, format: uuid }
+        externalId: { type: string, minLength: 1, maxLength: 512 }
+        direction: { $ref: '#/components/schemas/MessageDirection' }
+        type: { $ref: '#/components/schemas/MessageType' }
+        text: { type: [string, 'null'] }
+        senderExternalId: { type: [string, 'null'], maxLength: 512 }
+        replyToMessageId: { type: [string, 'null'], format: uuid }
+        sentAt: { type: string, format: date-time }
+        receivedAt: { type: string, format: date-time }
+        providerDeletedAt: { type: [string, 'null'], format: date-time }
+        metadata: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+    Attachment:
+      type: object
+      additionalProperties: false
+      required: [id, messageId, objectKey, mimeType, sizeBytes, sha256, providerFileId, createdAt]
+      description: Только метаданные. Двоичное содержимое хранится в S3-совместимом объектном хранилище.
+      properties:
+        id: { type: string, format: uuid }
+        messageId: { type: string, format: uuid }
+        objectKey: { type: string, minLength: 1, maxLength: 1024 }
+        mimeType: { type: [string, 'null'] }
+        sizeBytes: { type: integer, format: int64, minimum: 0 }
+        sha256: { type: [string, 'null'], pattern: '^[0-9a-f]{64}$' }
+        providerFileId: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+    MessageView:
+      type: object
+      additionalProperties: false
+      required: [message, attachments]
+      properties:
+        message: { $ref: '#/components/schemas/Message' }
+        attachments: { type: array, items: { $ref: '#/components/schemas/Attachment' } }
+    MessagePage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/MessageView' } }
+        nextCursor: { type: [string, 'null'], description: Непрозрачный курсор следующей страницы или null. }
+    OpportunityStage:
+      type: string
+      enum: [NEW, ENGAGED, QUALIFYING, PRICE_SENT, WAITING_CUSTOMER, WAITING_BUSINESS, BOOKING_INTENT, BOOKED, WON, LOST, ARCHIVED]
+    OpportunityStageSource:
+      type: string
+      enum: [RULE, AI, USER, IMPORT]
+    Opportunity:
+      type: object
+      additionalProperties: false
+      required: [id, conversationId, serviceId, stage, estimatedAmount, estimatedAmountConfidence, currency, openedAt, closedAt, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        conversationId: { type: string, format: uuid }
+        serviceId: { type: [string, 'null'], format: uuid }
+        stage: { $ref: '#/components/schemas/OpportunityStage' }
+        estimatedAmount:
+          type: [string, 'null']
+          pattern: '^[0-9]{1,12}\.[0-9]{2}$'
+          description: Точная оценка NUMERIC(14,2) либо null, когда надёжной суммы нет.
+        estimatedAmountConfidence: { type: [number, 'null'], minimum: 0, maximum: 1 }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        openedAt: { type: string, format: date-time }
+        closedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    OpportunityStageHistory:
+      type: object
+      additionalProperties: false
+      required: [id, opportunityId, fromStage, toStage, source, confidence, aiRunId, actorUserId, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        opportunityId: { type: string, format: uuid }
+        fromStage:
+          oneOf:
+            - { $ref: '#/components/schemas/OpportunityStage' }
+            - { type: 'null' }
+        toStage: { $ref: '#/components/schemas/OpportunityStage' }
+        source: { $ref: '#/components/schemas/OpportunityStageSource' }
+        confidence: { type: [number, 'null'], minimum: 0, maximum: 1 }
+        aiRunId: { type: [string, 'null'], format: uuid }
+        actorUserId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+    OpportunityDetail:
+      type: object
+      additionalProperties: false
+      required: [opportunity, stageHistory]
+      properties:
+        opportunity: { $ref: '#/components/schemas/Opportunity' }
+        stageHistory: { type: array, minItems: 1, items: { $ref: '#/components/schemas/OpportunityStageHistory' } }
+    ChangeOpportunityStageRequest:
+      type: object
+      additionalProperties: false
+      required: [stage]
+      properties:
+        stage: { $ref: '#/components/schemas/OpportunityStage' }
+    RiskStatus: { type: string, enum: [OPEN, ACKNOWLEDGED, ACTED, RESOLVED, FALSE_POSITIVE, IGNORED, EXPIRED] }
+    RiskSeverity: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+    RiskType: { type: string, enum: [NO_RESPONSE, BOOKING_NOT_CONFIRMED, PROMISE_NOT_FULFILLED, CUSTOMER_SILENT_AFTER_PRICE, FOLLOW_UP_CANDIDATE] }
+    TelegramLinkToken:
+      type: object
+      additionalProperties: false
+      required: [startUrl, expiresAt]
+      properties:
+        startUrl: { type: string, format: uri, pattern: '^https://t\.me/[A-Za-z0-9_]{5,32}\?start=' }
+        expiresAt: { type: string, format: date-time }
+    TelegramLinkStatus:
+      type: object
+      additionalProperties: false
+      required: [linked]
+      properties:
+        linked: { type: boolean }
+        linkedAt: { type: string, format: date-time }
+    NotificationDeliveryMode: { type: string, enum: [IMMEDIATE, DIGEST, DISABLED] }
+    ClockTime: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$', description: Время суток HH:MM в часовом поясе организации. }
+    NotificationPreferenceRequest:
+      type: object
+      additionalProperties: false
+      required: [minimumSeverity, deliveryMode, inAppEnabled, telegramEnabled, quietHoursEnabled, digestTime]
+      properties:
+        minimumSeverity: { $ref: '#/components/schemas/RiskSeverity' }
+        deliveryMode: { $ref: '#/components/schemas/NotificationDeliveryMode' }
+        inAppEnabled: { type: boolean }
+        telegramEnabled: { type: boolean }
+        quietHoursEnabled: { type: boolean, description: Требует обеих границ. }
+        quietHoursStart: { oneOf: [{ $ref: '#/components/schemas/ClockTime' }, { type: 'null' }] }
+        quietHoursEnd: { oneOf: [{ $ref: '#/components/schemas/ClockTime' }, { type: 'null' }], description: 'Должна отличаться от начала; меньшее значение означает интервал через полночь.' }
+        digestTime: { $ref: '#/components/schemas/ClockTime' }
+    NotificationPreference:
+      type: object
+      required: [riskType, minimumSeverity, deliveryMode, inAppEnabled, telegramEnabled, quietHoursEnabled, digestTime, timezone, isDefault]
+      properties:
+        riskType: { $ref: '#/components/schemas/RiskType' }
+        minimumSeverity: { $ref: '#/components/schemas/RiskSeverity' }
+        deliveryMode: { $ref: '#/components/schemas/NotificationDeliveryMode' }
+        inAppEnabled: { type: boolean }
+        telegramEnabled: { type: boolean }
+        quietHoursEnabled: { type: boolean }
+        quietHoursStart: { oneOf: [{ $ref: '#/components/schemas/ClockTime' }, { type: 'null' }] }
+        quietHoursEnd: { oneOf: [{ $ref: '#/components/schemas/ClockTime' }, { type: 'null' }] }
+        digestTime: { $ref: '#/components/schemas/ClockTime' }
+        timezone: { type: string, description: 'IANA-пояс организации, в котором считаются тихие часы и сводка.' }
+        isDefault: { type: boolean, description: Строка не сохранена — действует значение по умолчанию §46. }
+        updatedAt: { type: [string, 'null'], format: date-time }
+    NotificationPreferenceList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/NotificationPreference' } }
+    ActionType: { type: string, enum: [OPEN_CONVERSATION, COPY_REPLY, MARK_CONTACTED, CALL, SEND_MESSAGE, OTHER] }
+    OutcomeStatus: { type: string, enum: [RESPONDED, BOOKED, PAID, LOST, THINKING, NOT_A_LEAD] }
+    Recommendation:
+      type: object
+      additionalProperties: false
+      required: [id, riskId, text, source, createdAt]
+      properties: { id: { type: string, format: uuid }, riskId: { type: string, format: uuid }, text: { type: string, minLength: 1, maxLength: 2000 }, source: { type: string, enum: [TEMPLATE] }, createdAt: { type: string, format: date-time } }
+    Action:
+      type: object
+      additionalProperties: false
+      required: [id, riskId, actorId, type, createdAt]
+      properties: { id: { type: string, format: uuid }, riskId: { type: string, format: uuid }, actorId: { type: string, format: uuid }, type: { $ref: '#/components/schemas/ActionType' }, note: { type: string, maxLength: 2000 }, createdAt: { type: string, format: date-time } }
+    Outcome:
+      type: object
+      additionalProperties: false
+      required: [id, opportunityId, actorId, status, createdAt]
+      properties: { id: { type: string, format: uuid }, opportunityId: { type: string, format: uuid }, actorId: { type: string, format: uuid }, status: { $ref: '#/components/schemas/OutcomeStatus' }, note: { type: string, maxLength: 2000 }, createdAt: { type: string, format: date-time } }
+    Money:
+      type: object
+      required: [amount, currency]
+      properties: { amount: { type: string, pattern: '^[0-9]+\.[0-9]{2}$' }, currency: { type: string, pattern: '^[A-Z]{3}$' } }
+    ConfirmRevenueRequest:
+      type: object
+      additionalProperties: false
+      required: [amount, currency, attributionType]
+      properties:
+        amount: { type: string, pattern: '^[0-9]{1,12}(\.[0-9]{1,2})?$' }
+        currency: { type: string, pattern: '^[A-Za-z]{3}$' }
+        attributionType: { type: string, enum: [RECOVERED, ORGANIC, UNKNOWN] }
+        riskId: { type: string, format: uuid }
+        actionId: { type: string, format: uuid }
+        outcomeId: { type: string, format: uuid }
+    RevenueEvent:
+      type: object
+      additionalProperties: false
+      required: [id, opportunityId, amount, currency, status, source, confirmedBy, confirmedAt]
+      properties: { id: { type: string, format: uuid }, opportunityId: { type: string, format: uuid }, amount: { type: string, pattern: '^[0-9]+\.[0-9]{2}$' }, currency: { type: string, pattern: '^[A-Z]{3}$' }, status: { type: string, enum: [CONFIRMED] }, source: { type: string, enum: [USER_CONFIRMED] }, confirmedBy: { type: string, format: uuid }, confirmedAt: { type: string, format: date-time } }
+    RevenueAttribution:
+      type: object
+      additionalProperties: false
+      required: [id, revenueEventId, opportunityId, type, createdAt]
+      properties: { id: { type: string, format: uuid }, revenueEventId: { type: string, format: uuid }, opportunityId: { type: string, format: uuid }, type: { type: string, enum: [RECOVERED, ORGANIC, UNKNOWN] }, riskId: { type: string, format: uuid }, actionId: { type: string, format: uuid }, outcomeId: { type: string, format: uuid }, createdAt: { type: string, format: date-time } }
+    RevenueConfirmation:
+      type: object
+      additionalProperties: false
+      required: [revenue, attribution]
+      properties: { revenue: { $ref: '#/components/schemas/RevenueEvent' }, attribution: { $ref: '#/components/schemas/RevenueAttribution' } }
+    Risk:
+      type: object
+      additionalProperties: false
+      required: [id, opportunityId, locationId, type, severity, status, source, policyVersion, triggerMessageId, reasonCode, reason, detectedAt, dueAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        opportunityId: { type: string, format: uuid }
+        locationId: { type: string, format: uuid }
+        type: { $ref: '#/components/schemas/RiskType' }
+        severity: { $ref: '#/components/schemas/RiskSeverity' }
+        status: { $ref: '#/components/schemas/RiskStatus' }
+        source: { type: string, enum: [RULE, HYBRID, MANUAL] }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        aiRunId: { type: string, format: uuid }
+        policyVersion: { type: string }
+        triggerMessageId: { type: string, format: uuid }
+        reasonCode: { type: string, pattern: '^[A-Z][A-Z0-9_]{0,99}$' }
+        reason: { type: string }
+        detectedAt: { type: string, format: date-time }
+        dueAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        acknowledgedAt: { type: string, format: date-time }
+        actedAt: { type: string, format: date-time }
+        resolvedAt: { type: string, format: date-time }
+    RadarOpportunity:
+      type: object
+      additionalProperties: false
+      required: [id, stage, locationId, serviceId, potentialRevenue, currency]
+      properties:
+        id: { type: string, format: uuid }
+        stage: { $ref: '#/components/schemas/OpportunityStage' }
+        locationId: { type: string, format: uuid }
+        serviceId: { type: [string, 'null'], format: uuid }
+        potentialRevenue: { type: [string, 'null'], pattern: '^[0-9]+\.[0-9]{2}$' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+    RadarConversation:
+      type: object
+      additionalProperties: false
+      required: [id, contactId, lastMessage]
+      properties:
+        id: { type: string, format: uuid }
+        contactId: { type: string, format: uuid }
+        lastMessage: { oneOf: [{ $ref: '#/components/schemas/MessagePreview' }, { type: 'null' }] }
+    RadarService:
+      description: Снимок услуги каталога, видимый любому читателю Radar (в том числе менеджеру без service.manage).
+      type: object
+      additionalProperties: false
+      required: [id, name, active]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        active: { type: boolean }
+    RadarRecommendation:
+      type: object
+      additionalProperties: false
+      required: [id, text]
+      properties: { id: { type: string, format: uuid }, text: { type: string } }
+    RadarAction:
+      type: object
+      additionalProperties: false
+      required: [id, type, createdAt]
+      properties: { id: { type: string, format: uuid }, type: { type: string }, createdAt: { type: string, format: date-time } }
+    RadarOutcome:
+      type: object
+      additionalProperties: false
+      required: [id, type, createdAt]
+      properties: { id: { type: string, format: uuid }, type: { type: string }, createdAt: { type: string, format: date-time } }
+    RadarRevenue:
+      type: object
+      additionalProperties: false
+      required: [currency, potential, confirmedRecovered]
+      properties:
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        potential: { type: string, pattern: '^[0-9]+\.[0-9]{2}$' }
+        confirmedRecovered: { type: string, pattern: '^[0-9]+\.[0-9]{2}$' }
+    RiskDetail:
+      description: 'Карточка риска для списка и деталей. Все ключи присутствуют всегда: null — связь отсутствует (услуга, последнее сообщение) либо владеющий модуль ещё не создал запись (рекомендация, исход, выручка). Денежные поля видны любому обладателю risks.read (ADR 0044).'
+      type: object
+      additionalProperties: false
+      required: [risk, opportunity, conversation, contact, service, channel, externalLink, recommendation, actions, outcome, revenue]
+      properties:
+        risk: { $ref: '#/components/schemas/Risk' }
+        opportunity: { oneOf: [{ $ref: '#/components/schemas/RadarOpportunity' }, { type: 'null' }] }
+        conversation: { oneOf: [{ $ref: '#/components/schemas/RadarConversation' }, { type: 'null' }] }
+        contact: { oneOf: [{ $ref: '#/components/schemas/ContactSummary' }, { type: 'null' }] }
+        service: { oneOf: [{ $ref: '#/components/schemas/RadarService' }, { type: 'null' }] }
+        channel: { oneOf: [{ $ref: '#/components/schemas/ChannelSummary' }, { type: 'null' }] }
+        externalLink: { $ref: '#/components/schemas/ExternalLink' }
+        recommendation: { oneOf: [{ $ref: '#/components/schemas/RadarRecommendation' }, { type: 'null' }] }
+        actions: { type: array, items: { $ref: '#/components/schemas/RadarAction' } }
+        outcome: { oneOf: [{ $ref: '#/components/schemas/RadarOutcome' }, { type: 'null' }] }
+        revenue: { oneOf: [{ $ref: '#/components/schemas/RadarRevenue' }, { type: 'null' }] }
+    RiskVerdict: { type: string, enum: [TRUE_POSITIVE, FALSE_POSITIVE] }
+    RiskFeedbackReason: { type: string, enum: [CUSTOMER_ALREADY_BOOKED, CUSTOMER_ALREADY_ANSWERED, NOT_A_LEAD, CUSTOMER_REJECTED, WRONG_INTERPRETATION, OTHER] }
+    RiskFeedbackRequest:
+      type: object
+      additionalProperties: false
+      required: [verdict]
+      properties:
+        verdict: { $ref: '#/components/schemas/RiskVerdict' }
+        reason: { $ref: '#/components/schemas/RiskFeedbackReason', description: Обязательна для FALSE_POSITIVE. }
+        note: { type: string, maxLength: 1000 }
+    RiskFeedbackContext:
+      type: object
+      additionalProperties: false
+      required: [type, severity, status, source, policyVersion, triggerMessageId, opportunityStage, detectedAt]
+      properties:
+        type: { $ref: '#/components/schemas/RiskType' }
+        severity: { $ref: '#/components/schemas/RiskSeverity' }
+        status: { $ref: '#/components/schemas/RiskStatus' }
+        source: { type: string, enum: [RULE, HYBRID, MANUAL] }
+        policyVersion: { type: string }
+        aiRunId: { type: string, format: uuid }
+        triggerMessageId: { type: string, format: uuid }
+        opportunityStage: { $ref: '#/components/schemas/OpportunityStage' }
+        detectedAt: { type: string, format: date-time }
+    RiskFeedback:
+      type: object
+      additionalProperties: false
+      required: [id, riskId, opportunityId, actorId, verdict, note, context, datasetEligible, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        riskId: { type: string, format: uuid }
+        opportunityId: { type: string, format: uuid }
+        actorId: { type: string, format: uuid }
+        verdict: { $ref: '#/components/schemas/RiskVerdict' }
+        reason: { $ref: '#/components/schemas/RiskFeedbackReason' }
+        note: { type: string }
+        context: { $ref: '#/components/schemas/RiskFeedbackContext' }
+        datasetEligible: { type: boolean, description: Действовало ли явное ML-согласие организации в момент записи (§70). }
+        createdAt: { type: string, format: date-time }
+    RiskPrecisionItem:
+      type: object
+      additionalProperties: false
+      required: [riskType, totalRisks, withFeedback, truePositives, falsePositives, precision, falsePositiveRate, coverageRate, reliable]
+      properties:
+        riskType: { $ref: '#/components/schemas/RiskType' }
+        totalRisks: { type: integer, minimum: 0 }
+        withFeedback: { type: integer, minimum: 0 }
+        truePositives: { type: integer, minimum: 0 }
+        falsePositives: { type: integer, minimum: 0 }
+        precision: { type: [number, 'null'], minimum: 0, maximum: 1 }
+        falsePositiveRate: { type: [number, 'null'], minimum: 0, maximum: 1 }
+        coverageRate: { type: number, minimum: 0, maximum: 1 }
+        reliable: { type: boolean }
+    RiskPrecisionReport:
+      type: object
+      additionalProperties: false
+      required: [from, to, minimumCoverage, items]
+      properties:
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        minimumCoverage: { type: number }
+        items: { type: array, items: { $ref: '#/components/schemas/RiskPrecisionItem' } }
+    MLConsent:
+      type: object
+      additionalProperties: false
+      required: [id, scope, grantedBy, grantedAt]
+      properties:
+        id: { type: string, format: uuid }
+        scope: { type: string, enum: [DATASETS] }
+        grantedBy: { type: string, format: uuid }
+        grantedAt: { type: string, format: date-time }
+        revokedBy: { type: string, format: uuid }
+        revokedAt: { type: string, format: date-time }
+    MLConsentStatus:
+      type: object
+      additionalProperties: false
+      required: [scope, active, consent]
+      properties:
+        scope: { type: string, enum: [DATASETS] }
+        active: { type: boolean }
+        consent: { oneOf: [{ $ref: '#/components/schemas/MLConsent' }, { type: 'null' }] }
+    AnalyticsPeriod:
+      type: object
+      additionalProperties: false
+      required: [fromDate, toDate, timezone, from, to]
+      properties:
+        fromDate: { type: string, format: date }
+        toDate: { type: string, format: date }
+        timezone: { type: string, description: 'IANA-пояс организации, в котором заданы даты.' }
+        from: { type: string, format: date-time, description: Начало окна в UTC включительно. }
+        to: { type: string, format: date-time, description: Конец окна в UTC исключительно. }
+    AnalyticsMessages:
+      type: object
+      additionalProperties: false
+      required: [total, incoming, outgoing, conversations]
+      properties:
+        total: { type: integer, minimum: 0 }
+        incoming: { type: integer, minimum: 0 }
+        outgoing: { type: integer, minimum: 0 }
+        conversations: { type: integer, minimum: 0, description: Переписки с первым сообщением в окне. }
+    AnalyticsOpportunities:
+      type: object
+      additionalProperties: false
+      required: [created, booked, won, lost]
+      properties:
+        created: { type: integer, minimum: 0, description: 'Сделки, открытые в окне.' }
+        booked: { type: integer, minimum: 0, description: Сделки с переходом в BOOKED в окне. }
+        won: { type: integer, minimum: 0 }
+        lost: { type: integer, minimum: 0 }
+    AnalyticsRiskCounters:
+      type: object
+      required: [detected, acted, resolved, falsePositive]
+      properties:
+        detected: { type: integer, minimum: 0 }
+        acted: { type: integer, minimum: 0 }
+        resolved: { type: integer, minimum: 0 }
+        falsePositive: { type: integer, minimum: 0 }
+    AnalyticsRiskType:
+      allOf:
+        - $ref: '#/components/schemas/AnalyticsRiskCounters'
+        - type: object
+          required: [riskType]
+          properties:
+            riskType: { $ref: '#/components/schemas/RiskType' }
+    AnalyticsRisks:
+      allOf:
+        - $ref: '#/components/schemas/AnalyticsRiskCounters'
+        - type: object
+          required: [byType]
+          properties:
+            byType: { type: array, items: { $ref: '#/components/schemas/AnalyticsRiskType' }, description: Всегда пять типов в порядке §27. }
+    AnalyticsOutcomes:
+      type: object
+      additionalProperties: false
+      required: [booked, paid, lost]
+      properties:
+        booked: { type: integer, minimum: 0 }
+        paid: { type: integer, minimum: 0 }
+        lost: { type: integer, minimum: 0 }
+    AnalyticsRevenue:
+      type: object
+      additionalProperties: false
+      required: [currency, potential, confirmed, confirmedRecovered, confirmedPayments]
+      properties:
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        potential: { type: string, pattern: '^[0-9]+\.[0-9]{2}$', description: 'Оценка ещё открытых сделок, открытых в окне; не выручка.' }
+        confirmed: { type: string, pattern: '^[0-9]+\.[0-9]{2}$', description: Подтверждённые события выручки окна. }
+        confirmedRecovered: { type: string, pattern: '^[0-9]+\.[0-9]{2}$', description: Их часть с атрибуцией RECOVERED (§39). }
+        confirmedPayments: { type: integer, minimum: 0 }
+    AnalyticsDailyPoint:
+      type: object
+      additionalProperties: false
+      required: [date, incoming, outgoing, risksDetected, confirmed, confirmedRecovered, payments]
+      properties:
+        date: { type: string, format: date, description: Календарный день организации. }
+        incoming: { type: integer, minimum: 0 }
+        outgoing: { type: integer, minimum: 0 }
+        risksDetected: { type: integer, minimum: 0 }
+        confirmed: { type: string, pattern: '^[0-9]+\.[0-9]{2}$', description: Подтверждённые события дня в валюте организации. }
+        confirmedRecovered: { type: string, pattern: '^[0-9]+\.[0-9]{2}$' }
+        payments: { type: integer, minimum: 0 }
+    AnalyticsAttributionSplit:
+      type: object
+      additionalProperties: false
+      required: [type, amount, count]
+      properties:
+        type: { type: string, enum: [RECOVERED, ORGANIC, UNKNOWN] }
+        amount: { type: string, pattern: '^[0-9]+\.[0-9]{2}$', description: Сумма подтверждённых событий окна с этой атрибуцией в валюте организации. }
+        count: { type: integer, minimum: 0 }
+    AnalyticsSummary:
+      type: object
+      additionalProperties: false
+      required: [period, messages, opportunities, risks, outcomes, revenue, series, attribution]
+      properties:
+        period: { $ref: '#/components/schemas/AnalyticsPeriod' }
+        messages: { $ref: '#/components/schemas/AnalyticsMessages' }
+        opportunities: { $ref: '#/components/schemas/AnalyticsOpportunities' }
+        risks: { $ref: '#/components/schemas/AnalyticsRisks' }
+        outcomes: { $ref: '#/components/schemas/AnalyticsOutcomes' }
+        revenue: { $ref: '#/components/schemas/AnalyticsRevenue' }
+        series: { type: array, items: { $ref: '#/components/schemas/AnalyticsDailyPoint' }, description: По одной точке на каждую дату окна по возрастанию; дни без данных заполнены нулями. }
+        attribution: { type: array, minItems: 3, maxItems: 3, items: { $ref: '#/components/schemas/AnalyticsAttributionSplit' }, description: 'Всегда RECOVERED, ORGANIC, UNKNOWN в этом порядке.' }
+    Payment:
+      type: object
+      additionalProperties: false
+      required: [eventId, opportunityId, conversationId, contactId, contactDisplayName, serviceName, amount, currency, attribution, riskId, confirmedBy, confirmedAt]
+      properties:
+        eventId: { type: string, format: uuid }
+        opportunityId: { type: string, format: uuid }
+        conversationId: { type: string, format: uuid }
+        contactId: { type: string, format: uuid }
+        contactDisplayName: { type: [string, 'null'] }
+        serviceName: { type: [string, 'null'] }
+        amount: { type: string, pattern: '^[0-9]+\.[0-9]{2}$' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        attribution: { type: string, enum: [RECOVERED, ORGANIC, UNKNOWN] }
+        riskId: { type: [string, 'null'], format: uuid }
+        confirmedBy: { type: string, format: uuid }
+        confirmedAt: { type: string, format: date-time }
+    PaymentPage:
+      type: object
+      additionalProperties: false
+      required: [period, items, nextCursor]
+      properties:
+        period: { $ref: '#/components/schemas/AnalyticsPeriod' }
+        items: { type: array, items: { $ref: '#/components/schemas/Payment' } }
+        nextCursor: { type: [string, 'null'] }
+    PlatformAdmin:
+      type: object
+      required: [id, userId, grantedBy, grantedAt, note]
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        email: { type: string }
+        displayName: { type: string }
+        grantedBy: { type: [string, 'null'], format: uuid, description: Пусто для выдачи из CLI. }
+        grantedAt: { type: string, format: date-time }
+        revokedBy: { type: string, format: uuid }
+        revokedAt: { type: string, format: date-time }
+        note: { type: string }
+    AdminOrganization:
+      type: object
+      required: [id, name, timezone, currency, status, createdAt, members, locations, connections, openRisks, messagesLast24h]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        timezone: { type: string }
+        currency: { type: string }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+        members: { type: integer }
+        locations: { type: integer }
+        connections: { type: integer }
+        openRisks: { type: integer }
+        messagesLast24h: { type: integer }
+    AdminConnection:
+      type: object
+      required: [id, tenantId, tenantName, provider, name, status, rawEventsPending, rawEventsFailed]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        tenantName: { type: string }
+        provider: { type: string }
+        name: { type: string }
+        status: { type: string }
+        locationId: { type: [string, 'null'], format: uuid }
+        lastEventAt: { type: [string, 'null'], format: date-time }
+        lastSuccessAt: { type: [string, 'null'], format: date-time }
+        lastErrorAt: { type: [string, 'null'], format: date-time }
+        lastErrorCode: { type: [string, 'null'] }
+        rawEventsPending: { type: integer }
+        rawEventsFailed: { type: integer }
+    AdminLifecycleCounts:
+      type: object
+      required: [pending, processing, retry, dead, expiredLeases]
+      properties: { pending: { type: integer }, processing: { type: integer }, retry: { type: integer }, dead: { type: integer }, expiredLeases: { type: integer } }
+    AdminQueueStats:
+      type: object
+      required: [checkedAt, jobs, outbox, aiJobs, deliveries, scheduledOverdue, deadUnhandled]
+      properties:
+        checkedAt: { type: string, format: date-time }
+        jobs: { $ref: '#/components/schemas/AdminLifecycleCounts' }
+        outbox: { $ref: '#/components/schemas/AdminLifecycleCounts' }
+        aiJobs: { type: object, required: [pending, leased, running, retry, dead, nodesReady], properties: { pending: { type: integer }, leased: { type: integer }, running: { type: integer }, retry: { type: integer }, dead: { type: integer }, nodesReady: { type: integer } } }
+        deliveries: { type: object, required: [pending, processing, retry, dead], properties: { pending: { type: integer }, processing: { type: integer }, retry: { type: integer }, dead: { type: integer } } }
+        scheduledOverdue: { type: integer }
+        deadUnhandled: { type: integer, description: Мёртвые элементы всех очередей без признака «отложено». }
+    AdminJob:
+      type: object
+      required: [id, tenantId, type, dedupKey, status, priority, availableAt, attemptCount, maxAttempts, createdAt, updatedAt, payload]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        type: { type: string }
+        dedupKey: { type: string }
+        status: { type: string, enum: [PENDING, PROCESSING, RETRY, SUCCEEDED, DEAD] }
+        priority: { type: integer }
+        availableAt: { type: string, format: date-time }
+        attemptCount: { type: integer }
+        maxAttempts: { type: integer }
+        leasedBy: { type: [string, 'null'] }
+        leaseUntil: { type: [string, 'null'], format: date-time }
+        lastErrorCode: { type: [string, 'null'] }
+        completedAt: { type: [string, 'null'], format: date-time }
+        discardedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        payload: { type: object, description: Идентификаторы без пользовательского содержимого. }
+    AdminOutboxEvent:
+      type: object
+      required: [id, tenantId, eventType, aggregateType, aggregateId, status, attemptCount, maxAttempts, occurredAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        eventType: { type: string }
+        aggregateType: { type: string }
+        aggregateId: { type: string, format: uuid }
+        status: { type: string, enum: [PENDING, PROCESSING, RETRY, PUBLISHED, DEAD] }
+        attemptCount: { type: integer }
+        maxAttempts: { type: integer }
+        lastErrorCode: { type: [string, 'null'] }
+        occurredAt: { type: string, format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
+        discardedAt: { type: [string, 'null'], format: date-time }
+    AdminAIJob:
+      type: object
+      required: [id, tenantId, conversationId, analysisThroughMessageId, status, modelRequirement, attempts, maxAttempts, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        conversationId: { type: string, format: uuid }
+        analysisThroughMessageId: { type: string, format: uuid }
+        status: { type: string, enum: [PENDING, LEASED, RUNNING, SUCCEEDED, RETRY, DEAD] }
+        modelRequirement: { type: string }
+        attempts: { type: integer }
+        maxAttempts: { type: integer }
+        lastErrorCode: { type: [string, 'null'] }
+        leasedBy: { type: [string, 'null'], format: uuid }
+        leasedAt: { type: [string, 'null'], format: date-time }
+        leaseUntil: { type: [string, 'null'], format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
+        discardedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+    AdminDelivery:
+      type: object
+      required: [id, tenantId, notificationId, kind, channel, status, attempt, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        notificationId: { type: string, format: uuid }
+        kind: { type: string }
+        channel: { type: string, enum: [IN_APP, TELEGRAM] }
+        status: { type: string }
+        attempt: { type: integer }
+        failureCode: { type: [string, 'null'] }
+        attemptedAt: { type: [string, 'null'], format: date-time }
+        discardedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+    AdminDeadLetters:
+      type: object
+      required: [jobs, outbox, aiJobs, deliveries]
+      properties:
+        jobs: { type: array, items: { $ref: '#/components/schemas/AdminJob' } }
+        outbox: { type: array, items: { $ref: '#/components/schemas/AdminOutboxEvent' } }
+        aiJobs: { type: array, items: { $ref: '#/components/schemas/AdminAIJob' } }
+        deliveries: { type: array, items: { $ref: '#/components/schemas/AdminDelivery' } }
+    AdminAINode:
+      type: object
+      required: [id, name, status, availableSlots, inflight, tenants, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        status: { type: string, enum: [OFFLINE, READY, REVOKED] }
+        modelVersion: { type: [string, 'null'] }
+        availableSlots: { type: integer }
+        inflight: { type: integer }
+        lastHeartbeatAt: { type: [string, 'null'], format: date-time }
+        revokedAt: { type: [string, 'null'], format: date-time }
+        tenants: { type: array, items: { type: string, format: uuid } }
+        createdAt: { type: string, format: date-time }
+    AdminAIRun:
+      type: object
+      required: [id, tenantId, jobId, nodeId, conversationId, status, applicationStatus, modelVersion, promptVersion, schemaVersion, startedAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        jobId: { type: string, format: uuid }
+        nodeId: { type: string, format: uuid }
+        conversationId: { type: string, format: uuid }
+        status: { type: string, enum: [RUNNING, SUCCEEDED, FAILED] }
+        applicationStatus: { type: string, enum: [PENDING, APPLIED, STALE, REJECTED] }
+        modelVersion: { type: string }
+        promptVersion: { type: string }
+        schemaVersion: { type: string }
+        errorCode: { type: [string, 'null'] }
+        validationError: { type: [string, 'null'] }
+        startedAt: { type: string, format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
+        durationMs: { type: [integer, 'null'] }
+    AdminSemanticFact:
+      type: object
+      required: [type, value, confidence, trusted, evidenceMessageIds]
+      properties:
+        type: { type: string }
+        value: {}
+        confidence: { type: number }
+        trusted: { type: boolean }
+        evidenceMessageIds: { type: array, items: { type: string, format: uuid } }
+    AdminConversationSummary:
+      type: object
+      required: [tenantId, conversationId, revision, analysisThroughMessageId, modelVersion, promptVersion, schemaVersion, aiRunId, updatedAt, facts, trustedFacts, weakFacts]
+      properties:
+        tenantId: { type: string, format: uuid }
+        conversationId: { type: string, format: uuid }
+        revision: { type: integer }
+        analysisThroughMessageId: { type: string, format: uuid }
+        modelVersion: { type: string }
+        promptVersion: { type: string }
+        schemaVersion: { type: string }
+        aiRunId: { type: string, format: uuid }
+        updatedAt: { type: string, format: date-time }
+        facts: { type: array, items: { $ref: '#/components/schemas/AdminSemanticFact' } }
+        trustedFacts: { type: integer }
+        weakFacts: { type: integer }
+    AdminTenantUsage:
+      type: object
+      required: [tenantId, name, messages, rawEvents, jobs, aiJobs, aiRuns, aiRunsApplied, aiRunsRejected, aiRunsStale, aiRunSeconds, risks, notifications, deliveries]
+      properties:
+        tenantId: { type: string, format: uuid }
+        name: { type: string }
+        messages: { type: integer }
+        rawEvents: { type: integer }
+        jobs: { type: integer }
+        aiJobs: { type: integer }
+        aiRuns: { type: integer }
+        aiRunsApplied: { type: integer }
+        aiRunsRejected: { type: integer }
+        aiRunsStale: { type: integer }
+        aiRunSeconds: { type: number }
+        risks: { type: integer }
+        notifications: { type: integer }
+        deliveries: { type: integer }
+    AdminUsageReport:
+      type: object
+      required: [from, to, tenants]
+      properties:
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        tenants: { type: array, items: { $ref: '#/components/schemas/AdminTenantUsage' } }
+    AdminTrace:
+      type: object
+      required: [message, jobs, aiJobs, aiRuns, semanticResult, risks, notifications, actions, outcomes, revenue]
+      properties:
+        message:
+          type: object
+          required: [id, tenantId, conversationId, connectionId, direction, type, externalId, sentAt, receivedAt]
+          properties:
+            id: { type: string, format: uuid }
+            tenantId: { type: string, format: uuid }
+            conversationId: { type: string, format: uuid }
+            connectionId: { type: string, format: uuid }
+            direction: { type: string }
+            type: { type: string }
+            externalId: { type: string }
+            sentAt: { type: string, format: date-time }
+            receivedAt: { type: string, format: date-time }
+        jobs: { type: array, items: { $ref: '#/components/schemas/AdminJob' } }
+        aiJobs: { type: array, items: { $ref: '#/components/schemas/AdminAIJob' } }
+        aiRuns: { type: array, items: { $ref: '#/components/schemas/AdminAIRun' } }
+        semanticResult: { oneOf: [{ $ref: '#/components/schemas/AdminConversationSummary' }, { type: 'null' }] }
+        risks: { type: array, items: { type: object, required: [id, opportunityId, type, severity, status, source, policyVersion, detectedAt], properties: { id: { type: string, format: uuid }, opportunityId: { type: string, format: uuid }, type: { $ref: '#/components/schemas/RiskType' }, severity: { $ref: '#/components/schemas/RiskSeverity' }, status: { $ref: '#/components/schemas/RiskStatus' }, source: { type: string }, policyVersion: { type: string }, aiRunId: { type: [string, 'null'], format: uuid }, detectedAt: { type: string, format: date-time }, resolvedAt: { type: [string, 'null'], format: date-time } } } }
+        notifications: { type: array, items: { type: object, required: [id, userId, kind, dedupKey, createdAt, deliveries], properties: { id: { type: string, format: uuid }, userId: { type: string, format: uuid }, kind: { type: string }, riskId: { type: [string, 'null'], format: uuid }, dedupKey: { type: string }, createdAt: { type: string, format: date-time }, deliveries: { type: array, items: { $ref: '#/components/schemas/AdminDelivery' } } } } }
+        actions: { type: array, items: { type: object, required: [id, riskId, type, actorId, createdAt], properties: { id: { type: string, format: uuid }, riskId: { type: string, format: uuid }, type: { type: string }, actorId: { type: string, format: uuid }, createdAt: { type: string, format: date-time } } } }
+        outcomes: { type: array, items: { type: object, required: [id, opportunityId, status, actorId, createdAt], properties: { id: { type: string, format: uuid }, opportunityId: { type: string, format: uuid }, status: { type: string }, actorId: { type: string, format: uuid }, createdAt: { type: string, format: date-time } } } }
+        revenue: { type: array, items: { type: object, required: [eventId, opportunityId, amount, currency, status, confirmedAt], properties: { eventId: { type: string, format: uuid }, opportunityId: { type: string, format: uuid }, amount: { type: string }, currency: { type: string }, status: { type: string }, attribution: { type: [string, 'null'] }, riskId: { type: [string, 'null'], format: uuid }, confirmedAt: { type: string, format: date-time } } } }
+    RadarSummary:
+      type: object
+      required: [openRisks, criticalRisks, potentialRevenue, confirmedRecoveredRevenue]
+      properties:
+        openRisks: { type: integer, minimum: 0 }
+        criticalRisks: { type: integer, minimum: 0 }
+        potentialRevenue: { type: string, pattern: '^[0-9]+\.[0-9]{2}$' }
+        confirmedRecoveredRevenue: { type: string, pattern: '^[0-9]+\.[0-9]{2}$' }

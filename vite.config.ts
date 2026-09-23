@@ -4,6 +4,8 @@ import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig(({ mode }) => {
+  // Третий аргумент '' даёт доступ ко всем переменным, включая DEV_API_TARGET
+  // без префикса VITE_: она нужна только dev-серверу и в бандл не попадает.
   const env = loadEnv(mode, process.cwd(), '')
   return {
     plugins: [vue(), tailwindcss()],
@@ -12,9 +14,10 @@ export default defineConfig(({ mode }) => {
       host: '127.0.0.1',
       port: 5173,
       strictPort: true,
-      // Только локальная разработка; prod-проксирование настраивается на ingress.
+      // Только локальная разработка: /api уходит на учебный стенд бэкенда
+      // (docs/runbooks/frontend-development.md). В production проксирует ingress.
       proxy: {
-        '/api': { target: env.DEV_API_TARGET || 'http://127.0.0.1:8080', changeOrigin: true },
+        '/api': { target: env.DEV_API_TARGET || 'http://127.0.0.1:8081', changeOrigin: true },
       },
     },
     build: {

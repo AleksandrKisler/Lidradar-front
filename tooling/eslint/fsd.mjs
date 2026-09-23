@@ -1,7 +1,15 @@
+import fs from 'node:fs'
 import path from 'node:path'
 
 const layers = ['app', 'pages', 'widgets', 'features', 'entities', 'shared']
+const technicalLayers = ['app', 'shared']
+
+/** Слайс узнаётся по публичному API: папка с `index.ts`. */
+const isSlice = (dir) => fs.existsSync(path.join(dir, 'index.ts'))
+
 // Дополняет Steiger: одинаково проверяет imports, re-exports и dynamic import.
+// Поддерживает группы слайсов (`features/team/invite-member`): папка группы
+// без `index.ts`, внутри — слайсы со своими публичными API.
 export const fsdRule = {
   meta: {
     type: 'problem',
@@ -16,9 +24,14 @@ export const fsdRule = {
     const locate = (file) => {
       const relative = path.relative(root, file)
       if (relative.startsWith('..') || path.isAbsolute(relative)) return null
-      const [layer, slice] = relative.split(path.sep)
-      if (!layers.includes(layer) || !slice) return null
-      return { layer, slice }
+      const [layer, first, second] = relative.split(path.sep)
+      if (!layers.includes(layer) || !first) return null
+      if (technicalLayers.includes(layer)) return { layer, slice: first }
+      const firstDir = path.join(root, layer, first)
+      if (second && !isSlice(firstDir) && isSlice(path.join(firstDir, second))) {
+        return { layer, slice: path.join(first, second) }
+      }
+      return { layer, slice: first }
     }
     const file = context.filename
     const from = locate(file)
@@ -35,7 +48,7 @@ export const fsdRule = {
       const to = locate(target)
       if (!to) return
       const sameSlice = from.layer === to.layer && from.slice === to.slice
-      const sameTechnicalLayer = from.layer === to.layer && ['app', 'shared'].includes(from.layer)
+      const sameTechnicalLayer = from.layer === to.layer && technicalLayers.includes(from.layer)
       if (
         layers.indexOf(to.layer) < layers.indexOf(from.layer) ||
         (from.layer === to.layer && !sameSlice && !sameTechnicalLayer)

@@ -1,0 +1,4 @@
+export { default as SettingsCompanyPage } from './ui/SettingsCompanyPage.vue'
+export { default as SettingsServicesPage } from './ui/SettingsServicesPage.vue'
+export { default as SettingsNotificationsPage } from './ui/SettingsNotificationsPage.vue'
+export { default as SettingsTeamPage } from './ui/SettingsTeamPage.vue'

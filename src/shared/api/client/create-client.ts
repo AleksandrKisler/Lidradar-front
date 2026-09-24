@@ -13,6 +13,7 @@ import type { paths } from '../generated/schema'
 import { ApiError, CLIENT_ERROR_CODES } from './api-error'
 import { getApiContext, type ApiContext } from './context'
 import { isMachinePath, isSessionLossPath, isTenantScopedPath } from './scope'
+import { recordApiFailure } from '@/shared/observability'
 
 /** Тип клиента, ограниченный путями браузера из контракта. */
 export type ApiClient = Client<paths>
@@ -44,12 +45,34 @@ function pathnameOf(request: Request): string {
 function browserMiddleware(context: () => ApiContext): Middleware {
   return {
     async onResponse({ request, response }) {
-      if (response.status !== 401 || !isSessionLossPath(pathnameOf(request))) return undefined
+      if (response.ok) return undefined
       const body: unknown = await response
         .clone()
         .json()
         .catch(() => undefined)
-      context().onSessionLost?.(ApiError.fromResponse(response, body))
+      const failure = ApiError.fromResponse(response, body)
+      // Телеметрия получает только шаблон пути, статус, безопасный код и trace.
+      recordApiFailure({
+        method: request.method,
+        url: request.url,
+        status: response.status,
+        code: failure.code,
+        traceId: failure.traceId,
+      })
+      if (response.status === 401 && isSessionLossPath(pathnameOf(request))) {
+        context().onSessionLost?.(failure)
+      }
+      return undefined
+    },
+    onError({ request, error }) {
+      // Сетевой сбой или таймаут: ответа нет, статус 0; тело запроса не читается.
+      const timeout = error instanceof Error && error.name === 'TimeoutError'
+      recordApiFailure({
+        method: request.method,
+        url: request.url,
+        status: 0,
+        code: timeout ? 'TIMEOUT' : 'NETWORK',
+      })
       return undefined
     },
     onRequest({ request }) {

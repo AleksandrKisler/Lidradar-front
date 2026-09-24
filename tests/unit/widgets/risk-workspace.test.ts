@@ -35,6 +35,27 @@ function stubApi(detail: () => unknown | Error) {
   const fetchMock = vi.fn((request: Request) => {
     const path = new URL(request.url).pathname
     if (path === '/api/v1/organization') return Promise.resolve(jsonResponse(organization))
+    // Сделка читается отдельным запросом: история этапов есть только в нём.
+    if (path.startsWith('/api/v1/opportunities/')) {
+      return Promise.resolve(
+        jsonResponse({
+          opportunity: { id: 'opp-1', stage: 'NEW', currency: 'RUB' },
+          stageHistory: [
+            {
+              id: 'h-1',
+              opportunityId: 'opp-1',
+              fromStage: null,
+              toStage: 'NEW',
+              source: 'RULE',
+              confidence: null,
+              aiRunId: null,
+              actorUserId: null,
+              createdAt: '2026-09-18T09:00:00Z',
+            },
+          ],
+        }),
+      )
+    }
     const current = detail()
     if (current instanceof Error) return Promise.reject(current)
     return Promise.resolve(jsonResponse(current))

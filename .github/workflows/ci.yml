@@ -41,6 +41,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build:${{ matrix.mode }}
+      - name: Release audit (production bundle)
+        if: matrix.mode == 'prod'
+        run: node scripts/release-audit.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: dist-${{ matrix.mode }}-${{ github.sha }}

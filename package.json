@@ -29,7 +29,10 @@
     "test:architecture": "node tooling/eslint/fsd.test.mjs",
     "api:sync": "node scripts/sync-openapi.mjs",
     "api:generate": "openapi-typescript contracts/openapi.yaml -o src/shared/api/generated/schema.d.ts",
-    "api:check": "node scripts/check-openapi-types.mjs"
+    "api:check": "node scripts/check-openapi-types.mjs",
+    "audit:bundle": "node scripts/check-bundle.mjs dist",
+    "audit:release": "npm run build:prod && node scripts/release-audit.mjs",
+    "test:stand": "playwright test --project=stand"
   },
   "dependencies": {
     "@tanstack/vue-query": "5.103.2",

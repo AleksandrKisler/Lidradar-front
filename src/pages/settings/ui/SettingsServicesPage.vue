@@ -97,7 +97,7 @@ function openEdit(service: ServiceCatalogItem): void {
         выручку.
       </p>
       <p v-else-if="!visible.length" class="mt-5 text-sm text-muted">В этом фильтре услуг нет.</p>
-      <div v-else class="mt-5 overflow-x-auto">
+      <div v-else class="mt-5 relative overflow-x-auto">
         <table class="w-full min-w-[640px] text-left text-sm">
           <caption class="sr-only">
             Услуги организации

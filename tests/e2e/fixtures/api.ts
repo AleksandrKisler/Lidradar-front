@@ -141,9 +141,23 @@ export function confirmTelegramLink(page: Page): void {
 export const INVITATION_CODE = 'e2e-invitation-code-'.padEnd(43, 'x')
 export const USED_INVITATION_CODE = 'e2e-used-invitation-'.padEnd(43, 'y')
 
+const opportunityStates = new WeakMap<
+  Page,
+  { moveStage: (stage: string, source: string) => void }
+>()
+
+/** Сервер перевёл сделку без участия интерфейса — так проверяется конфликт `409`. */
+export function setOpportunityStage(page: Page, stage: string): void {
+  const controls = opportunityStates.get(page)
+  if (!controls) throw new Error('моки владельца не установлены')
+  controls.moveStage(stage, 'AI')
+}
+
 interface TeamControls {
   /** Код ошибки для следующей команды над участником — имитация гонки. */
   failNextMemberCommand: string | null
+  /** Следующая admin-команда восстановления ответит `409`: объект уже изменился. */
+  failNextAdminCommand: boolean
 }
 
 const teamControls = new WeakMap<Page, TeamControls>()
@@ -153,6 +167,24 @@ export function failNextMemberCommand(page: Page, code: 'LAST_OWNER' | 'MEMBER_D
   const controls = teamControls.get(page)
   if (!controls) throw new Error('моки владельца не установлены')
   controls.failNextMemberCommand = code
+}
+
+/** Следующая команда восстановления администратора ответит `409 CONFLICT`. */
+export function failNextAdminCommand(page: Page): void {
+  const controls = teamControls.get(page)
+  if (!controls) throw new Error('моки владельца не установлены')
+  controls.failNextAdminCommand = true
+}
+
+/** Идентификаторы мёртвых объектов admin-моков. */
+export const ADMIN_IDS = {
+  deadJob: '01990000-0000-7000-8000-00000000a001',
+  liveJob: '01990000-0000-7000-8000-00000000a002',
+  deadEvent: '01990000-0000-7000-8000-00000000b001',
+  deadAIJob: '01990000-0000-7000-8000-00000000c001',
+  deadDelivery: '01990000-0000-7000-8000-00000000d001',
+  message: '01990000-0000-7000-8000-000000000801',
+  otherAdmin: '01990000-0000-7000-8000-000000000102',
 }
 
 /**
@@ -173,6 +205,8 @@ export interface OwnerMockOptions {
    * после `POST /invitations/accept` организация появляется в членствах.
    */
   joinByInvitation?: boolean
+  /** Пользователь — администратор платформы: `/admin/me` отвечает `true`, admin API замокан. */
+  platformAdmin?: boolean
 }
 
 export async function mockOwner(page: Page, options: OwnerMockOptions = {}): Promise<void> {
@@ -186,8 +220,36 @@ export async function mockOwner(page: Page, options: OwnerMockOptions = {}): Pro
     recommendation: null as { id: string; text: string } | null,
     revenue: null as { currency: string; potential: string; confirmedRecovered: string } | null,
     recoveredAttributed: false,
-    lost: false,
+    stage: riskDetail.opportunity.stage as string,
+    stageHistory: [
+      {
+        id: '01990000-0000-7000-8000-000000001101',
+        opportunityId: OPPORTUNITY_ID,
+        fromStage: null as string | null,
+        toStage: riskDetail.opportunity.stage as string,
+        source: 'RULE',
+        confidence: null as number | null,
+        aiRunId: null as string | null,
+        actorUserId: null as string | null,
+        createdAt: '2026-09-18T09:00:00Z',
+      },
+    ],
   }
+  const moveStage = (stage: string, source: string) => {
+    state.stageHistory.push({
+      id: nextId(),
+      opportunityId: OPPORTUNITY_ID,
+      fromStage: state.stage,
+      toStage: stage,
+      source,
+      confidence: null,
+      aiRunId: null,
+      actorUserId: source === 'USER' ? user.id : null,
+      createdAt: new Date().toISOString(),
+    })
+    state.stage = stage
+  }
+  opportunityStates.set(page, { moveStage })
   let sequence = 0
   const nextId = () => `01990000-0000-7000-8000-0000000009${String(++sequence).padStart(2, '0')}`
 
@@ -203,7 +265,7 @@ export async function mockOwner(page: Page, options: OwnerMockOptions = {}): Pro
     risk: currentRisk(),
     opportunity: {
       ...riskDetail.opportunity,
-      stage: state.lost ? 'LOST' : riskDetail.opportunity.stage,
+      stage: state.stage,
     },
     actions: state.actions,
     outcome: state.outcome,
@@ -274,6 +336,47 @@ export async function mockOwner(page: Page, options: OwnerMockOptions = {}): Pro
       actorId: user.id,
       ...(body.note ? { note: body.note } : {}),
     })
+  })
+  const ACTIVE = [
+    'NEW',
+    'ENGAGED',
+    'QUALIFYING',
+    'PRICE_SENT',
+    'WAITING_CUSTOMER',
+    'WAITING_BUSINESS',
+    'BOOKING_INTENT',
+    'BOOKED',
+  ]
+  const allowedStages = (from: string): string[] => {
+    if (from === 'BOOKED') return ['WON', 'LOST']
+    if (from === 'WON' || from === 'LOST') return ['ARCHIVED']
+    const index = ACTIVE.indexOf(from)
+    return index === -1 ? [] : [...ACTIVE.slice(index + 1), 'LOST']
+  }
+  const opportunityBody = () => ({
+    id: OPPORTUNITY_ID,
+    conversationId: CONVERSATION_ID,
+    serviceId: riskDetail.opportunity.serviceId,
+    stage: state.stage,
+    estimatedAmount: riskDetail.opportunity.potentialRevenue,
+    estimatedAmountConfidence: 0.8,
+    currency: riskDetail.opportunity.currency,
+    openedAt: '2026-09-18T09:00:00Z',
+    closedAt: ['WON', 'LOST', 'ARCHIVED'].includes(state.stage) ? new Date().toISOString() : null,
+    createdAt: '2026-09-18T09:00:00Z',
+    updatedAt: new Date().toISOString(),
+  })
+  await page.route(`**/api/v1/opportunities/${OPPORTUNITY_ID}`, (route) => {
+    if (route.request().method() === 'PATCH') {
+      const { stage } = route.request().postDataJSON() as { stage: string }
+      if (stage === state.stage) return json(route, 200, opportunityBody())
+      if (!allowedStages(state.stage).includes(stage)) {
+        return json(route, 409, errorBody('INVALID_STAGE_TRANSITION'))
+      }
+      moveStage(stage, 'USER')
+      return json(route, 200, opportunityBody())
+    }
+    return json(route, 200, { opportunity: opportunityBody(), stageHistory: state.stageHistory })
   })
   await page.route(`**/api/v1/opportunities/${OPPORTUNITY_ID}/outcomes`, (route) => {
     const key = route.request().headers()['idempotency-key']
@@ -359,7 +462,7 @@ export async function mockOwner(page: Page, options: OwnerMockOptions = {}): Pro
       state.status = 'FALSE_POSITIVE'
       state.resolvedAt = now
     }
-    if (body.reason === 'NOT_A_LEAD') state.lost = true
+    if (body.reason === 'NOT_A_LEAD' && state.stage !== 'LOST') moveStage('LOST', 'RULE')
     return json(route, 201, {
       id: nextId(),
       riskId: RISK_ID,
@@ -375,7 +478,7 @@ export async function mockOwner(page: Page, options: OwnerMockOptions = {}): Pro
         source: riskDetail.risk.source,
         policyVersion: riskDetail.risk.policyVersion,
         triggerMessageId: riskDetail.risk.triggerMessageId,
-        opportunityStage: state.lost ? 'LOST' : riskDetail.opportunity.stage,
+        opportunityStage: state.stage,
         detectedAt: riskDetail.risk.detectedAt,
       },
       datasetEligible: false,
@@ -925,7 +1028,7 @@ export async function mockOwner(page: Page, options: OwnerMockOptions = {}): Pro
     return json(route, 200, { items: [...preferences.values()] })
   })
 
-  const controls: TeamControls = { failNextMemberCommand: null }
+  const controls: TeamControls = { failNextMemberCommand: null, failNextAdminCommand: false }
   teamControls.set(page, controls)
   const team = {
     members: [
@@ -954,8 +1057,10 @@ export async function mockOwner(page: Page, options: OwnerMockOptions = {}): Pro
       {
         membershipId: '01990000-0000-7000-8000-000000001003',
         userId: '01990000-0000-7000-8000-000000000103',
-        email: 'former@example.test',
-        displayName: 'Пётр Бывший',
+        // Длинные значения проверяют устойчивость раскладки на узких экранах.
+        email:
+          'very.long.address.for.narrow.layout.checks@example-organization-with-long-name.test',
+        displayName: 'Пётр Бывший-Длиннофамильный',
         role: 'MANAGER',
         status: 'DISABLED',
         revokedAt: '2026-09-10T12:00:00Z' as string | null,
@@ -1066,4 +1171,775 @@ export async function mockOwner(page: Page, options: OwnerMockOptions = {}): Pro
       membership: { ...membership, role: options.role ?? 'OWNER' },
     })
   })
+
+  // Аналитика: ряд строится по каждой дате запрошенного окна, нули на месте.
+  const calendarDays = (from: string, to: string): string[] => {
+    const days: string[] = []
+    const start = Date.UTC(
+      Number(from.slice(0, 4)),
+      Number(from.slice(5, 7)) - 1,
+      Number(from.slice(8, 10)),
+    )
+    const end = Date.UTC(
+      Number(to.slice(0, 4)),
+      Number(to.slice(5, 7)) - 1,
+      Number(to.slice(8, 10)),
+    )
+    for (let time = start; time <= end; time += 86_400_000) {
+      days.push(new Date(time).toISOString().slice(0, 10))
+    }
+    return days
+  }
+  const analyticsPeriod = (from: string, to: string) => {
+    const nextDay = new Date(
+      Date.UTC(Number(to.slice(0, 4)), Number(to.slice(5, 7)) - 1, Number(to.slice(8, 10)) + 1),
+    )
+      .toISOString()
+      .slice(0, 10)
+    return {
+      fromDate: from,
+      toDate: to,
+      timezone: 'Europe/Moscow',
+      from: `${from}T00:00:00+03:00`,
+      to: `${nextDay}T00:00:00+03:00`,
+    }
+  }
+  const analyticsWindow = (route: Route): { from: string; to: string } | null => {
+    const url = new URL(route.request().url())
+    const from = url.searchParams.get('from')
+    const to = url.searchParams.get('to')
+    if (!from || !to || from > to) return null
+    if (calendarDays(from, to).length > 366) return null
+    return { from, to }
+  }
+  await page.route('**/api/v1/analytics/summary**', (route) => {
+    const window = analyticsWindow(route)
+    if (!window) return json(route, 400, errorBody('VALIDATION_FAILED'))
+    const days = calendarDays(window.from, window.to)
+    const last = days.length - 1
+    const series = days.map((date, index) => {
+      const recovered = index === last - 1 ? '31000.00' : index === last - 4 ? '12000.00' : '0.00'
+      const organic = index === last ? '16000.00' : '0.00'
+      const confirmed = (Number(recovered) + Number(organic)).toFixed(2)
+      return {
+        date,
+        incoming: (index % 3) + 1,
+        outgoing: index % 2,
+        risksDetected: index % 4 === 0 ? 1 : 0,
+        confirmed,
+        confirmedRecovered: recovered,
+        payments: (recovered !== '0.00' ? 1 : 0) + (organic !== '0.00' ? 1 : 0),
+      }
+    })
+    return json(route, 200, {
+      period: analyticsPeriod(window.from, window.to),
+      messages: { total: 40, incoming: 25, outgoing: 15, conversations: 6 },
+      opportunities: { created: 8, booked: 3, won: 2, lost: 1 },
+      risks: {
+        detected: 24,
+        acted: 18,
+        resolved: 11,
+        falsePositive: 2,
+        byType: [
+          { riskType: 'NO_RESPONSE', detected: 10, acted: 8, resolved: 5, falsePositive: 1 },
+          {
+            riskType: 'BOOKING_NOT_CONFIRMED',
+            detected: 6,
+            acted: 4,
+            resolved: 3,
+            falsePositive: 0,
+          },
+          {
+            riskType: 'PROMISE_NOT_FULFILLED',
+            detected: 4,
+            acted: 3,
+            resolved: 2,
+            falsePositive: 1,
+          },
+          {
+            riskType: 'CUSTOMER_SILENT_AFTER_PRICE',
+            detected: 3,
+            acted: 2,
+            resolved: 1,
+            falsePositive: 0,
+          },
+          { riskType: 'FOLLOW_UP_CANDIDATE', detected: 1, acted: 1, resolved: 0, falsePositive: 0 },
+        ],
+      },
+      outcomes: { booked: 3, paid: 2, lost: 1 },
+      revenue: {
+        currency: 'RUB',
+        potential: '47000.00',
+        confirmed: '59000.00',
+        confirmedRecovered: '43000.00',
+        confirmedPayments: 3,
+      },
+      series,
+      attribution: [
+        { type: 'RECOVERED', amount: '43000.00', count: 2 },
+        { type: 'ORGANIC', amount: '16000.00', count: 1 },
+        { type: 'UNKNOWN', amount: '0.00', count: 0 },
+      ],
+    })
+  })
+  const paymentRows = [
+    {
+      eventId: '01990000-0000-7000-8000-000000002001',
+      opportunityId: OPPORTUNITY_ID,
+      conversationId: CONVERSATION_ID,
+      contactId: '01990000-0000-7000-8000-000000000701',
+      contactDisplayName: 'Дмитрий Соколов',
+      serviceName: 'Полировка кузова',
+      amount: '31000.00',
+      currency: 'RUB',
+      attribution: 'RECOVERED',
+      riskId: RISK_ID,
+      confirmedBy: user.id,
+      confirmedAt: '2026-09-23T12:00:00Z',
+    },
+    {
+      eventId: '01990000-0000-7000-8000-000000002002',
+      opportunityId: '01990000-0000-7000-8000-000000000402',
+      conversationId: '01990000-0000-7000-8000-000000000602',
+      contactId: '01990000-0000-7000-8000-000000000702',
+      contactDisplayName: 'Ольга Кузнецова',
+      serviceName: 'Химчистка салона',
+      amount: '16000.00',
+      currency: 'RUB',
+      attribution: 'ORGANIC',
+      riskId: null,
+      confirmedBy: user.id,
+      confirmedAt: '2026-09-22T09:30:00Z',
+    },
+  ]
+  await page.route('**/api/v1/analytics/payments**', (route) => {
+    const window = analyticsWindow(route)
+    if (!window) return json(route, 400, errorBody('VALIDATION_FAILED'))
+    const cursor = new URL(route.request().url()).searchParams.get('cursor')
+    const period = analyticsPeriod(window.from, window.to)
+    if (cursor === 'page-2')
+      return json(route, 200, { period, items: [paymentRows[1]], nextCursor: null })
+    return json(route, 200, { period, items: [paymentRows[0]], nextCursor: 'page-2' })
+  })
+  await page.route('**/api/v1/risks/precision**', (route) => {
+    const url = new URL(route.request().url())
+    const from = url.searchParams.get('from') ?? '2026-08-25T21:00:00Z'
+    const to = url.searchParams.get('to') ?? '2026-09-24T21:00:00Z'
+    const item = (
+      riskType: string,
+      totalRisks: number,
+      withFeedback: number,
+      tp: number,
+      fp: number,
+    ) => ({
+      riskType,
+      totalRisks,
+      withFeedback,
+      truePositives: tp,
+      falsePositives: fp,
+      precision: withFeedback > 0 ? tp / withFeedback : null,
+      falsePositiveRate: withFeedback > 0 ? fp / withFeedback : null,
+      coverageRate: totalRisks > 0 ? withFeedback / totalRisks : 0,
+      reliable: totalRisks > 0 && withFeedback / totalRisks >= 0.3,
+    })
+    return json(route, 200, {
+      from,
+      to,
+      minimumCoverage: 0.3,
+      items: [
+        item('NO_RESPONSE', 10, 5, 4, 1),
+        item('BOOKING_NOT_CONFIRMED', 6, 0, 0, 0),
+        item('PROMISE_NOT_FULFILLED', 4, 1, 1, 0),
+        item('CUSTOMER_SILENT_AFTER_PRICE', 3, 2, 1, 1),
+        item('FOLLOW_UP_CANDIDATE', 0, 0, 0, 0),
+      ],
+    })
+  })
+
+  // ML-согласие: читает любой участник, меняет владелец; команды идемпотентны.
+  const consent = {
+    active: false,
+    record: null as null | {
+      id: string
+      scope: 'DATASETS'
+      grantedBy: string
+      grantedAt: string
+      revokedBy?: string
+      revokedAt?: string
+    },
+  }
+  const consentStatus = () => ({
+    scope: 'DATASETS',
+    active: consent.active,
+    consent: consent.record,
+  })
+  await page.route('**/api/v1/organization/ml-consent', (route) => {
+    const method = route.request().method()
+    if (method === 'GET') return json(route, 200, consentStatus())
+    if ((options.role ?? 'OWNER') !== 'OWNER') return json(route, 403, errorBody('FORBIDDEN'))
+    if (method === 'POST') {
+      if (consent.active) return json(route, 200, consentStatus())
+      consent.active = true
+      consent.record = {
+        id: nextId(),
+        scope: 'DATASETS',
+        grantedBy: user.id,
+        grantedAt: new Date().toISOString(),
+      }
+      return json(route, 201, consentStatus())
+    }
+    if (method === 'DELETE') {
+      if (consent.active && consent.record) {
+        consent.active = false
+        consent.record = {
+          ...consent.record,
+          revokedBy: user.id,
+          revokedAt: new Date().toISOString(),
+        }
+      }
+      return route.fulfill({ status: 204 })
+    }
+    return json(route, 405, errorBody('METHOD_NOT_ALLOWED'))
+  })
+
+  // Администрирование платформы. Playwright проверяет маршруты в обратном
+  // порядке регистрации, поэтому общий обработчик `/admin/**` регистрируется
+  // первым, а точный `/admin/me` — последним и побеждает.
+  const isAdmin = options.platformAdmin === true
+  const registerAdminMe = () =>
+    page.route('**/api/v1/admin/me', (route) =>
+      json(route, 200, { userId: user.id, platformAdmin: isAdmin }),
+    )
+  if (!isAdmin) {
+    await page.route('**/api/v1/admin/**', (route) => json(route, 403, errorBody('FORBIDDEN')))
+    await registerAdminMe()
+    return
+  }
+  const admin = {
+    admins: [
+      {
+        id: '01990000-0000-7000-8000-00000000e001',
+        userId: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        grantedBy: null as string | null,
+        grantedAt: '2026-09-01T09:00:00Z',
+        note: 'первый администратор из CLI',
+      } as Record<string, unknown>,
+      {
+        id: '01990000-0000-7000-8000-00000000e002',
+        userId: ADMIN_IDS.otherAdmin,
+        email: 'ops@example.test',
+        displayName: 'Дежурный инженер',
+        grantedBy: user.id,
+        grantedAt: '2026-09-10T09:00:00Z',
+        note: 'дежурство',
+      } as Record<string, unknown>,
+    ],
+    jobs: [
+      {
+        id: ADMIN_IDS.deadJob,
+        tenantId: TENANT_ID,
+        type: 'risk.detect',
+        dedupKey: 'risk.detect:1',
+        status: 'DEAD',
+        priority: 5,
+        availableAt: '2026-09-23T10:00:00Z',
+        attemptCount: 5,
+        maxAttempts: 5,
+        leasedBy: null,
+        leaseUntil: null,
+        lastErrorCode: 'DB_TIMEOUT',
+        completedAt: null,
+        discardedAt: null as string | null,
+        createdAt: '2026-09-23T09:00:00Z',
+        updatedAt: '2026-09-23T10:00:00Z',
+        payload: { riskId: RISK_ID },
+      },
+      {
+        id: ADMIN_IDS.liveJob,
+        tenantId: TENANT_ID,
+        type: 'notification.dispatch',
+        dedupKey: 'notification.dispatch:2',
+        status: 'PENDING',
+        priority: 3,
+        availableAt: '2026-09-24T10:00:00Z',
+        attemptCount: 0,
+        maxAttempts: 5,
+        leasedBy: null,
+        leaseUntil: null,
+        lastErrorCode: null,
+        completedAt: null,
+        discardedAt: null as string | null,
+        createdAt: '2026-09-24T09:00:00Z',
+        updatedAt: '2026-09-24T09:00:00Z',
+        payload: {},
+      },
+    ],
+    outbox: [
+      {
+        id: ADMIN_IDS.deadEvent,
+        tenantId: TENANT_ID,
+        eventType: 'risk.detected',
+        aggregateType: 'risk',
+        aggregateId: RISK_ID,
+        status: 'DEAD',
+        attemptCount: 5,
+        maxAttempts: 5,
+        lastErrorCode: 'BROKER_DOWN',
+        occurredAt: '2026-09-23T10:05:00Z',
+        completedAt: null,
+        discardedAt: null as string | null,
+      },
+    ],
+    aiJobs: [
+      {
+        id: ADMIN_IDS.deadAIJob,
+        tenantId: TENANT_ID,
+        conversationId: CONVERSATION_ID,
+        analysisThroughMessageId: ADMIN_IDS.message,
+        status: 'DEAD',
+        modelRequirement: 'qwen3-8b',
+        attempts: 3,
+        maxAttempts: 3,
+        lastErrorCode: 'NODE_TIMEOUT',
+        leasedBy: null,
+        leasedAt: null,
+        leaseUntil: null,
+        completedAt: null,
+        discardedAt: null as string | null,
+        createdAt: '2026-09-23T10:10:00Z',
+      },
+    ],
+    deliveries: [
+      {
+        id: ADMIN_IDS.deadDelivery,
+        tenantId: TENANT_ID,
+        notificationId: '01990000-0000-7000-8000-00000000f001',
+        kind: 'RISK_DETECTED',
+        channel: 'TELEGRAM',
+        status: 'DEAD',
+        attempt: 3,
+        failureCode: 'TELEGRAM_FORBIDDEN',
+        attemptedAt: '2026-09-23T10:20:00Z',
+        discardedAt: null as string | null,
+        createdAt: '2026-09-23T10:15:00Z',
+      },
+    ],
+  }
+  const deadCount = () =>
+    [...admin.jobs, ...admin.outbox, ...admin.aiJobs, ...admin.deliveries].filter(
+      (item) => item.status === 'DEAD' && !item.discardedAt,
+    ).length
+  const queueStats = () => ({
+    checkedAt: new Date().toISOString(),
+    jobs: {
+      pending: admin.jobs.filter((j) => j.status === 'PENDING').length,
+      processing: 0,
+      retry: 0,
+      dead: admin.jobs.filter((j) => j.status === 'DEAD' && !j.discardedAt).length,
+      expiredLeases: 0,
+    },
+    outbox: {
+      pending: 0,
+      processing: 0,
+      retry: 1,
+      dead: admin.outbox.filter((e) => e.status === 'DEAD' && !e.discardedAt).length,
+      expiredLeases: 0,
+    },
+    aiJobs: {
+      pending: 1,
+      leased: 0,
+      running: 0,
+      retry: 0,
+      dead: admin.aiJobs.filter((j) => j.status === 'DEAD' && !j.discardedAt).length,
+      nodesReady: 1,
+    },
+    deliveries: {
+      pending: 2,
+      processing: 0,
+      retry: 0,
+      dead: admin.deliveries.filter((d) => d.status === 'DEAD' && !d.discardedAt).length,
+    },
+    scheduledOverdue: 0,
+    deadUnhandled: deadCount(),
+  })
+  const conflictOrNull = (route: Route) => {
+    if (!controls.failNextAdminCommand) return null
+    controls.failNextAdminCommand = false
+    return json(route, 409, errorBody('CONFLICT'))
+  }
+  const conversationSummary = {
+    tenantId: TENANT_ID,
+    conversationId: CONVERSATION_ID,
+    revision: 3,
+    analysisThroughMessageId: ADMIN_IDS.message,
+    modelVersion: 'qwen3-8b-2026-08',
+    promptVersion: 'p12',
+    schemaVersion: 's4',
+    aiRunId: '01990000-0000-7000-8000-00000000aa01',
+    updatedAt: '2026-09-23T10:30:00Z',
+    facts: [
+      {
+        type: 'service_interest',
+        value: { service: 'полировка', price: 31000 },
+        confidence: 0.92,
+        trusted: true,
+        evidenceMessageIds: [ADMIN_IDS.message],
+      },
+      {
+        type: 'promise',
+        value: '<script>alert(1)</script>',
+        confidence: 0.41,
+        trusted: false,
+        evidenceMessageIds: [],
+      },
+    ],
+    trustedFacts: 1,
+    weakFacts: 1,
+  }
+  await page.route('**/api/v1/admin/**', (route) => {
+    const path = new URL(route.request().url()).pathname
+    const method = route.request().method()
+    const url = new URL(route.request().url())
+    if (path.endsWith('/admin/admins') && method === 'GET')
+      return json(route, 200, { items: admin.admins })
+    if (path.endsWith('/admin/admins') && method === 'POST') {
+      const body = route.request().postDataJSON() as { email: string; note?: string }
+      const existing = admin.admins.find((item) => item.email === body.email && !item.revokedAt)
+      if (existing) return json(route, 200, existing)
+      if (!body.email.endsWith('@example.test')) return json(route, 404, errorBody('NOT_FOUND'))
+      const created = {
+        id: nextId(),
+        userId: nextId(),
+        email: body.email,
+        displayName: body.email.split('@')[0],
+        grantedBy: user.id,
+        grantedAt: new Date().toISOString(),
+        note: body.note ?? '',
+      }
+      admin.admins.push(created)
+      return json(route, 201, created)
+    }
+    const revokeMatch = /\/admin\/admins\/([0-9a-f-]{36})$/.exec(path)
+    if (revokeMatch && method === 'DELETE') {
+      const target = admin.admins.find((item) => item.userId === revokeMatch[1])
+      if (target && !target.revokedAt) {
+        target.revokedAt = new Date().toISOString()
+        target.revokedBy = user.id
+      }
+      return route.fulfill({ status: 204 })
+    }
+    if (path.endsWith('/admin/organizations')) {
+      return json(route, 200, {
+        items: [
+          {
+            id: TENANT_ID,
+            name: 'Студия «Блик»',
+            timezone: 'Europe/Moscow',
+            currency: 'RUB',
+            status: 'ACTIVE',
+            createdAt: '2026-09-01T09:00:00Z',
+            members: 3,
+            locations: 1,
+            connections: 1,
+            openRisks: 2,
+            messagesLast24h: 14,
+          },
+          {
+            id: '01990000-0000-7000-8000-000000000002',
+            name: 'Сеть «Лак»',
+            timezone: 'Asia/Yekaterinburg',
+            currency: 'RUB',
+            status: 'SUSPENDED',
+            createdAt: '2026-08-15T09:00:00Z',
+            members: 6,
+            locations: 3,
+            connections: 3,
+            openRisks: 0,
+            messagesLast24h: 0,
+          },
+        ],
+      })
+    }
+    if (path.endsWith('/admin/connections')) {
+      return json(route, 200, {
+        items: [
+          {
+            id: '01990000-0000-7000-8000-000000000901',
+            tenantId: TENANT_ID,
+            tenantName: 'Студия «Блик»',
+            provider: 'CONNECTED_BUSINESS_BOT',
+            name: 'Telegram Business',
+            status: 'ACTIVE',
+            locationId: null,
+            lastEventAt: '2026-09-24T08:00:00Z',
+            lastSuccessAt: '2026-09-24T08:00:00Z',
+            lastErrorAt: null,
+            lastErrorCode: null,
+            rawEventsPending: 0,
+            rawEventsFailed: 0,
+          },
+          {
+            id: '01990000-0000-7000-8000-000000000902',
+            tenantId: '01990000-0000-7000-8000-000000000002',
+            tenantName: 'Сеть «Лак»',
+            provider: 'GENERIC_WEBHOOK',
+            name: 'CRM',
+            status: 'ERROR',
+            locationId: null,
+            lastEventAt: '2026-09-20T08:00:00Z',
+            lastSuccessAt: '2026-09-19T08:00:00Z',
+            lastErrorAt: '2026-09-20T08:00:00Z',
+            lastErrorCode: 'INVALID_PAYLOAD',
+            rawEventsPending: 4,
+            rawEventsFailed: 2,
+          },
+        ],
+      })
+    }
+    if (path.endsWith('/admin/queue')) return json(route, 200, queueStats())
+    if (path.endsWith('/admin/jobs')) {
+      const status = url.searchParams.get('status')
+      const items = admin.jobs.filter((job) => !status || job.status === status)
+      return json(route, 200, { items })
+    }
+    if (path.endsWith('/admin/dead-letters')) {
+      const dead = <T extends { status: string; discardedAt: string | null }>(items: T[]) =>
+        items.filter((item) => item.status === 'DEAD' && !item.discardedAt)
+      return json(route, 200, {
+        jobs: dead(admin.jobs),
+        outbox: dead(admin.outbox),
+        aiJobs: dead(admin.aiJobs),
+        deliveries: dead(admin.deliveries),
+      })
+    }
+    const jobCommand = /\/admin\/jobs\/([0-9a-f-]{36})\/(retry|discard)$/.exec(path)
+    if (jobCommand && method === 'POST') {
+      const target = admin.jobs.find((job) => job.id === jobCommand[1])
+      if (!target) return json(route, 404, errorBody('NOT_FOUND'))
+      const conflict = conflictOrNull(route)
+      if (conflict) return conflict
+      if (target.status !== 'DEAD' || target.discardedAt)
+        return json(route, 409, errorBody('CONFLICT'))
+      if (jobCommand[2] === 'retry') {
+        target.status = 'PENDING'
+        target.attemptCount = 0
+      } else {
+        target.discardedAt = new Date().toISOString()
+      }
+      target.updatedAt = new Date().toISOString()
+      return json(route, 200, target)
+    }
+    const outboxCommand = /\/admin\/outbox\/([0-9a-f-]{36})\/(replay|discard)$/.exec(path)
+    if (outboxCommand && method === 'POST') {
+      const target = admin.outbox.find((event) => event.id === outboxCommand[1])
+      if (!target) return json(route, 404, errorBody('NOT_FOUND'))
+      const conflict = conflictOrNull(route)
+      if (conflict) return conflict
+      if (target.status !== 'DEAD' || target.discardedAt)
+        return json(route, 409, errorBody('CONFLICT'))
+      if (outboxCommand[2] === 'replay') {
+        target.status = 'PENDING'
+        target.attemptCount = 0
+      } else {
+        target.discardedAt = new Date().toISOString()
+      }
+      return json(route, 200, target)
+    }
+    const aiCommand = /\/admin\/ai\/jobs\/([0-9a-f-]{36})\/(retry|discard)$/.exec(path)
+    if (aiCommand && method === 'POST') {
+      const target = admin.aiJobs.find((job) => job.id === aiCommand[1])
+      if (!target) return json(route, 404, errorBody('NOT_FOUND'))
+      const conflict = conflictOrNull(route)
+      if (conflict) return conflict
+      if (target.status !== 'DEAD' || target.discardedAt)
+        return json(route, 409, errorBody('CONFLICT'))
+      if (aiCommand[2] === 'retry') {
+        target.status = 'PENDING'
+        target.attempts = 0
+      } else {
+        target.discardedAt = new Date().toISOString()
+      }
+      return json(route, 200, target)
+    }
+    const deliveryCommand = /\/admin\/notifications\/deliveries\/([0-9a-f-]{36})\/discard$/.exec(
+      path,
+    )
+    if (deliveryCommand && method === 'POST') {
+      const target = admin.deliveries.find((item) => item.id === deliveryCommand[1])
+      if (!target) return json(route, 404, errorBody('NOT_FOUND'))
+      const conflict = conflictOrNull(route)
+      if (conflict) return conflict
+      if (target.status !== 'DEAD' || target.discardedAt)
+        return json(route, 409, errorBody('CONFLICT'))
+      target.discardedAt = new Date().toISOString()
+      return json(route, 200, target)
+    }
+    if (path.endsWith('/admin/ai/nodes')) {
+      return json(route, 200, {
+        items: [
+          {
+            id: '01990000-0000-7000-8000-00000000ab01',
+            name: 'home-gpu-1',
+            status: 'READY',
+            modelVersion: 'qwen3-8b-2026-08',
+            availableSlots: 2,
+            inflight: 0,
+            lastHeartbeatAt: new Date().toISOString(),
+            revokedAt: null,
+            tenants: [TENANT_ID],
+            createdAt: '2026-08-01T09:00:00Z',
+          },
+          {
+            id: '01990000-0000-7000-8000-00000000ab02',
+            name: 'lab-node',
+            status: 'REVOKED',
+            modelVersion: null,
+            availableSlots: 0,
+            inflight: 0,
+            lastHeartbeatAt: null,
+            revokedAt: '2026-09-01T09:00:00Z',
+            tenants: [],
+            createdAt: '2026-07-01T09:00:00Z',
+          },
+        ],
+      })
+    }
+    if (path.endsWith('/admin/ai/runs')) {
+      const status = url.searchParams.get('status')
+      const items = [
+        {
+          id: conversationSummary.aiRunId,
+          tenantId: TENANT_ID,
+          jobId: ADMIN_IDS.deadAIJob,
+          nodeId: '01990000-0000-7000-8000-00000000ab01',
+          conversationId: CONVERSATION_ID,
+          status: 'SUCCEEDED',
+          applicationStatus: 'APPLIED',
+          modelVersion: 'qwen3-8b-2026-08',
+          promptVersion: 'p12',
+          schemaVersion: 's4',
+          errorCode: null,
+          validationError: null,
+          startedAt: '2026-09-23T10:25:00Z',
+          completedAt: '2026-09-23T10:30:00Z',
+          durationMs: 300000,
+        },
+        {
+          id: '01990000-0000-7000-8000-00000000aa02',
+          tenantId: TENANT_ID,
+          jobId: ADMIN_IDS.deadAIJob,
+          nodeId: '01990000-0000-7000-8000-00000000ab01',
+          conversationId: CONVERSATION_ID,
+          status: 'FAILED',
+          applicationStatus: 'REJECTED',
+          modelVersion: 'qwen3-8b-2026-08',
+          promptVersion: 'p12',
+          schemaVersion: 's4',
+          errorCode: 'SCHEMA_INVALID',
+          validationError: 'facts[1].value: expected object',
+          startedAt: '2026-09-23T09:25:00Z',
+          completedAt: '2026-09-23T09:26:00Z',
+          durationMs: 60000,
+        },
+      ].filter((run) => !status || run.status === status)
+      return json(route, 200, { items })
+    }
+    if (/\/admin\/ai\/tenants\/[0-9a-f-]{36}\/conversations\/[0-9a-f-]{36}\/summary$/.test(path)) {
+      return path.includes(CONVERSATION_ID)
+        ? json(route, 200, conversationSummary)
+        : json(route, 404, errorBody('NOT_FOUND'))
+    }
+    if (path.endsWith('/admin/usage')) {
+      const from = url.searchParams.get('from') ?? '2026-08-25T00:00:00.000Z'
+      const to = url.searchParams.get('to') ?? '2026-09-25T00:00:00.000Z'
+      return json(route, 200, {
+        from,
+        to,
+        tenants: [
+          {
+            tenantId: TENANT_ID,
+            name: 'Студия «Блик»',
+            messages: 144,
+            rawEvents: 150,
+            jobs: 320,
+            aiJobs: 40,
+            aiRuns: 38,
+            aiRunsApplied: 30,
+            aiRunsRejected: 5,
+            aiRunsStale: 3,
+            aiRunSeconds: 5400,
+            risks: 20,
+            notifications: 18,
+            deliveries: 36,
+          },
+        ],
+      })
+    }
+    const traceMatch = /\/admin\/trace\/tenants\/([0-9a-f-]{36})\/messages\/([0-9a-f-]{36})$/.exec(
+      path,
+    )
+    if (traceMatch) {
+      if (traceMatch[2] !== ADMIN_IDS.message) return json(route, 404, errorBody('NOT_FOUND'))
+      return json(route, 200, {
+        message: {
+          id: ADMIN_IDS.message,
+          tenantId: TENANT_ID,
+          conversationId: CONVERSATION_ID,
+          connectionId: '01990000-0000-7000-8000-000000000901',
+          direction: 'INCOMING',
+          type: 'TEXT',
+          externalId: 'tg-1',
+          sentAt: '2026-09-18T09:00:00Z',
+          receivedAt: '2026-09-18T09:00:01Z',
+        },
+        jobs: [admin.jobs[0]],
+        aiJobs: admin.aiJobs,
+        aiRuns: [],
+        semanticResult: conversationSummary,
+        risks: [
+          {
+            id: RISK_ID,
+            opportunityId: OPPORTUNITY_ID,
+            type: 'NO_RESPONSE',
+            severity: 'CRITICAL',
+            status: 'OPEN',
+            source: 'MANUAL',
+            policyVersion: 'e2e/v1',
+            aiRunId: null,
+            detectedAt: '2026-09-18T10:00:00Z',
+            resolvedAt: null,
+          },
+        ],
+        notifications: [
+          {
+            id: '01990000-0000-7000-8000-00000000f001',
+            userId: user.id,
+            kind: 'RISK_DETECTED',
+            riskId: RISK_ID,
+            dedupKey: 'risk:1',
+            createdAt: '2026-09-18T10:01:00Z',
+            deliveries: admin.deliveries,
+          },
+        ],
+        actions: [],
+        outcomes: [],
+        revenue: [
+          {
+            eventId: '01990000-0000-7000-8000-000000002001',
+            opportunityId: OPPORTUNITY_ID,
+            amount: '31000.00',
+            currency: 'RUB',
+            status: 'CONFIRMED',
+            attribution: 'RECOVERED',
+            riskId: RISK_ID,
+            confirmedAt: '2026-09-23T12:00:00Z',
+          },
+        ],
+      })
+    }
+    return json(route, 404, errorBody('NOT_FOUND'))
+  })
+  await registerAdminMe()
 }

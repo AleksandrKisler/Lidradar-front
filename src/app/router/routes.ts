@@ -51,6 +51,67 @@ export const routes: RouteRecordRaw[] = [
     ],
   },
   {
+    path: '/admin',
+    component: () => import('../layouts/AdminLayout.vue'),
+    // Право проверяет layout запросом /admin/me; здесь нужен только сеанс.
+    children: [
+      {
+        path: '',
+        name: 'admin-overview',
+        component: () => import('@/pages/admin').then((m) => m.AdminOverviewPage),
+        meta: { access: 'session', title: 'Обзор платформы' },
+      },
+      {
+        path: 'organizations',
+        name: 'admin-organizations',
+        component: () => import('@/pages/admin').then((m) => m.AdminOrganizationsPage),
+        meta: { access: 'session', title: 'Организации' },
+      },
+      {
+        path: 'connections',
+        name: 'admin-connections',
+        component: () => import('@/pages/admin').then((m) => m.AdminConnectionsPage),
+        meta: { access: 'session', title: 'Подключения платформы' },
+      },
+      {
+        path: 'jobs',
+        name: 'admin-jobs',
+        component: () => import('@/pages/admin').then((m) => m.AdminJobsPage),
+        meta: { access: 'session', title: 'Задания' },
+      },
+      {
+        path: 'dead-letters',
+        name: 'admin-dead-letters',
+        component: () => import('@/pages/admin').then((m) => m.AdminDeadLettersPage),
+        meta: { access: 'session', title: 'Мёртвые письма' },
+      },
+      {
+        path: 'ai',
+        name: 'admin-ai',
+        component: () => import('@/pages/admin').then((m) => m.AdminAIPage),
+        meta: { access: 'session', title: 'AI-узлы и прогоны' },
+      },
+      {
+        path: 'usage',
+        name: 'admin-usage',
+        component: () => import('@/pages/admin').then((m) => m.AdminUsagePage),
+        meta: { access: 'session', title: 'Потребление' },
+      },
+      {
+        path: 'trace',
+        name: 'admin-trace',
+        component: () => import('@/pages/admin').then((m) => m.AdminTracePage),
+        meta: { access: 'session', title: 'Трассировка сообщения' },
+      },
+      {
+        path: 'admins',
+        name: 'admin-admins',
+        component: () => import('@/pages/admin').then((m) => m.AdminAdminsPage),
+        meta: { access: 'session', title: 'Администраторы платформы' },
+      },
+    ],
+  },
+  {
     path: '/',
     component: () => import('../layouts/OnboardingLayout.vue'),
     children: [
@@ -125,6 +186,12 @@ export const routes: RouteRecordRaw[] = [
         meta: { access: 'tenant', permission: 'conversation.read', title: 'Диалог' },
       },
       {
+        path: 'analytics',
+        name: 'analytics',
+        component: () => import('@/pages/analytics').then((m) => m.AnalyticsPage),
+        meta: { access: 'tenant', permission: 'analytics.read', title: 'Аналитика' },
+      },
+      {
         path: 'integrations',
         name: 'integrations',
         component: () => import('@/pages/integrations').then((m) => m.IntegrationsPage),
@@ -168,6 +235,12 @@ export const routes: RouteRecordRaw[] = [
         name: 'settings-team',
         component: () => import('@/pages/settings').then((m) => m.SettingsTeamPage),
         meta: { access: 'tenant', permission: 'member.manage', title: 'Команда' },
+      },
+      {
+        path: 'settings/privacy',
+        name: 'settings-privacy',
+        component: () => import('@/pages/settings').then((m) => m.SettingsPrivacyPage),
+        meta: { access: 'tenant', title: 'Данные и согласие' },
       },
     ],
   },

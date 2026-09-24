@@ -33,7 +33,7 @@ const rows = computed(() => sortMembers(props.members))
 
 <template>
   <!-- Прокручиваемая область доступна с клавиатуры даже когда все кнопки в ней отключены. -->
-  <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Таблица участников">
+  <div class="relative overflow-x-auto" tabindex="0" role="region" aria-label="Таблица участников">
     <table class="w-full min-w-[640px] text-left text-sm">
       <caption class="sr-only">
         Участники компании

@@ -1,0 +1,17 @@
+{
+  "_comment": "Базовые размеры зафиксированы 2026-09-25 по сборке production (байты, без сжатия); порог — базовое значение плюс 20 %, округлённое вверх до сотен.",
+  "baseline": {
+    "entry": 61383,
+    "largestChunk": 85358,
+    "largestChunkName": "runtime-core.esm-bundler-Car86Ubo.js",
+    "css": 34119,
+    "totalJs": 704615,
+    "jsChunks": 52
+  },
+  "budgets": {
+    "entry": 73700,
+    "largestChunk": 102500,
+    "css": 41000,
+    "totalJs": 845600
+  }
+}

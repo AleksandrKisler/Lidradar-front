@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { ApiError } from '@/shared/api'
 import { fetchMe, useSessionStore } from '@/entities/session'
 import { recordRiskFeedback, type RiskFeedback } from '@/entities/risk'
@@ -80,7 +81,22 @@ describe('RiskFeedbackPanel', () => {
   function mountPanel(isActive = true) {
     return mount(RiskFeedbackPanel, {
       props: { riskId: 'risk-1', isActive },
-      global: { plugins: [[VueQueryPlugin, { queryClient }]] },
+      // Панель ссылается на экран согласия, поэтому нужен маршрутизатор.
+      global: {
+        plugins: [
+          [VueQueryPlugin, { queryClient }],
+          createRouter({
+            history: createMemoryHistory(),
+            routes: [
+              {
+                path: '/settings/privacy',
+                name: 'settings-privacy',
+                component: { template: '<div />' },
+              },
+            ],
+          }),
+        ],
+      },
       attachTo: document.body,
     })
   }

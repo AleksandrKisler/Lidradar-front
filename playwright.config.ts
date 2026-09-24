@@ -15,10 +15,36 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
-    { name: 'mobile', use: { ...devices['iPhone 13'] } },
+    // Матрица ширин управляет viewport сама и выполняется только в Chromium.
+    { name: 'chromium', testIgnore: /stand\//, use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'firefox',
+      testIgnore: [/stand\//, /responsive\.spec\.ts/],
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'webkit',
+      testIgnore: [/stand\//, /responsive\.spec\.ts/],
+      use: { ...devices['Desktop Safari'] },
+    },
+    {
+      name: 'mobile',
+      testIgnore: [/stand\//, /responsive\.spec\.ts/],
+      use: { ...devices['iPhone 13'] },
+    },
+    {
+      // Реальный стенд: детерминированные проверки без повторов и без артефактов,
+      // которые могли бы сохранить cookie сессии или содержимое переписок.
+      name: 'stand',
+      testMatch: /stand\/.*\.spec\.ts/,
+      retries: 0,
+      use: {
+        ...devices['Desktop Chrome'],
+        trace: 'off',
+        video: 'off',
+        screenshot: 'off',
+      },
+    },
   ],
   webServer: external
     ? undefined

@@ -17,6 +17,7 @@ export interface NavItem {
 export const NAV_ITEMS: readonly NavItem[] = [
   { to: '/radar', label: 'Radar', permission: 'risks.read' },
   { to: '/conversations', label: 'Диалоги', permission: 'conversation.read' },
+  { to: '/analytics', label: 'Аналитика', permission: 'analytics.read' },
   { to: '/integrations', label: 'Интеграции', permission: 'integration.manage' },
   // Настройки видит каждый участник: менеджеру доступны личные уведомления.
   { to: '/settings', label: 'Настройки' },

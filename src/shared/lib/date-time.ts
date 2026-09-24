@@ -121,3 +121,87 @@ export function formatDay(
     return format('UTC')
   }
 }
+
+const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/
+
+/** Проверяет строку календарной даты `YYYY-MM-DD` и её существование. */
+export function isCalendarDate(value: string): boolean {
+  if (!CALENDAR_DATE.test(value)) return false
+  const [year, month, day] = value.split('-').map(Number) as [number, number, number]
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return (
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+  )
+}
+
+/** Календарная арифметика без часовых поясов: `2026-02-28` + 1 → `2026-03-01`. */
+export function addDays(date: string, days: number): string {
+  const [year, month, day] = date.split('-').map(Number) as [number, number, number]
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10)
+}
+
+/** Число календарных дней между датами включительно; отрицательное, если порядок нарушен. */
+export function daysBetween(from: string, to: string): number {
+  const utc = (value: string) => {
+    const [year, month, day] = value.split('-').map(Number) as [number, number, number]
+    return Date.UTC(year, month - 1, day)
+  }
+  return Math.round((utc(to) - utc(from)) / 86_400_000) + 1
+}
+
+/** Смещение пояса относительно UTC в миллисекундах для данного момента. */
+function zoneOffsetMs(instant: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(instant)
+  const part = (type: string) => Number(parts.find((item) => item.type === type)?.value ?? 0)
+  const wall = Date.UTC(
+    part('year'),
+    part('month') - 1,
+    part('day'),
+    part('hour') % 24,
+    part('minute'),
+    part('second'),
+  )
+  return wall - Math.floor(instant.getTime() / 1000) * 1000
+}
+
+/**
+ * Начало календарного дня организации как момент UTC. Учитывает переходы на
+ * летнее время: смещение берётся для самого искомого момента, а не для
+ * полуночи UTC. Неизвестный пояс считается UTC.
+ */
+export function zonedDayStart(date: string, timeZone: string): Date {
+  const [year, month, day] = date.split('-').map(Number) as [number, number, number]
+  const guess = Date.UTC(year, month - 1, day)
+  try {
+    const first = zoneOffsetMs(new Date(guess), timeZone)
+    let instant = guess - first
+    const second = zoneOffsetMs(new Date(instant), timeZone)
+    if (second !== first) instant = guess - second
+    return new Date(instant)
+  } catch {
+    return new Date(guess)
+  }
+}
+
+/** Подпись календарной даты без привязки к поясу: `15 августа 2026`. */
+export function formatCalendarDate(
+  date: string,
+  options: { month?: 'long' | 'short'; year?: boolean } = {},
+): string {
+  const [year, month, day] = date.split('-').map(Number) as [number, number, number]
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: 'numeric',
+    month: options.month ?? 'long',
+    ...(options.year === false ? {} : { year: 'numeric' }),
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(year, month - 1, day)))
+}

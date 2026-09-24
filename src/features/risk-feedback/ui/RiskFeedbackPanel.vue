@@ -10,6 +10,7 @@
  * попадёт ли запись в набор для обучения — по согласию организации на момент
  * записи.
  */
+import { RouterLink } from 'vue-router'
 import { computed, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
@@ -133,6 +134,12 @@ function editAgain(): void {
         </template>
         <template v-else>
           Запись не войдёт в набор для обучения: согласие организации не дано.
+          <RouterLink
+            :to="{ name: 'settings-privacy' }"
+            class="font-semibold text-brand-dark hover:underline"
+          >
+            О согласии
+          </RouterLink>
         </template>
       </span>
     </UiAlert>

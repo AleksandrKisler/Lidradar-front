@@ -8,8 +8,14 @@ import { createPinia } from 'pinia'
 import { VueQueryPlugin } from '@tanstack/vue-query'
 import App from './App.vue'
 import { createAppRouter } from './router'
-import { createAppQueryClient, installApiContext, installRealtime } from './config'
+import {
+  createAppQueryClient,
+  installApiContext,
+  installRealtime,
+  installTelemetry,
+} from './config'
 import { REALTIME_STATE_KEY } from '@/shared/api'
+import { env } from '@/shared/config'
 import { useSessionStore } from '@/entities/session'
 import './styles/main.css'
 
@@ -18,6 +24,7 @@ const pinia = createPinia()
 const queryClient = createAppQueryClient()
 const router = createAppRouter()
 
+installTelemetry({ endpoint: env.VITE_TELEMETRY_ENDPOINT, development: import.meta.env.DEV })
 app.use(pinia)
 app.use(VueQueryPlugin, { queryClient })
 app.use(router)

@@ -31,6 +31,20 @@ const schema = v.object({
     ),
     '',
   ),
+  /**
+   * Необязательный HTTP-приёмник телеметрии операций (шаблон пути, статус,
+   * код, trace). Пусто — записи остаются в локальном буфере.
+   */
+  VITE_TELEMETRY_ENDPOINT: v.optional(
+    v.pipe(
+      v.string(),
+      v.check(
+        (value) => value === '' || /^https?:\/\/[^\s]+$/.test(value),
+        'VITE_TELEMETRY_ENDPOINT должен быть пустым или абсолютным http(s)-адресом',
+      ),
+    ),
+    '',
+  ),
 })
 
 export type Env = v.InferOutput<typeof schema>

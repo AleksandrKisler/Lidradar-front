@@ -10,6 +10,9 @@ import {
   INVITATION_CODE,
   USED_INVITATION_CODE,
   failNextMemberCommand,
+  ADMIN_IDS,
+  failNextAdminCommand,
+  setOpportunityStage,
 } from './fixtures/api'
 
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21aa']
@@ -273,7 +276,12 @@ test.describe('владелец организации', () => {
     await expect(thread.getByText('18 сентября')).toBeVisible()
     await expectNoAxeViolations(page)
 
+    // Ранняя страница ждётся по ответу с курсором: под нагрузкой ответ приходит позже.
+    const earlierPage = page.waitForResponse(
+      (response) => /\/messages\?.*cursor=/.test(response.url()) && response.ok(),
+    )
     await thread.getByRole('button', { name: 'Показать более ранние' }).click()
+    await earlierPage
     await expect(thread.getByText('Сообщение удалено в мессенджере.')).toBeVisible()
     await expect(thread.getByText('Удалённый текст')).toHaveCount(0)
     await expect(thread.getByText('Начало переписки')).toBeVisible()
@@ -564,7 +572,7 @@ test.describe('владелец организации', () => {
     await expect(me.getByRole('button', { name: 'Сделать менеджером' })).toBeDisabled()
     await expect(me.getByRole('button', { name: 'Отозвать доступ' })).toBeDisabled()
     await expect(me).toContainText('Единственный активный владелец')
-    const former = rows.filter({ hasText: 'Пётр Бывший' })
+    const former = rows.filter({ hasText: 'Пётр Бывший-Длиннофамильный' })
     await expect(former).toContainText('Доступ отозван')
     await expect(former.getByRole('button')).toHaveCount(0)
     await expect(page.getByText('Приглашений пока нет')).toBeVisible()
@@ -622,6 +630,181 @@ test.describe('владелец организации', () => {
     await expectNoAxeViolations(page)
   })
 
+  test('аналитика: окно дат, сводка, точность и оплаты за один период', async ({ page }) => {
+    await page.goto('/analytics')
+    await expect(page.getByRole('heading', { name: 'От риска — к результату' })).toBeVisible()
+    // Окно по умолчанию — 30 дней; подпись периода берётся из ответа сервера.
+    await expect(page.getByTestId('analytics-period')).toContainText('Europe/Moscow')
+    await expect(page.getByText('30 дн.')).toBeVisible()
+    const cards = page.getByRole('list', { name: 'Главные показатели' }).getByRole('listitem')
+    await expect(cards).toHaveCount(4)
+    await expect(cards.nth(0)).toContainText('24')
+    await expect(cards.nth(1)).toContainText('75\u00a0% найденных')
+    await expect(cards.nth(3)).toContainText('43\u00a0000\u00a0₽')
+    await expect(cards.nth(3)).toContainText('2 оплаты со связью с рисками')
+    // График: по одному столбцу на каждую дату окна, без интерполяции.
+    const chartRows = page
+      .getByRole('table', { name: 'Возвращённая выручка по дням' })
+      .locator('tbody tr')
+    await expect(chartRows).toHaveCount(30)
+    await expect(page.getByRole('figure', { name: /Возвращённая выручка по дням/ })).toBeVisible()
+    // Точность: null — «Недостаточно данных», низкое покрытие помечено.
+    const precisionRows = page
+      .getByRole('table', { name: 'Точность сигналов по типам' })
+      .locator('tbody tr')
+    await expect(precisionRows).toHaveCount(5)
+    await expect(precisionRows.filter({ hasText: 'Нет ответа клиенту' })).toContainText('80\u00a0%')
+    const booking = precisionRows.filter({ hasText: 'Запись не подтверждена' })
+    await expect(booking).toContainText('Недостаточно данных')
+    await expect(booking).toContainText('низкое покрытие')
+    // Оплаты: курсорная подгрузка, ссылка на риск у возвращённой выручки.
+    const payments = page.getByRole('table', { name: 'Подтверждённые оплаты' }).locator('tbody tr')
+    await expect(payments).toHaveCount(1)
+    await expect(payments.first().getByRole('link')).toHaveAttribute('href', `/risks/${RISK_ID}`)
+    // Вторая страница ждётся по ответу с курсором: под нагрузкой WebKit отвечает медленнее.
+    const secondPage = page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/v1/analytics/payments') &&
+        response.url().includes('cursor=page-2'),
+    )
+    await page.getByRole('button', { name: 'Показать ещё' }).click()
+    await secondPage
+    await expect(payments).toHaveCount(2)
+    await expect(payments.nth(1)).toContainText('Ольга Кузнецова')
+    await expect(page.getByRole('button', { name: 'Показать ещё' })).toHaveCount(0)
+    await expectNoAxeViolations(page)
+
+    // Неверное окно не уходит на сервер и объясняется на месте.
+    await page.getByLabel('Начало периода').fill('2026-09-30')
+    await page.getByLabel('Конец периода').fill('2026-09-01')
+    await expect(page.getByRole('alert')).toContainText('Дата начала позже даты окончания')
+    await expect(page.getByText('Исправьте период, чтобы увидеть показатели.')).toBeVisible()
+
+    // Пресет «7 дней» пишет даты в адрес; ряд снова по одной точке на дату.
+    const weekly = page.waitForResponse(
+      (response) => response.url().includes('/api/v1/analytics/summary') && response.ok(),
+    )
+    await page.getByRole('button', { name: '7 дней' }).click()
+    await weekly
+    await expect(page).toHaveURL(/from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}/)
+    await expect(chartRows).toHaveCount(7)
+    await expect(page.getByText('7 дн.')).toBeVisible()
+  })
+
+  test('данные и согласие: выдача, повтор и отзыв с честным текстом', async ({ page }) => {
+    await page.goto('/settings/privacy')
+    await expect(page.getByRole('heading', { name: 'Данные и согласие на обучение' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Данные' })).toHaveAttribute('aria-current', 'page')
+    const card = page.getByRole('region', { name: 'Согласие на использование данных в наборах' })
+    await expect(card).toContainText('Не дано')
+    await expect(card).toContainText('используются только для работы сервиса')
+    await expectNoAxeViolations(page)
+
+    // Выдача с подтверждением: аудит показывает время и автора.
+    await card.getByRole('button', { name: 'Дать согласие' }).click()
+    const grant = page.getByRole('dialog', { name: 'Дать согласие на использование данных?' })
+    await expect(grant).toContainText('можно отозвать в любой момент')
+    await grant.getByRole('button', { name: 'Дать согласие' }).click()
+    await expect(card).toContainText('Действует')
+    await expect(card).toContainText('Согласие выдано')
+    await expect(card.getByTestId('consent-audit')).toContainText('вы')
+    await expect(card.getByRole('button', { name: 'Дать согласие' })).toHaveCount(0)
+
+    // Отзыв: текст не обещает удаления истории, запись остаётся с датой отзыва.
+    await card.getByRole('button', { name: 'Отозвать согласие' }).click()
+    const revoke = page.getByRole('dialog', { name: 'Отозвать согласие?' })
+    await expect(revoke).toContainText('история выдач остаётся в аудите')
+    await revoke.getByRole('button', { name: 'Отозвать' }).click()
+    await expect(card).toContainText('Не дано')
+    await expect(card.getByTestId('consent-audit')).toContainText('Отозвано')
+    await expect(card.getByRole('button', { name: 'Дать согласие' })).toBeVisible()
+    await expectNoAxeViolations(page)
+  })
+
+  test('без права администратора раздел закрыт нейтральным экраном', async ({ page }) => {
+    const adminRequests: string[] = []
+    page.on('request', (request) => {
+      if (request.url().includes('/api/v1/admin/') && !request.url().endsWith('/admin/me')) {
+        adminRequests.push(request.url())
+      }
+    })
+    await page.goto('/admin/dead-letters')
+    await expect(page.getByText('Раздел недоступен')).toBeVisible()
+    await expect(page.getByText('Мёртвые письма')).toHaveCount(0)
+    expect(adminRequests).toEqual([])
+    await page.goto('/radar')
+    await expect(page.getByRole('heading', { name: 'Radar' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Администрирование' })).toHaveCount(0)
+  })
+
+  test('этапы сделки: только разрешённые цели, конфликт при гонке и закрытие с подтверждением', async ({
+    page,
+  }) => {
+    await page.goto(`/risks/${RISK_ID}`)
+    const context = page.getByRole('region', { name: 'Переписка и сделка' })
+    await expect(context.getByTestId('opportunity-stage')).toHaveText('Новая')
+    const timeline = context.getByRole('list', { name: 'История этапов' })
+    await expect(timeline.getByRole('listitem')).toHaveCount(1)
+    await expect(timeline).toContainText('Создана как «Новая»')
+    await expect(timeline).toContainText('Правило')
+
+    // Назад, тот же этап и преждевременный выигрыш не предлагаются.
+    const select = context.getByLabel('Перевести на этап')
+    const values = await select
+      .locator('option')
+      .evaluateAll((options) =>
+        options.map((option) => (option as HTMLOptionElement).value).filter(Boolean),
+      )
+    expect(values).toEqual([
+      'ENGAGED',
+      'QUALIFYING',
+      'PRICE_SENT',
+      'WAITING_CUSTOMER',
+      'WAITING_BUSINESS',
+      'BOOKING_INTENT',
+      'BOOKED',
+      'LOST',
+    ])
+    await select.selectOption('ENGAGED')
+    await context.getByRole('button', { name: 'Перевести' }).click()
+    await expect(context.getByTestId('opportunity-stage')).toHaveText('В диалоге')
+    await expect(timeline.getByRole('listitem')).toHaveCount(2)
+    await expect(timeline.getByRole('listitem').first()).toContainText('Новая → В диалоге')
+    await expect(timeline.getByRole('listitem').first()).toContainText('Вручную')
+
+    // Гонка: сервер уже перевёл сделку дальше. Либо интерфейс успевает отправить
+    // устаревший этап и получает 409 с объяснением, либо сигнал потока уже
+    // перечитал сделку и сбросил выбор — в обоих случаях состояние сходится к серверному.
+    setOpportunityStage(page, 'BOOKED')
+    await select.selectOption('QUALIFYING')
+    const transfer = context.getByRole('button', { name: 'Перевести' })
+    if (await transfer.isEnabled()) await transfer.click()
+    // Итог одинаков: этап перечитан с сервера, а текст конфликта проверяет unit-тест.
+    await expect(context.getByTestId('opportunity-stage')).toHaveText('Записан')
+    await expect(timeline).toContainText('AI')
+    const afterConflict = await select
+      .locator('option')
+      .evaluateAll((options) =>
+        options.map((option) => (option as HTMLOptionElement).value).filter(Boolean),
+      )
+    expect(afterConflict).toEqual(['WON', 'LOST'])
+
+    // Закрытие требует подтверждения с последствиями; после него — только архив.
+    await select.selectOption('LOST')
+    await context.getByRole('button', { name: 'Перевести' }).click()
+    const confirm = page.getByRole('dialog', { name: 'Перевести сделку в «Потеряна»?' })
+    await expect(confirm).toContainText('вернуть её в работу нельзя')
+    await confirm.getByRole('button', { name: 'Перевести' }).click()
+    await expect(context.getByTestId('opportunity-stage')).toHaveText('Потеряна')
+    const closed = await select
+      .locator('option')
+      .evaluateAll((options) =>
+        options.map((option) => (option as HTMLOptionElement).value).filter(Boolean),
+      )
+    expect(closed).toEqual(['ARCHIVED'])
+    await expectNoAxeViolations(page)
+  })
+
   test('закрытие риска требует подтверждения и делает карточку только для чтения', async ({
     page,
   }) => {
@@ -672,7 +855,7 @@ test.describe('менеджер организации', () => {
     await expect(page).toHaveURL(/\/settings\/notifications$/)
     await expect(
       page.getByRole('navigation', { name: 'Разделы настроек' }).getByRole('link'),
-    ).toHaveText(['Уведомления'])
+    ).toHaveText(['Уведомления', 'Данные'])
     await expect(page.getByRole('region', { name: 'Ваши уведомления в Telegram' })).toBeVisible()
     await expect(
       page.getByRole('list', { name: 'Настройки по типам рисков' }).locator(':scope > li'),
@@ -683,8 +866,17 @@ test.describe('менеджер организации', () => {
       await expect(sections.getByRole('link', { name: 'Настройки' })).toBeVisible()
       await expect(sections.getByRole('link', { name: 'Интеграции' })).toHaveCount(0)
     }
-    // Прямой переход в раздел владельца показывает отказ, а не пустой экран.
+    // Согласие менеджер читает, но не меняет.
+    await page.getByRole('link', { name: 'Данные' }).click()
+    await expect(page).toHaveURL(/\/settings\/privacy$/)
+    await expect(page.getByText('Не дано')).toBeVisible()
+    await expect(page.getByTestId('consent-readonly')).toContainText('может владелец')
+    await expect(page.getByRole('button', { name: 'Дать согласие' })).toHaveCount(0)
+
+    // Прямой переход в разделы владельца показывает отказ, а не пустой экран.
     await page.goto('/settings/company')
+    await expect(page.getByText('Раздел недоступен')).toBeVisible()
+    await page.goto('/analytics')
     await expect(page.getByText('Раздел недоступен')).toBeVisible()
   })
 })
@@ -716,5 +908,119 @@ test.describe('новый сотрудник', () => {
     await page.getByRole('button', { name: 'Открыть рабочее пространство' }).click()
     await expect(page).toHaveURL(/\/radar$/)
     await expect(page.getByRole('heading', { name: 'Radar' })).toBeVisible()
+  })
+})
+
+test.describe('администратор платформы', () => {
+  test.beforeEach(async ({ page }) => mockOwner(page, { platformAdmin: true }))
+
+  test('обзор, каталоги и мёртвые письма с командами восстановления', async ({ page }) => {
+    await page.goto('/radar')
+    // На телефоне ссылка живёт в модальном меню, на десктопе — в боковой панели.
+    if ((page.viewportSize()?.width ?? 0) < 768) {
+      await page.getByRole('button', { name: 'Меню' }).click()
+    }
+    await page.getByRole('link', { name: 'Администрирование' }).first().click()
+    await expect(page).toHaveURL(/\/admin$/)
+    await expect(page.getByTestId('dead-unhandled')).toHaveText('4')
+    await expect(page.getByTestId('snapshot-time')).toBeVisible()
+    await expectNoAxeViolations(page)
+    // Макетов у раздела нет: снимок обзора — часть отчёта о работе.
+    await page.screenshot({ path: 'test-results/mock-admin-overview.png', fullPage: true })
+
+    await page.getByRole('link', { name: 'Организации' }).click()
+    const organizations = page.getByRole('table', { name: 'Организации' }).locator('tbody tr')
+    await expect(organizations).toHaveCount(2)
+    await expect(organizations.nth(1)).toContainText('Приостановлена')
+
+    await page.getByRole('link', { name: 'Задания', exact: true }).click()
+    await expect(page.getByRole('table', { name: 'Задания' }).locator('tbody tr')).toHaveCount(2)
+    await page.getByLabel('Статус').selectOption('DEAD')
+    await expect(page).toHaveURL(/status=DEAD/)
+    await expect(page.getByRole('table', { name: 'Задания' }).locator('tbody tr')).toHaveCount(1)
+
+    // Мёртвые письма: команда подтверждается с типом, объектом и организацией.
+    await page.getByRole('link', { name: 'Мёртвые письма' }).click()
+    const deadJobs = page.getByRole('list', { name: 'Мёртвые задания' }).getByRole('listitem')
+    await expect(deadJobs).toHaveCount(1)
+    await page.screenshot({ path: 'test-results/mock-admin-dead-letters.png', fullPage: true })
+    await deadJobs.first().getByRole('button', { name: 'Повторить' }).click()
+    const confirm = page.getByRole('dialog', { name: 'Повторить: задание?' })
+    await expect(confirm).toContainText(ADMIN_IDS.deadJob)
+    await expect(confirm).toContainText(TENANT_ID)
+    await confirm.getByRole('button', { name: 'Повторить' }).click()
+    await expect(page.getByText('Мёртвых заданий нет')).toBeVisible()
+
+    // Гонка: 409 объясняет, что объект уже изменился, успех не заявляется.
+    await page.getByRole('tab', { name: /Событие outbox/ }).click()
+    const deadEvents = page.getByRole('list', { name: 'Мёртвые события' }).getByRole('listitem')
+    await expect(deadEvents).toHaveCount(1)
+    failNextAdminCommand(page)
+    await deadEvents.first().getByRole('button', { name: 'Отложить' }).click()
+    const discard = page.getByRole('dialog', { name: 'Отложить: событие outbox?' })
+    await discard.getByRole('button', { name: 'Отложить' }).click()
+    await expect(discard.getByRole('alert')).toContainText('Состояние уже изменилось')
+    await discard.getByRole('button', { name: 'Отмена' }).click()
+    await expect(deadEvents).toHaveCount(1)
+    await deadEvents.first().getByRole('button', { name: 'Отложить' }).click()
+    await page
+      .getByRole('dialog', { name: 'Отложить: событие outbox?' })
+      .getByRole('button', { name: 'Отложить' })
+      .click()
+    await expect(page.getByText('Мёртвых событий нет')).toBeVisible()
+    await expectNoAxeViolations(page)
+  })
+
+  test('AI, потребление, трассировка и администраторы показывают только метаданные', async ({
+    page,
+  }) => {
+    await page.goto('/admin/ai')
+    await expect(page.getByRole('list', { name: 'AI-узлы' }).getByRole('listitem')).toHaveCount(2)
+    await expect(page.getByRole('table', { name: 'Прогоны' }).locator('tbody tr')).toHaveCount(2)
+    await page.getByLabel('Организация (UUID)').nth(1).fill(TENANT_ID)
+    await page.getByLabel('Переписка (UUID)').fill(CONVERSATION_ID)
+    await page.getByRole('button', { name: 'Показать' }).click()
+    const summary = page.getByTestId('conversation-summary')
+    await expect(summary).toContainText('service_interest')
+    // Значение факта показано как текст: разметка внутри не исполняется.
+    await expect(summary).toContainText('<script>alert(1)</script>')
+    await expect(summary).toContainText('слабый')
+
+    await page.goto('/admin/usage')
+    await expect(
+      page.getByRole('table', { name: 'Потребление по организациям' }).locator('tbody tr'),
+    ).toHaveCount(1)
+    await page.getByLabel('Начало (UTC)').fill('2026-09-30')
+    await page.getByLabel('Конец (UTC)').fill('2026-09-01')
+    await expect(page.getByRole('alert')).toContainText('Дата начала позже даты окончания')
+
+    await page.goto('/admin/trace')
+    await page.getByLabel('Организация (UUID)').fill(TENANT_ID)
+    await page.getByLabel('Сообщение (UUID)').fill(TENANT_ID)
+    await page.getByRole('button', { name: 'Построить трассу' }).click()
+    await expect(page.getByText('Сообщение не найдено')).toBeVisible()
+    await page.getByLabel('Сообщение (UUID)').fill(ADMIN_IDS.message)
+    await page.getByRole('button', { name: 'Построить трассу' }).click()
+    await expect(page.getByRole('heading', { name: 'Бизнес-артефакты' })).toBeVisible()
+    await expect(page.getByRole('list', { name: 'Риски' }).getByRole('listitem')).toHaveCount(1)
+    await expect(page.getByRole('list', { name: 'Выручка' })).toContainText('31\u00a0000\u00a0₽')
+    await expectNoAxeViolations(page)
+
+    await page.goto('/admin/admins')
+    const admins = page
+      .getByRole('list', { name: 'Администраторы платформы' })
+      .getByRole('listitem')
+    await expect(admins).toHaveCount(2)
+    await page.getByLabel('Электронная почта').fill('night@example.test')
+    await page.getByRole('button', { name: 'Выдать право' }).click()
+    await expect(page.getByText('Право выдано: night@example.test')).toBeVisible()
+    await expect(admins).toHaveCount(3)
+    const other = admins.filter({ hasText: 'Дежурный инженер' })
+    await other.getByRole('button', { name: 'Отозвать' }).click()
+    const revoke = page.getByRole('dialog', { name: 'Отозвать право администратора?' })
+    await expect(revoke).toContainText('ops@example.test')
+    await revoke.getByRole('button', { name: 'Отозвать' }).click()
+    await expect(other).toContainText('Отозвано')
+    await expect(other.getByRole('button', { name: 'Отозвать' })).toHaveCount(0)
   })
 })

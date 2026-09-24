@@ -8,7 +8,17 @@ defineOptions({ inheritAttrs: false })
 withDefaults(
   defineProps<{
     id?: string | undefined
-    type?: 'text' | 'email' | 'password' | 'search' | 'tel' | 'url' | 'number' | 'time' | undefined
+    type?:
+      | 'text'
+      | 'email'
+      | 'password'
+      | 'search'
+      | 'tel'
+      | 'url'
+      | 'number'
+      | 'time'
+      | 'date'
+      | undefined
     invalid?: boolean | undefined
     describedBy?: string | undefined
     disabled?: boolean | undefined

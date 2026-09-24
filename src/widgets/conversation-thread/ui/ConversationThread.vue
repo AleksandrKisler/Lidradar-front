@@ -124,7 +124,7 @@ async function loadOlder(): Promise<void> {
           </h2>
           <p class="mt-0.5 text-sm text-muted">{{ channelLine }}</p>
         </div>
-        <div class="flex flex-col items-end gap-1">
+        <div class="flex min-w-0 max-w-full flex-col items-end gap-1 text-right">
           <a
             v-if="externalUrl"
             :href="externalUrl"
@@ -135,7 +135,7 @@ async function loadOlder(): Promise<void> {
             Открыть в Telegram
           </a>
           <p v-else-if="unavailableText" class="text-sm text-muted">{{ unavailableText }}</p>
-          <p class="text-xs text-muted">Ответ клиенту — только во внешнем канале.</p>
+          <p class="text-xs break-words text-muted">Ответ клиенту — только во внешнем канале.</p>
         </div>
       </header>
 

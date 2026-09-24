@@ -11,6 +11,11 @@ export {
   formatRelative,
   formatDay,
   dayKey,
+  isCalendarDate,
+  addDays,
+  daysBetween,
+  zonedDayStart,
+  formatCalendarDate,
 } from './date-time'
 export { maskPhone, maskEmail } from './privacy'
 export { formatBytes } from './files'

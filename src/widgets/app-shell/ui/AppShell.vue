@@ -5,9 +5,10 @@
  * открывается модально с ловушкой фокуса.
  */
 import { computed, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { UiDialog } from '@/shared/ui'
 import { roleLabel, useSessionStore } from '@/entities/session'
+import { useAdminMeQuery } from '@/entities/admin'
 import { LogoutButton } from '@/features/auth-session'
 import { WorkspaceSwitcher } from '@/features/select-workspace'
 import RealtimeBadge from './RealtimeBadge.vue'
@@ -23,6 +24,9 @@ const route = useRoute()
 const menuOpen = ref(false)
 
 const title = computed(() => route.meta.title ?? 'LidRadar')
+// Ссылка на администрирование появляется только по признаку сервера.
+const adminMe = useAdminMeQuery()
+const isPlatformAdmin = computed(() => adminMe.data.value?.platformAdmin === true)
 const organizationName = computed(() => session.membership?.organizationName ?? '')
 </script>
 
@@ -41,6 +45,13 @@ const organizationName = computed(() => session.membership?.organizationName ?? 
       <div class="mt-auto border-t border-nav-active pt-5">
         <p class="truncate text-sm font-semibold text-white">{{ session.user?.displayName }}</p>
         <p class="text-xs text-nav-text">{{ session.role ? roleLabel(session.role) : '' }}</p>
+        <RouterLink
+          v-if="isPlatformAdmin"
+          :to="{ name: 'admin-overview' }"
+          class="mt-2 block text-sm font-semibold text-brand-pale hover:underline"
+        >
+          Администрирование
+        </RouterLink>
         <div class="mt-3">
           <LogoutButton
             variant="secondary"
@@ -96,6 +107,14 @@ const organizationName = computed(() => session.membership?.organizationName ?? 
       <SidebarNav @navigate="menuOpen = false" />
       <div class="border-t border-nav-active pt-4">
         <p class="text-sm font-semibold">{{ session.user?.displayName }}</p>
+        <RouterLink
+          v-if="isPlatformAdmin"
+          :to="{ name: 'admin-overview' }"
+          class="mt-2 block text-sm font-semibold text-brand-pale hover:underline"
+          @click="menuOpen = false"
+        >
+          Администрирование
+        </RouterLink>
         <div class="mt-3">
           <LogoutButton
             variant="secondary"

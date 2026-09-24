@@ -16,7 +16,9 @@ import { useOrganizationQuery } from '@/entities/organization'
 import {
   RiskSeverityBadge,
   externalLinkUnavailableLabel,
+  opportunityStageLabel,
   toRiskWorkspace,
+  useOpportunityDetailQuery,
   useRiskDetailQuery,
 } from '@/entities/risk'
 import {
@@ -28,7 +30,9 @@ import { OpenConversationButton, RecordActionForm } from '@/features/record-acti
 import { RecordOutcomeForm } from '@/features/record-outcome'
 import { ConfirmRevenueButton, type RevenueEvidence } from '@/features/confirm-revenue'
 import { RiskFeedbackPanel } from '@/features/risk-feedback'
+import { StageChangeControl } from '@/features/change-opportunity-stage'
 import RiskHistory from './RiskHistory.vue'
+import OpportunityTimeline from './OpportunityTimeline.vue'
 
 const props = defineProps<{ tenantId: string; riskId: string }>()
 
@@ -44,6 +48,16 @@ const canAct = computed(() => session.can('action.manage'))
 const canRecordOutcome = computed(() => session.can('outcome.manage'))
 const canConfirmRevenue = computed(() => session.can('revenue.confirm'))
 const canReadConversation = computed(() => session.can('conversation.read'))
+const canManageOpportunity = computed(() => session.can('opportunity.manage'))
+
+// Сделка читается отдельно: полная история этапов есть только в её ответе.
+const opportunity = useOpportunityDetailQuery(toRef(props, 'tenantId'), () =>
+  canManageOpportunity.value ? (vm.value?.opportunityId ?? null) : null,
+)
+/** Текущий этап — из ответа сделки; до его загрузки — из снимка карточки. */
+const currentStage = computed(
+  () => opportunity.data.value?.opportunity.stage ?? query.data.value?.opportunity?.stage ?? null,
+)
 
 /** Цепочка для атрибуции «возвращённая выручка» из снимка карточки. */
 const revenueEvidence = computed<RevenueEvidence | null>(() => {
@@ -161,7 +175,7 @@ const unavailableText = computed(() =>
           <h2 id="risk-reason-title" class="text-lg font-bold text-ink">Почему это риск</h2>
           <p class="mt-2 text-base leading-7 text-ink">{{ vm.reason }}</p>
           <dl class="mt-4 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
-            <div class="flex gap-1">
+            <div class="flex min-w-0 flex-wrap gap-x-1">
               <dt class="text-muted">Обнаружен</dt>
               <dd class="text-ink">
                 <time :datetime="vm.detectedAt" :title="absolute(vm.detectedAt) ?? undefined">
@@ -169,7 +183,7 @@ const unavailableText = computed(() =>
                 </time>
               </dd>
             </div>
-            <div class="flex gap-1">
+            <div class="flex min-w-0 flex-wrap gap-x-1">
               <dt class="text-muted">Ожидание с</dt>
               <dd class="text-ink">
                 <time :datetime="vm.dueAt" :title="absolute(vm.dueAt) ?? undefined">
@@ -177,7 +191,7 @@ const unavailableText = computed(() =>
                 </time>
               </dd>
             </div>
-            <div class="flex gap-1">
+            <div class="flex min-w-0 flex-wrap gap-x-1">
               <dt class="text-muted">Источник</dt>
               <dd class="text-ink">{{ vm.sourceLabel }}</dd>
             </div>
@@ -185,13 +199,13 @@ const unavailableText = computed(() =>
               <dt class="text-muted">Уверенность AI</dt>
               <dd class="text-ink">{{ Math.round(vm.confidence * 100) }} %</dd>
             </div>
-            <div class="flex gap-1">
+            <div class="flex min-w-0 flex-wrap gap-x-1">
               <dt class="text-muted">Код причины</dt>
-              <dd class="font-mono text-xs text-ink">{{ vm.reasonCode }}</dd>
+              <dd class="font-mono text-xs break-all text-ink">{{ vm.reasonCode }}</dd>
             </div>
-            <div class="flex gap-1">
+            <div class="flex min-w-0 flex-wrap gap-x-1">
               <dt class="text-muted">Версия правил</dt>
-              <dd class="font-mono text-xs text-ink">{{ vm.policyVersion }}</dd>
+              <dd class="font-mono text-xs break-all text-ink">{{ vm.policyVersion }}</dd>
             </div>
           </dl>
         </UiCard>
@@ -199,20 +213,22 @@ const unavailableText = computed(() =>
         <UiCard as="section" aria-labelledby="risk-context-title">
           <h2 id="risk-context-title" class="text-lg font-bold text-ink">Переписка и сделка</h2>
           <dl class="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
-            <div class="flex gap-1">
+            <div class="flex min-w-0 flex-wrap gap-x-1">
               <dt class="text-muted">Услуга</dt>
               <dd class="text-ink">
                 {{ vm.serviceName ?? 'не определена' }}
                 <span v-if="vm.serviceActive === false" class="text-muted">(неактивна)</span>
               </dd>
             </div>
-            <div class="flex gap-1">
+            <div class="flex min-w-0 flex-wrap gap-x-1">
               <dt class="text-muted">Канал</dt>
               <dd class="text-ink">{{ vm.channelName ?? 'не определён' }}</dd>
             </div>
-            <div class="flex gap-1">
+            <div class="flex min-w-0 flex-wrap gap-x-1">
               <dt class="text-muted">Этап сделки</dt>
-              <dd class="text-ink">{{ vm.stageLabel ?? 'сделка не создана' }}</dd>
+              <dd class="text-ink" data-testid="opportunity-stage">
+                {{ currentStage ? opportunityStageLabel(currentStage) : 'сделка не создана' }}
+              </dd>
             </div>
           </dl>
 
@@ -247,6 +263,44 @@ const unavailableText = computed(() =>
             />
             <p v-else-if="unavailableText" class="text-sm text-muted">{{ unavailableText }}</p>
           </div>
+
+          <section
+            v-if="vm.opportunityId && canManageOpportunity"
+            aria-labelledby="stages-title"
+            class="mt-5 border-t border-line pt-4"
+          >
+            <h3 id="stages-title" class="text-sm font-semibold text-ink">Этапы сделки</h3>
+            <div
+              v-if="opportunity.isPending.value"
+              class="mt-2"
+              role="status"
+              aria-label="Загрузка этапов"
+            >
+              <UiSkeleton class="h-10 w-full" />
+            </div>
+            <UiErrorState
+              v-else-if="opportunity.isError.value"
+              class="mt-2"
+              :error="opportunity.error.value"
+              title="Не удалось загрузить историю этапов"
+              @retry="opportunity.refetch()"
+            />
+            <template v-else-if="opportunity.data.value">
+              <div class="mt-3">
+                <StageChangeControl
+                  :risk-id="vm.id"
+                  :opportunity-id="vm.opportunityId"
+                  :current-stage="opportunity.data.value.opportunity.stage"
+                />
+              </div>
+              <div class="mt-4">
+                <OpportunityTimeline
+                  :entries="opportunity.data.value.stageHistory"
+                  :time-zone="timeZone"
+                />
+              </div>
+            </template>
+          </section>
         </UiCard>
 
         <UiCard as="section" aria-labelledby="risk-recommendation-title">

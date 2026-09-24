@@ -12,6 +12,10 @@ export type {
   Outcome,
   OutcomeStatus,
   OpportunityStage,
+  OpportunityStageSource,
+  Opportunity,
+  OpportunityDetail,
+  OpportunityStageHistory,
   RiskFeedback,
   RiskFeedbackRequest,
   RiskVerdict,
@@ -67,3 +71,18 @@ export type { ActionDraft, OutcomeDraft, RecordedAction, RecordedOutcome } from 
 export { invalidateRisk } from './api/invalidate'
 export type { InvalidateRiskOptions } from './api/invalidate'
 export { default as RiskSeverityBadge } from './ui/RiskSeverityBadge.vue'
+export {
+  ACTIVE_STAGE_ORDER,
+  TERMINAL_STAGES,
+  isActiveStage,
+  allowedNextStages,
+  isClosingStage,
+  stageSourceLabel,
+  describeClosingStage,
+} from './model/stages'
+export {
+  opportunityKeys,
+  fetchOpportunityDetail,
+  changeOpportunityStage,
+  useOpportunityDetailQuery,
+} from './api/opportunity-api'

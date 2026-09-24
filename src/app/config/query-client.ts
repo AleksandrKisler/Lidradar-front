@@ -14,6 +14,8 @@ export function createAppQueryClient(): QueryClient {
       queries: {
         retry: shouldRetryRead,
         staleTime: 30_000,
+        // Ограниченное хранение: неиспользуемые страницы и снимки уходят из памяти.
+        gcTime: 10 * 60_000,
         refetchOnWindowFocus: true,
         refetchOnReconnect: true,
       },

@@ -2,7 +2,7 @@
 
 ## GitHub Actions
 
-`.github/workflows/ci.yml` запускает quality gate (`npm run check`), сборки трёх сред, E2E на четырёх browser-профилях и smoke контейнера. Настройте branch protection: обязательны quality, builds, e2e, container. Для другой CI переносите те же команды.
+`.github/workflows/ci.yml` запускает quality gate (`npm run check`), сборки трёх сред с аудитом выпуска для production (`scripts/release-audit.mjs`: карты исходников, CSP-совместимость `index.html`, строки, похожие на секреты, бюджеты сборки, снимок контракта), E2E на четырёх browser-профилях и smoke контейнера. Настройте branch protection: обязательны quality, builds, e2e, container. Для другой CI переносите те же команды.
 
 `npm run check` включает `npm run api:check`: если снимок контракта в `contracts/openapi.yaml` обновили без перегенерации типов (или правили `generated/` вручную), конвейер остановится. Порядок обновления контракта — в [environments.md](environments.md).
 

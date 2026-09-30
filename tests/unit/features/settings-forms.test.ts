@@ -6,6 +6,7 @@ import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { fetchMe, useSessionStore } from '@/entities/session'
 import type { Organization } from '@/entities/organization'
 import type { Location } from '@/entities/location'
+import type { ServiceCatalogItem } from '@/entities/service'
 import { OrganizationForm } from '@/features/edit-organization'
 import { BusinessHoursEditor } from '@/features/edit-business-hours'
 import { ServiceForm } from '@/features/manage-services'
@@ -219,6 +220,87 @@ describe('формы настроек', () => {
     })
     expect(wrapper.emitted('saved')).toHaveLength(1)
     expect((wrapper.get('input[name="serviceName"]').element as HTMLInputElement).value).toBe('')
+    wrapper.unmount()
+  })
+
+  it.each(['create', 'update'] as const)(
+    'услуга: %s отправляется один раз при повторном submit до валидации и во время запроса',
+    async (kind) => {
+      const service: ServiceCatalogItem = {
+        id: 'svc-1',
+        name: 'Полировка',
+        normalizedName: 'полировка',
+        locationId: null,
+        priceFrom: '1000.00',
+        priceTo: '1500.00',
+        currency: 'RUB',
+        active: true,
+        createdAt: '',
+        updatedAt: '',
+      }
+      let resolveResponse!: (response: Response) => void
+      const response = new Promise<Response>((resolve) => {
+        resolveResponse = resolve
+      })
+      fetchMock.mockImplementation(async () => (await response).clone())
+      const wrapper = mountWith(ServiceForm, {
+        tenantId: 'tenant-a',
+        service: kind === 'update' ? service : null,
+        locations: [location],
+        defaultCurrency: 'RUB',
+      })
+      await wrapper.get('input[name="serviceName"]').setValue('Полировка')
+      const form = wrapper.get('form')
+      // Оба события приходят до следующего обновления DOM и завершения валидации.
+      await Promise.all([form.trigger('submit'), form.trigger('submit')])
+      await settle()
+      const callsBeforeResponse = fetchMock.mock.calls.length
+      const disabledWhilePending = wrapper.get('button[type="submit"]').attributes('disabled')
+      await form.trigger('submit')
+      await settle()
+      const callsAfterRepeat = fetchMock.mock.calls.length
+      resolveResponse(jsonResponse(service, kind === 'create' ? 201 : 200))
+      await settle()
+
+      expect(callsBeforeResponse).toBe(1)
+      expect(callsAfterRepeat).toBe(1)
+      expect(disabledWhilePending).toBeDefined()
+      expect(fetchMock.mock.calls[0]![0].method).toBe(kind === 'create' ? 'POST' : 'PATCH')
+      expect(wrapper.emitted('saved')).toHaveLength(1)
+      expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+      wrapper.unmount()
+    },
+  )
+
+  it('услуга: после отказа API сохраняет поля и разрешает повтор, затем новую услугу', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: { code: 'VALIDATION_ERROR' } }, 422))
+      .mockImplementation(() => Promise.resolve(jsonResponse({ id: 'svc-1' }, 201)))
+    const wrapper = mountWith(ServiceForm, {
+      tenantId: 'tenant-a',
+      service: null,
+      locations: [],
+      defaultCurrency: 'RUB',
+    })
+    const name = wrapper.get<HTMLInputElement>('input[name="serviceName"]')
+    await name.setValue('Полировка')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(wrapper.emitted('saved')).toBeUndefined()
+    expect(name.element.value).toBe('Полировка')
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(wrapper.emitted('saved')).toHaveLength(1)
+    expect(name.element.value).toBe('')
+
+    await name.setValue('Мойка')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(wrapper.emitted('saved')).toHaveLength(2)
     wrapper.unmount()
   })
 })

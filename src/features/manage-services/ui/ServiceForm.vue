@@ -4,7 +4,7 @@
  * валюта. Пустая цена уходит как `null`; при изменении отправляются все
  * редактируемые поля, чтобы PATCH был однозначен.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { describeError, isApiError } from '@/shared/api'
@@ -58,7 +58,8 @@ const traceId = computed(() =>
   isApiError(commands.error.value) ? commands.error.value.traceId : '',
 )
 
-const onSubmit = handleSubmit(async (values) => {
+const isSubmitting = ref(false)
+const submit = handleSubmit(async (values) => {
   const body = {
     name: values.name,
     locationId: values.locationId || null,
@@ -82,6 +83,17 @@ const onSubmit = handleSubmit(async (values) => {
     emit('saved', result)
   }
 })
+
+async function onSubmit(event: Event) {
+  // Блокируем повтор до асинхронной валидации, пока mutation ещё не pending.
+  if (isSubmitting.value) return
+  isSubmitting.value = true
+  try {
+    await submit(event)
+  } finally {
+    isSubmitting.value = false
+  }
+}
 </script>
 
 <template>
@@ -95,7 +107,7 @@ const onSubmit = handleSubmit(async (values) => {
         :maxlength="SERVICE_NAME_MAX_LENGTH"
         :described-by="describedBy"
         :invalid="invalid"
-        :disabled="commands.isPending.value"
+        :disabled="isSubmitting"
       />
     </UiField>
     <UiField v-slot="{ id, describedBy, invalid }" label="Точка" :error="errors.locationId">
@@ -106,7 +118,7 @@ const onSubmit = handleSubmit(async (values) => {
         :options="locationOptions"
         :described-by="describedBy"
         :invalid="invalid"
-        :disabled="commands.isPending.value"
+        :disabled="isSubmitting"
       />
     </UiField>
     <div class="grid gap-5 sm:grid-cols-3">
@@ -124,7 +136,7 @@ const onSubmit = handleSubmit(async (values) => {
           placeholder="0,00"
           :described-by="describedBy"
           :invalid="invalid"
-          :disabled="commands.isPending.value"
+          :disabled="isSubmitting"
         />
       </UiField>
       <UiField v-slot="{ id, describedBy, invalid }" label="Цена до" :error="errors.priceTo">
@@ -136,7 +148,7 @@ const onSubmit = handleSubmit(async (values) => {
           placeholder="0,00"
           :described-by="describedBy"
           :invalid="invalid"
-          :disabled="commands.isPending.value"
+          :disabled="isSubmitting"
         />
       </UiField>
       <UiField v-slot="{ id, describedBy, invalid }" label="Валюта" :error="errors.currency">
@@ -147,7 +159,7 @@ const onSubmit = handleSubmit(async (values) => {
           :options="CURRENCY_OPTIONS"
           :described-by="describedBy"
           :invalid="invalid"
-          :disabled="commands.isPending.value"
+          :disabled="isSubmitting"
         />
       </UiField>
     </div>
@@ -157,10 +169,10 @@ const onSubmit = handleSubmit(async (values) => {
     </UiAlert>
 
     <div class="flex flex-wrap justify-end gap-3">
-      <UiButton variant="secondary" :disabled="commands.isPending.value" @click="emit('cancel')">
+      <UiButton variant="secondary" :disabled="isSubmitting" @click="emit('cancel')">
         Отмена
       </UiButton>
-      <UiButton type="submit" :loading="commands.isPending.value">
+      <UiButton type="submit" :loading="isSubmitting">
         {{ submitLabel ?? (service ? 'Сохранить' : 'Добавить услугу') }}
       </UiButton>
     </div>

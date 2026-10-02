@@ -17,9 +17,18 @@ export const serviceSchema = v.pipe(
   v.object({
     name: v.pipe(
       v.string(),
-      v.trim(),
+      // Match Go strings.Fields: trim and collapse Unicode whitespace before counting.
+      v.transform((name) =>
+        name
+          .split(/\p{White_Space}+/u)
+          .filter(Boolean)
+          .join(' '),
+      ),
       v.nonEmpty('Введите название услуги'),
-      v.maxLength(SERVICE_NAME_MAX_LENGTH, 'Слишком длинное название'),
+      v.check(
+        (name) => Array.from(name).length <= SERVICE_NAME_MAX_LENGTH,
+        `Не более ${SERVICE_NAME_MAX_LENGTH} символов`,
+      ),
     ),
     locationId: v.string(),
     priceFrom: price,

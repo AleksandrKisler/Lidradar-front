@@ -49,8 +49,8 @@ function setFilters(next: ConversationFilters): void {
       title="Диалоги"
       subtitle="Переписка и связанные риски: контекст перед ответом клиенту"
     />
-    <div class="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start">
-      <div :class="detailOpen ? 'hidden lg:block' : ''">
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start">
+      <div class="min-w-0" :class="detailOpen ? 'hidden lg:block' : ''">
         <ConversationList
           v-if="tenantId"
           :tenant-id="tenantId"
@@ -60,7 +60,7 @@ function setFilters(next: ConversationFilters): void {
           @update:filters="setFilters"
         />
       </div>
-      <div :class="detailOpen ? 'flex flex-col gap-3' : 'hidden lg:block'">
+      <div class="min-w-0" :class="detailOpen ? 'flex flex-col gap-3' : 'hidden lg:block'">
         <RouterLink
           v-if="detailOpen"
           :to="{ name: 'conversations', query: route.query }"

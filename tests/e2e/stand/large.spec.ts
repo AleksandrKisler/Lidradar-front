@@ -6,6 +6,48 @@ test.use({ trace: 'off', video: 'off', screenshot: 'off' })
 test.describe('стенд · сеть студий', () => {
   requireStand()
 
+  for (const width of [320, 375]) {
+    test(`QA-03: список диалогов помещается в ${width} px после reload и подгрузки`, async ({
+      browser,
+      baseURL,
+    }) => {
+      const stand = await openStand(browser, baseURL!, 'large')
+      const { page } = stand
+      try {
+        await page.setViewportSize({ width, height: 812 })
+        await page.goto('/conversations')
+        const list = page.getByRole('list', { name: 'Список диалогов' })
+        const links = list.getByRole('link')
+        const fits = async () => {
+          await expect(links.first()).toBeVisible()
+          const dimensions = await page.evaluate(() => ({
+            viewport: window.innerWidth,
+            document: document.documentElement.scrollWidth,
+          }))
+          expect(dimensions.document, JSON.stringify(dimensions)).toBeLessThanOrEqual(width + 1)
+          const bounds = await list.boundingBox()
+          expect(bounds).not.toBeNull()
+          expect(bounds!.x).toBeGreaterThanOrEqual(0)
+          expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width + 1)
+        }
+        await fits()
+        await page.reload()
+        await fits()
+        const firstPage = await links.count()
+        await page.getByRole('button', { name: 'Показать ещё' }).click()
+        await expect.poll(() => links.count()).toBeGreaterThan(firstPage)
+        await fits()
+
+        await links.first().click()
+        await expect(page.getByRole('region', { name: 'Сообщения' })).toBeVisible()
+        await page.getByRole('link', { name: '← К списку' }).click()
+        await fits()
+      } finally {
+        await stand.context.close()
+      }
+    })
+  }
+
   test('лента рисков листается курсором без дублей и без чтения карточек', async ({
     browser,
     baseURL,

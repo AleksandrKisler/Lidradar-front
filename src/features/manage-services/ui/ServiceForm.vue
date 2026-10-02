@@ -98,13 +98,17 @@ async function onSubmit(event: Event) {
 
 <template>
   <form class="flex flex-col gap-5" novalidate @submit.prevent="onSubmit">
-    <UiField v-slot="{ id, describedBy, invalid }" label="Название услуги" :error="errors.name">
+    <UiField
+      v-slot="{ id, describedBy, invalid }"
+      label="Название услуги"
+      :description="`До ${SERVICE_NAME_MAX_LENGTH} символов.`"
+      :error="errors.name"
+    >
       <UiInput
         :id="id"
         v-model="name"
         name="serviceName"
         placeholder="Полировка кузова"
-        :maxlength="SERVICE_NAME_MAX_LENGTH"
         :described-by="describedBy"
         :invalid="invalid"
         :disabled="isSubmitting"

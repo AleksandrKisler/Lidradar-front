@@ -272,6 +272,52 @@ describe('формы настроек', () => {
     },
   )
 
+  it.each(['create', 'update'] as const)(
+    'услуга: %s показывает лимит у поля и сохраняет после исправления длины Unicode',
+    async (kind) => {
+      const service: ServiceCatalogItem = {
+        id: 'svc-1',
+        name: 'Мойка',
+        normalizedName: 'мойка',
+        locationId: null,
+        priceFrom: null,
+        priceTo: null,
+        currency: 'RUB',
+        active: true,
+        createdAt: '',
+        updatedAt: '',
+      }
+      fetchMock.mockImplementation(() =>
+        Promise.resolve(jsonResponse(service, kind === 'create' ? 201 : 200)),
+      )
+      const wrapper = mountWith(ServiceForm, {
+        tenantId: 'tenant-a',
+        service: kind === 'update' ? service : null,
+        locations: [],
+        defaultCurrency: 'RUB',
+      })
+      const name = wrapper.get<HTMLInputElement>('input[name="serviceName"]')
+      await name.setValue('Я'.repeat(201))
+      await wrapper.get('form').trigger('submit')
+      await settle()
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(wrapper.text()).toContain('Не более 200 символов')
+      expect(name.attributes('aria-invalid')).toBe('true')
+      expect(name.element.value).toBe('Я'.repeat(201))
+
+      // Emoji occupies two UTF-16 units: native maxlength must not truncate it.
+      expect(name.attributes('maxlength')).toBeUndefined()
+      await name.setValue('🚗'.repeat(200))
+      await wrapper.get('form').trigger('submit')
+      await settle()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(fetchMock.mock.calls[0]![0].method).toBe(kind === 'create' ? 'POST' : 'PATCH')
+      expect((await fetchMock.mock.calls[0]![0].json()).name).toBe('🚗'.repeat(200))
+      expect(wrapper.emitted('saved')).toHaveLength(1)
+      wrapper.unmount()
+    },
+  )
+
   it('услуга: после отказа API сохраняет поля и разрешает повтор, затем новую услугу', async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ error: { code: 'VALIDATION_ERROR' } }, 422))

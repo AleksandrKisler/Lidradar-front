@@ -913,7 +913,7 @@ export async function mockOwner(page: Page, options: OwnerMockOptions = {}): Pro
         status: 'ACTIVE',
         capabilities: ['CAN_RECEIVE_MESSAGES', 'CAN_IDENTIFY_CONTACT'],
         lastEventAt: null,
-        lastSuccessAt: now,
+        lastSuccessAt: provider === 'CONNECTED_BUSINESS_BOT' ? now : null,
         lastErrorAt: null,
         lastErrorCode: null,
         createdAt: now,
@@ -931,7 +931,8 @@ export async function mockOwner(page: Page, options: OwnerMockOptions = {}): Pro
       const target = connections.find((item) => item.id === single[1])
       if (!target) return json(route, 404, errorBody('NOT_FOUND'))
       if (single[3]) {
-        target.lastSuccessAt = new Date().toISOString()
+        if (target.provider === 'CONNECTED_BUSINESS_BOT')
+          target.lastSuccessAt = new Date().toISOString()
         return json(route, 200, {
           health: healthOf(target),
           verification: target.provider === 'CONNECTED_BUSINESS_BOT' ? 'REMOTE' : 'LOCAL',

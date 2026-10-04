@@ -113,7 +113,7 @@ describe('интеграции', () => {
     })
     expect(dialog().text()).toContain('Подключение создано')
     expect(dialog().text()).toContain('Работает')
-    expect(dialog().text()).not.toContain('Секрет подписи webhook')
+    expect(dialog().text()).not.toContain('Секрет webhook')
     expect(wrapper.emitted('connected')).toHaveLength(1)
     wrapper.unmount()
   })
@@ -148,6 +148,7 @@ describe('интеграции', () => {
             ...connection,
             provider: 'GENERIC_WEBHOOK',
             status: 'ACTIVE',
+            lastSuccessAt: null,
             webhookSecret: 'issued-secret-0123456789',
           },
           201,
@@ -180,6 +181,12 @@ describe('интеграции', () => {
     expect(await fetchMock.mock.calls[1]![0].json()).toEqual({ name: 'CRM', locationId: null })
     expect(dialog().get('[data-testid="webhook-secret"]').text()).toBe('issued-secret-0123456789')
     expect(dialog().text()).toContain('показывается один раз')
+    expect(dialog().text()).toContain('Ожидает первое событие')
+    expect(dialog().text()).not.toContain('Работает')
+    expect(dialog().get('[data-testid="webhook-url"]').text()).toContain(
+      '/api/v1/webhooks/GENERIC_WEBHOOK/tenant-a/conn-1',
+    )
+    expect(dialog().text()).toContain('X-LidRadar-Webhook-Secret')
     wrapper.unmount()
   })
 
@@ -204,6 +211,89 @@ describe('интеграции', () => {
     wrapper.unmount()
   })
 
+  it('свой секрет: инструкция доступна без повторного показа секрета, повторное подключение меняет адрес', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(
+          { ...connection, provider: 'GENERIC_WEBHOOK', lastSuccessAt: null, webhookSecret: null },
+          201,
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            ...connection,
+            id: 'conn-2',
+            provider: 'GENERIC_WEBHOOK',
+            lastSuccessAt: null,
+            webhookSecret: null,
+          },
+          201,
+        ),
+      )
+    const wrapper = mount(ConnectChannelDialog, {
+      props: { tenantId: 'tenant-a', locations: [], open: true },
+      global: { plugins: plugins() },
+      attachTo: document.body,
+    })
+    for (const id of ['conn-1', 'conn-2']) {
+      await flushPromises()
+      await dialog().get('select[name="provider"]').setValue('GENERIC_WEBHOOK')
+      await dialog().get('input[name="connectionName"]').setValue('CRM')
+      await dialog().get('input[name="webhookSecret"]').setValue('my-own-secret-value-16')
+      await dialog().get('form').trigger('submit')
+      await settle()
+      expect(dialog().get('[data-testid="webhook-url"]').text()).toContain(`/tenant-a/${id}`)
+      expect(dialog().text()).not.toContain('my-own-secret-value-16')
+      expect(dialog().find('[data-testid="webhook-secret"]').exists()).toBe(false)
+      expect(dialog().text()).toContain('новый адрес и секрет')
+      await wrapper.setProps({ open: false })
+      await settle()
+      await wrapper.setProps({ open: true })
+      await settle()
+      expect(dialog().find('[data-testid="webhook-instructions"]').exists()).toBe(false)
+      await dialog().get('select[name="provider"]').setValue('GENERIC_WEBHOOK')
+      expect(dialog().get<HTMLInputElement>('input[name="webhookSecret"]').element.value).toBe('')
+    }
+    wrapper.unmount()
+  })
+
+  it('локальная проверка webhook не объявляет доставку подтверждённой до события', async () => {
+    const health = {
+      status: 'ACTIVE',
+      lastEventAt: null,
+      lastSuccessAt: null,
+      lastErrorAt: null,
+      lastErrorCode: null,
+      checkedAt: '2026-10-04T12:00:00Z',
+    }
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ health, verification: 'LOCAL' }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          health: { ...health, lastEventAt: health.checkedAt, lastSuccessAt: health.checkedAt },
+          verification: 'LOCAL',
+        }),
+      )
+    const wrapper = mount(CheckHealthButton, {
+      props: {
+        tenantId: 'tenant-a',
+        connectionId: 'conn-1',
+        provider: 'GENERIC_WEBHOOK',
+        timeZone: 'Europe/Moscow',
+      },
+      global: { plugins: plugins() },
+    })
+    expect(wrapper.get('button').text()).toBe('Обновить статус')
+    await wrapper.get('button').trigger('click')
+    await settle()
+    expect(wrapper.get('[role="status"]').text()).toContain('Ожидает первое событие')
+    await wrapper.get('button').trigger('click')
+    await settle()
+    expect(wrapper.get('[role="status"]').text()).toContain('Приём подтверждён')
+    wrapper.unmount()
+  })
+
   it('проверка связи показывает статус, вид проверки и безопасный код', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({
@@ -219,7 +309,12 @@ describe('интеграции', () => {
       }),
     )
     const wrapper = mount(CheckHealthButton, {
-      props: { tenantId: 'tenant-a', connectionId: 'conn-1', timeZone: 'Europe/Moscow' },
+      props: {
+        tenantId: 'tenant-a',
+        connectionId: 'conn-1',
+        provider: 'CONNECTED_BUSINESS_BOT',
+        timeZone: 'Europe/Moscow',
+      },
       global: { plugins: plugins() },
     })
     await wrapper.get('button').trigger('click')

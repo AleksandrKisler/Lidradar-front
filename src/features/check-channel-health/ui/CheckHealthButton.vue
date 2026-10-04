@@ -13,12 +13,18 @@ import { UiAlert, UiButton } from '@/shared/ui'
 import {
   checkConnectionHealth,
   connectionErrorLabel,
-  connectionStatusLabel,
+  connectionStatusView,
+  type ConnectorProvider,
   integrationKeys,
   verificationLabel,
 } from '@/entities/integration'
 
-const props = defineProps<{ tenantId: string; connectionId: string; timeZone: string }>()
+const props = defineProps<{
+  tenantId: string
+  connectionId: string
+  provider: ConnectorProvider
+  timeZone: string
+}>()
 
 const queryClient = useQueryClient()
 const mutation = useMutation({
@@ -50,10 +56,10 @@ const traceId = computed(() =>
       :loading="mutation.isPending.value"
       @click="mutation.mutate()"
     >
-      Проверить связь
+      {{ provider === 'GENERIC_WEBHOOK' ? 'Обновить статус' : 'Проверить связь' }}
     </UiButton>
     <p v-if="result" class="max-w-sm text-right text-xs text-muted" role="status">
-      {{ connectionStatusLabel(result.health.status) }} ·
+      {{ connectionStatusView(provider, result.health).label }} ·
       {{ verificationLabel(result.verification) }} ·
       {{ formatDateTime(result.health.checkedAt, timeZone) }}
       <template v-if="result.health.lastErrorCode">

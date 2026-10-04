@@ -10,8 +10,8 @@ import { UiBadge, UiCard } from '@/shared/ui'
 import {
   capabilityLabel,
   connectionErrorLabel,
-  connectionStatusLabel,
-  connectionStatusTone,
+  connectionStatusView,
+  WebhookInstructions,
   providerLabel,
   useConnectionHealthQuery,
   type ChannelConnection,
@@ -31,6 +31,7 @@ const health = useConnectionHealthQuery(toRef(props, 'tenantId'), () => props.co
 
 /** Снимок здоровья: свежий из отдельного запроса либо из строки списка. */
 const snapshot = computed(() => health.data.value ?? props.connection)
+const statusView = computed(() => connectionStatusView(props.connection.provider, snapshot.value))
 const readAt = computed(() =>
   health.data.value ? formatDateTime(health.data.value.checkedAt, props.timeZone) : null,
 )
@@ -43,7 +44,7 @@ function when(value: string | null): string {
 </script>
 
 <template>
-  <UiCard as="li" class="flex flex-col gap-4">
+  <UiCard as="li" class="flex min-w-0 flex-col gap-4">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div class="min-w-0">
         <h3 class="text-lg font-bold break-words text-ink">{{ connection.name }}</h3>
@@ -51,16 +52,14 @@ function when(value: string | null): string {
           {{ providerLabel(connection.provider) }} · {{ locationName ?? 'вся организация' }}
         </p>
       </div>
-      <UiBadge :tone="connectionStatusTone(snapshot.status)">
-        {{ connectionStatusLabel(snapshot.status) }}
+      <UiBadge :tone="statusView.tone">
+        {{ statusView.label }}
       </UiBadge>
     </div>
 
     <dl class="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-3">
       <div class="flex flex-col">
-        <dt class="text-xs font-semibold tracking-wide text-muted uppercase">
-          Последнее сообщение
-        </dt>
+        <dt class="text-xs font-semibold tracking-wide text-muted uppercase">Последнее событие</dt>
         <dd class="text-ink">{{ when(snapshot.lastEventAt) }}</dd>
       </div>
       <div class="flex flex-col">
@@ -92,6 +91,19 @@ function when(value: string | null): string {
       </li>
     </ul>
 
+    <details
+      v-if="connection.provider === 'GENERIC_WEBHOOK'"
+      class="min-w-0 rounded-control border border-line p-4"
+    >
+      <summary class="cursor-pointer font-semibold text-brand-dark">Инструкция webhook</summary>
+      <WebhookInstructions
+        class="mt-4"
+        :tenant-id="tenantId"
+        :connection-id="connection.id"
+        :disconnected="snapshot.status === 'DISCONNECTED'"
+      />
+    </details>
+
     <div class="flex flex-wrap items-start justify-between gap-3 border-t border-line pt-4">
       <p class="text-xs text-muted">
         <template v-if="readAt">Состояние прочитано {{ readAt }}.</template>
@@ -102,6 +114,7 @@ function when(value: string | null): string {
         <CheckHealthButton
           :tenant-id="tenantId"
           :connection-id="connection.id"
+          :provider="connection.provider"
           :time-zone="timeZone"
         />
         <DisconnectChannelButton :tenant-id="tenantId" :connection="connection" />

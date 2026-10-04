@@ -423,7 +423,7 @@ test.describe('владелец организации', () => {
     await dialog.getByLabel('Токен бота').fill('123456789:AAHf1234567890abcdefghijklmnop')
     await page.keyboard.press('Enter')
     await expect(dialog.getByText('Подключение создано')).toBeVisible()
-    await expect(dialog.getByText('Секрет подписи webhook')).toHaveCount(0)
+    await expect(dialog.getByTestId('webhook-instructions')).toHaveCount(0)
     await dialog.getByRole('button', { name: 'Готово' }).click()
     const list = page.getByRole('list', { name: 'Подключения' })
     // Карточки — прямые элементы списка: внутри есть вложенный список возможностей.
@@ -440,6 +440,17 @@ test.describe('владелец организации', () => {
     await expect(dialog.getByTestId('webhook-secret')).toHaveText(
       'e2e-issued-secret-0123456789abcdef',
     )
+    await expect(dialog).toContainText('Ожидает первое событие')
+    const webhookUrl = await dialog.getByTestId('webhook-url').innerText()
+    expect(webhookUrl).toContain(`/api/v1/webhooks/GENERIC_WEBHOOK/${TENANT_ID}/`)
+    await dialog.getByText('Пример запроса', { exact: true }).click()
+    await expect(dialog.getByTestId('webhook-example')).toContainText(
+      'X-LidRadar-Webhook-Secret: $LIDRADAR_WEBHOOK_SECRET',
+    )
+    await expect(dialog.getByTestId('webhook-example')).not.toContainText('e2e-issued-secret')
+    expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(
+      true,
+    )
     await expectNoAxeViolations(page)
     await dialog.getByRole('button', { name: 'Готово' }).click()
     await expect(cards).toHaveCount(2)
@@ -451,8 +462,18 @@ test.describe('владелец организации', () => {
     await telegramCard.getByRole('button', { name: 'Проверить связь' }).click()
     await expect(telegramCard.getByRole('status')).toContainText('провайдер опрошен')
     const webhookCard = cards.filter({ hasText: 'CRM' })
-    await webhookCard.getByRole('button', { name: 'Проверить связь' }).click()
+    await webhookCard.getByRole('button', { name: 'Обновить статус' }).click()
     await expect(webhookCard.getByRole('status')).toContainText('сохранённое состояние')
+    await expect(webhookCard.getByRole('status')).toContainText('Ожидает первое событие')
+    await page.reload()
+    await webhookCard.getByText('Инструкция webhook', { exact: true }).click()
+    await expect(webhookCard.getByTestId('webhook-url')).toHaveText(webhookUrl)
+    await expect(webhookCard.getByTestId('webhook-secret')).toHaveCount(0)
+    await expect(page.getByText('e2e-issued-secret-0123456789abcdef')).toHaveCount(0)
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true)
+    await expectNoAxeViolations(page)
 
     // Отключение с подтверждением: карточка остаётся как отключённая.
     await webhookCard.getByRole('button', { name: 'Отключить' }).click()

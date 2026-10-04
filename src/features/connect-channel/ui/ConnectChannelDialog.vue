@@ -4,8 +4,8 @@
  *
  * Секреты — write-only: после любой отправки поля токена и секрета
  * очищаются, а выпущенный сервером секрет webhook показывается один раз с
- * кнопкой копирования и нигде не сохраняется. `ACTIVE` означает успешную
- * проверку у провайдера, `ERROR` — подключение создано, но удалённая
+ * кнопкой копирования и нигде не сохраняется. Для webhook `ACTIVE` до
+ * первого события означает только готовность к приёму. `ERROR` — удалённая
  * настройка не завершилась (код объясняется безопасной подписью). При `503`
  * черновик без секретов остаётся в форме, пока диалог открыт.
  */
@@ -28,8 +28,8 @@ import type { Location } from '@/entities/location'
 import {
   CONNECTABLE_PROVIDERS,
   connectionErrorLabel,
-  connectionStatusLabel,
-  connectionStatusTone,
+  connectionStatusView,
+  WebhookInstructions,
   providerDescription,
   providerLabel,
   type ConnectChannelRequest,
@@ -82,6 +82,9 @@ const description = computed(() =>
 )
 
 const result = ref<ConnectedChannel | null>(null)
+const resultStatus = computed(() =>
+  result.value ? connectionStatusView(result.value.provider, result.value) : null,
+)
 const copied = ref(false)
 const errorView = computed(() => (connect.error.value ? describeError(connect.error.value) : null))
 const traceId = computed(() => (isApiError(connect.error.value) ? connect.error.value.traceId : ''))
@@ -170,19 +173,25 @@ watch(open, (isOpen) => {
   <UiDialog
     v-model:open="open"
     title="Подключить источник"
-    description="Переписка начнёт поступать в LidRadar после проверки подключения."
+    description="После подключения настройте отправку сообщений и проверьте первый приём."
     size="lg"
     :dismissible="!connect.isPending.value"
   >
     <div v-if="result" class="flex flex-col gap-4">
       <UiAlert
-        :tone="result.status === 'ACTIVE' ? 'success' : 'warning'"
+        :tone="
+          result.status !== 'ACTIVE'
+            ? 'warning'
+            : result.provider === 'GENERIC_WEBHOOK'
+              ? 'info'
+              : 'success'
+        "
         title="Подключение создано"
       >
         <span class="flex flex-wrap items-center gap-2">
           {{ result.name }} · {{ providerLabel(result.provider) }}
-          <UiBadge :tone="connectionStatusTone(result.status)">
-            {{ connectionStatusLabel(result.status) }}
+          <UiBadge v-if="resultStatus" :tone="resultStatus.tone">
+            {{ resultStatus.label }}
           </UiBadge>
         </span>
         <span v-if="result.status !== 'ACTIVE'" class="mt-1 block">
@@ -195,7 +204,7 @@ watch(open, (isOpen) => {
         v-if="result.webhookSecret"
         class="rounded-control border border-warning/40 bg-warning-pale p-4"
       >
-        <p class="text-sm font-semibold text-ink">Секрет подписи webhook — показывается один раз</p>
+        <p class="text-sm font-semibold text-ink">Секрет webhook — показывается один раз</p>
         <p class="mt-1 text-xs text-ink/70">
           Скопируйте его в настройки отправляющей системы. После закрытия окна секрет получить
           нельзя — только подключить источник заново.
@@ -207,10 +216,15 @@ watch(open, (isOpen) => {
           >
             {{ result.webhookSecret }}
           </code>
-          <UiButton size="sm" variant="secondary" @click="copySecret">Скопировать</UiButton>
+          <UiButton size="sm" variant="secondary" @click="copySecret">Скопировать секрет</UiButton>
           <span v-if="copied" class="text-xs text-success" role="status">Скопировано</span>
         </div>
       </div>
+      <WebhookInstructions
+        v-if="result.provider === 'GENERIC_WEBHOOK'"
+        :tenant-id="tenantId"
+        :connection-id="result.id"
+      />
       <div class="flex justify-end">
         <UiButton @click="finish">Готово</UiButton>
       </div>
@@ -280,7 +294,7 @@ watch(open, (isOpen) => {
       <UiField
         v-else
         v-slot="{ id, describedBy, invalid }"
-        label="Секрет подписи (необязательно)"
+        label="Секрет webhook (необязательно)"
         description="Оставьте пустым — сервер выпустит секрет и покажет его один раз."
         :error="errors.webhookSecret"
       >

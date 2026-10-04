@@ -76,12 +76,13 @@ const rows = computed(() =>
     </UiCard>
 
     <UiAlert v-if="status.data.value?.complete" tone="success" title="Настройка завершена">
-      Обязательные шаги выполнены: Radar уже следит за переписками.
+      Обязательные шаги выполнены. Для webhook завершите настройку отправителя по инструкции в
+      «Интеграциях». Radar начнёт анализ после получения сообщений.
     </UiAlert>
     <UiAlert v-else-if="channelDone" tone="info" title="Источник подключён">
-      Осталась необязательная личная привязка Telegram — она появится с блоком уведомлений. Radar
-      уже получает переписку.
+      Подключение создано. Проверьте оставшиеся шаги выше и первый приём сообщения в «Интеграциях».
     </UiAlert>
+
     <UiAlert v-else tone="info" title="Подключите источник сообщений">
       Без источника Radar работает, но рисков не будет. Подключение Telegram или webhook выполняется
       в разделе «Интеграции».
@@ -92,6 +93,14 @@ const rows = computed(() =>
         Перейти к подключению
       </RouterLink>
     </UiAlert>
+
+    <RouterLink
+      v-if="channelDone"
+      :to="{ name: 'integrations' }"
+      class="font-semibold text-brand-dark hover:underline"
+    >
+      Инструкция и статус подключения
+    </RouterLink>
 
     <UiCard v-if="session.tenantId">
       <TelegramLinkCard :tenant-id="session.tenantId" :time-zone="timeZone" />

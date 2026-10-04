@@ -8,6 +8,7 @@ import type {
   ConnectorCapability,
   ConnectorProvider,
   HealthVerification,
+  ConnectionHealth,
 } from './types'
 
 export type Tone = 'neutral' | 'brand' | 'success' | 'danger' | 'warning' | 'info'
@@ -23,7 +24,7 @@ const providerDescriptions: Record<ConnectorProvider, string> = {
   CONNECTED_BUSINESS_BOT:
     'Переписка бизнес-аккаунта Telegram через вашего бота. Токен передаётся один раз и не показывается.',
   GENERIC_WEBHOOK:
-    'Любая система, умеющая присылать сообщения на адрес LidRadar. Секрет подписи выпустит сервер и покажет один раз.',
+    'Система, которая отправляет сообщения в формате LidRadar. После подключения получите адрес, секрет и пример запроса.',
   IMPORT: 'Разовый импорт истории переписок.',
   TEST: 'Учебный источник для стенда.',
 }
@@ -77,6 +78,19 @@ export function connectionStatusLabel(value: ConnectionStatus | string): string 
 
 export function connectionStatusTone(value: ConnectionStatus | string): Tone {
   return statusTones[value as ConnectionStatus] ?? 'neutral'
+}
+
+/** У webhook ACTIVE означает готовность принимать, а не проверенную доставку. */
+export function connectionStatusView(
+  provider: ConnectorProvider,
+  health: Pick<ConnectionHealth, 'status' | 'lastSuccessAt'>,
+): { label: string; tone: Tone } {
+  if (provider === 'GENERIC_WEBHOOK' && health.status === 'ACTIVE') {
+    return health.lastSuccessAt
+      ? { label: 'Приём подтверждён', tone: 'success' }
+      : { label: 'Ожидает первое событие', tone: 'info' }
+  }
+  return { label: connectionStatusLabel(health.status), tone: connectionStatusTone(health.status) }
 }
 
 export function capabilityLabel(value: ConnectorCapability | string): string {

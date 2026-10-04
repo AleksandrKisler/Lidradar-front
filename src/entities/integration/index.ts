@@ -20,6 +20,7 @@ export {
   providerDescription,
   connectionStatusLabel,
   connectionStatusTone,
+  connectionStatusView,
   capabilityLabel,
   connectionErrorLabel,
   verificationLabel,
@@ -35,3 +36,5 @@ export {
   useConnectionsQuery,
   useConnectionHealthQuery,
 } from './api/integration-api'
+export { webhookUrl, webhookRequestExample } from './model/webhook'
+export { default as WebhookInstructions } from './ui/WebhookInstructions.vue'

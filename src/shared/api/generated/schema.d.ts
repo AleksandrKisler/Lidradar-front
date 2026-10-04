@@ -1992,8 +1992,11 @@ export interface components {
         WebhookReceipt: {
             /** Format: uuid */
             rawEventId: string;
-            /** @enum {string} */
-            status: "RECEIVED" | "FAILED";
+            /**
+             * @description Current persisted state; a duplicate receipt may already be PROCESSED by the asynchronous worker.
+             * @enum {string}
+             */
+            status: "RECEIVED" | "PROCESSED" | "FAILED";
             duplicate: boolean;
         };
         Contact: {

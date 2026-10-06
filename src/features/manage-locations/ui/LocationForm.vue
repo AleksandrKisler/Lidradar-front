@@ -4,7 +4,7 @@
  * отправляются только изменённые поля; флаг активности доступен только
  * существующей точке — при создании сервер его отклоняет.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { describeError, isApiError } from '@/shared/api'
@@ -48,7 +48,8 @@ const [active] = defineField('active')
 const errorView = computed(() => (save.error.value ? describeError(save.error.value) : null))
 const traceId = computed(() => (isApiError(save.error.value) ? save.error.value.traceId : ''))
 
-const onSubmit = handleSubmit(async (values) => {
+const isSubmitting = ref(false)
+const submit = handleSubmit(async (values) => {
   const minutes = Number(values.responseThresholdMinutes)
   let result: Location | null
   if (props.location) {
@@ -74,6 +75,16 @@ const onSubmit = handleSubmit(async (values) => {
   }
   if (result) emit('saved', result)
 })
+
+async function onSubmit(event: Event) {
+  if (isSubmitting.value) return
+  isSubmitting.value = true
+  try {
+    await submit(event)
+  } finally {
+    isSubmitting.value = false
+  }
+}
 </script>
 
 <template>
@@ -87,7 +98,7 @@ const onSubmit = handleSubmit(async (values) => {
         :maxlength="200"
         :described-by="describedBy"
         :invalid="invalid"
-        :disabled="save.isPending.value"
+        :disabled="isSubmitting"
       />
     </UiField>
     <div class="grid gap-5 sm:grid-cols-2">
@@ -103,7 +114,7 @@ const onSubmit = handleSubmit(async (values) => {
           :options="zones"
           :described-by="describedBy"
           :invalid="invalid"
-          :disabled="save.isPending.value"
+          :disabled="isSubmitting"
         />
       </UiField>
       <UiField
@@ -120,12 +131,18 @@ const onSubmit = handleSubmit(async (values) => {
           :maxlength="4"
           :described-by="describedBy"
           :invalid="invalid"
-          :disabled="save.isPending.value"
+          :disabled="isSubmitting"
         />
       </UiField>
     </div>
     <label v-if="location" class="flex items-center gap-2 text-sm text-ink">
-      <input v-model="active" type="checkbox" name="locationActive" class="size-4 accent-brand" />
+      <input
+        v-model="active"
+        type="checkbox"
+        name="locationActive"
+        class="size-4 accent-brand"
+        :disabled="isSubmitting"
+      />
       Точка активна
     </label>
 
@@ -134,10 +151,10 @@ const onSubmit = handleSubmit(async (values) => {
     </UiAlert>
 
     <div class="flex flex-wrap justify-end gap-3">
-      <UiButton variant="secondary" :disabled="save.isPending.value" @click="emit('cancel')">
+      <UiButton variant="secondary" :disabled="isSubmitting" @click="emit('cancel')">
         Отмена
       </UiButton>
-      <UiButton type="submit" :loading="save.isPending.value">
+      <UiButton type="submit" :loading="isSubmitting">
         {{ submitLabel ?? (location ? 'Сохранить' : 'Создать точку') }}
       </UiButton>
     </div>

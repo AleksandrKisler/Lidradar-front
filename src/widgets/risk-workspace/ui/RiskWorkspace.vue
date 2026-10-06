@@ -9,6 +9,7 @@
  */
 import { computed, onScopeDispose, ref, toRef } from 'vue'
 import { RouterLink } from 'vue-router'
+import { hasPendingCommand } from '@/shared/api'
 import { formatDateTime, formatRelative } from '@/shared/lib'
 import { UiAlert, UiBadge, UiButton, UiCard, UiErrorState, UiSkeleton } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
@@ -49,6 +50,13 @@ const canRecordOutcome = computed(() => session.can('outcome.manage'))
 const canConfirmRevenue = computed(() => session.can('revenue.confirm'))
 const canReadConversation = computed(() => session.can('conversation.read'))
 const canManageOpportunity = computed(() => session.can('opportunity.manage'))
+
+function pendingCommand(operation: 'action' | 'outcome', resource: string) {
+  return (
+    !!session.user &&
+    hasPendingCommand(JSON.stringify([session.user.id, props.tenantId, operation, resource]))
+  )
+}
 
 // Сделка читается отдельно: полная история этапов есть только в её ответе.
 const opportunity = useOpportunityDetailQuery(toRef(props, 'tenantId'), () =>
@@ -361,22 +369,36 @@ const unavailableText = computed(() =>
           <RiskFeedbackPanel :risk-id="vm.id" :is-active="vm.isActive" />
         </UiCard>
 
-        <UiCard v-if="vm.isActive && canAct" as="section" aria-labelledby="risk-action-title">
-          <h2 id="risk-action-title" class="text-lg font-bold text-ink">Записать действие</h2>
+        <UiCard
+          v-if="canAct && (vm.isActive || pendingCommand('action', vm.id))"
+          as="section"
+          aria-labelledby="risk-action-title"
+        >
+          <h2 id="risk-action-title" class="text-lg font-bold text-ink">
+            {{ vm.isActive ? 'Записать действие' : 'Проверить незавершённое действие' }}
+          </h2>
           <p class="mt-1 mb-4 text-sm text-muted">
             Только после того, как действие действительно выполнено.
           </p>
-          <RecordActionForm :risk-id="vm.id" />
+          <RecordActionForm :risk-id="vm.id" :disabled="!vm.isActive" />
         </UiCard>
 
         <UiCard
-          v-if="vm.isActive && canRecordOutcome && vm.opportunityId"
+          v-if="
+            canRecordOutcome &&
+            vm.opportunityId &&
+            (vm.isActive || pendingCommand('outcome', vm.opportunityId))
+          "
           as="section"
           aria-labelledby="risk-outcome-title"
         >
           <h2 id="risk-outcome-title" class="text-lg font-bold text-ink">Записать исход</h2>
           <p class="mt-1 mb-4 text-sm text-muted">Чем ответил клиент после вашего действия.</p>
-          <RecordOutcomeForm :risk-id="vm.id" :opportunity-id="vm.opportunityId" />
+          <RecordOutcomeForm
+            :risk-id="vm.id"
+            :opportunity-id="vm.opportunityId"
+            :disabled="!vm.isActive"
+          />
         </UiCard>
 
         <UiCard as="section" aria-labelledby="risk-money-title">

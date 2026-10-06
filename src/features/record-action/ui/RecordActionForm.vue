@@ -4,10 +4,10 @@
  *
  * Отправка идемпотентна: при неизвестном результате (сеть, таймаут, ошибка
  * сервера) кнопка «Повторить» шлёт тот же запрос с тем же ключом; новый ключ
- * появляется после однозначного ответа, отмены или изменения полей. Успех и
+ * появляется после однозначного завершения прежней отправки. Успех и
  * повтор прежнего результата объявляются в live-области разными фразами.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { describeError, isApiError } from '@/shared/api'
@@ -49,10 +49,28 @@ function finish(result: { action: Action } | null): void {
   resetForm({ values: { type: '', note: '' } })
 }
 
-const onSubmit = handleSubmit(async (values) => {
+const isSubmitting = ref(false)
+const commandLocked = computed(
+  () =>
+    isSubmitting.value ||
+    record.isPending.value ||
+    record.canRetry.value ||
+    record.draft.value?.state === 'conflict',
+)
+const submit = handleSubmit(async (values) => {
   const draft = { type: values.type as ActionType, ...(values.note ? { note: values.note } : {}) }
   finish(await record.submit(draft))
 })
+
+async function onSubmit(event: Event) {
+  if (isSubmitting.value) return
+  isSubmitting.value = true
+  try {
+    await submit(event)
+  } finally {
+    isSubmitting.value = false
+  }
+}
 
 async function retry(): Promise<void> {
   finish(await record.retry())
@@ -70,7 +88,7 @@ async function retry(): Promise<void> {
         placeholder="Выберите действие"
         :described-by="describedBy"
         :invalid="invalid"
-        :disabled="disabled || record.isPending.value"
+        :disabled="disabled || commandLocked"
       />
     </UiField>
     <UiField
@@ -87,7 +105,7 @@ async function retry(): Promise<void> {
         :maxlength="NOTE_MAX_LENGTH"
         :described-by="describedBy"
         :invalid="invalid"
-        :disabled="disabled || record.isPending.value"
+        :disabled="disabled || commandLocked"
       />
     </UiField>
 
@@ -97,18 +115,21 @@ async function retry(): Promise<void> {
     </UiAlert>
     <UiAlert v-if="record.canRetry.value" tone="warning" title="Результат неизвестен">
       Ответ сервера не получен. Повторите отправку — запись не задвоится.
+      <p v-if="record.draft.value" class="mt-2">
+        Сохранено: {{ actionTypeLabel(record.draft.value.body.type) }}.
+        {{ record.draft.value.body.note }}
+      </p>
       <div class="mt-3 flex flex-wrap gap-2">
         <UiButton size="sm" :loading="record.isPending.value" @click="retry">
           Повторить отправку
         </UiButton>
-        <UiButton size="sm" variant="ghost" @click="record.reset()">Отменить</UiButton>
       </div>
     </UiAlert>
 
     <UiButton
       type="submit"
       block
-      :disabled="disabled || record.canRetry.value"
+      :disabled="disabled || commandLocked"
       :loading="record.isPending.value"
     >
       Записать действие

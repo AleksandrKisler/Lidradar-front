@@ -7,10 +7,9 @@
  * «возвращённой выручки» подставляется цепочка риск → действие → исход из
  * снимка карточки. Ключ идемпотентности создаётся до первого запроса, при
  * неизвестном результате повтор идёт тем же ключом, а пока запрос выполняется,
- * диалог нельзя закрыть. `409 RECOVERED_ALREADY_ATTRIBUTED` предлагает
- * подтвердить оплату как обычную, но не меняет выбор без явного решения.
+ * диалог нельзя закрыть. Конфликт атрибуции требует сверки истории оплаты.
  */
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { describeError, isApiError } from '@/shared/api'
@@ -58,7 +57,7 @@ function defaults() {
   }
 }
 
-const { defineField, handleSubmit, errors, resetForm, setFieldValue, values } = useForm({
+const { defineField, handleSubmit, errors, resetForm, values } = useForm({
   validationSchema: toTypedSchema(confirmRevenueSchema),
   initialValues: defaults(),
 })
@@ -140,20 +139,33 @@ function bodyFrom(formValues: {
   return body
 }
 
-const onSubmit = handleSubmit(async (formValues) => {
+const isSubmitting = ref(false)
+const commandLocked = computed(
+  () =>
+    isSubmitting.value ||
+    record.isPending.value ||
+    record.canRetry.value ||
+    record.draft.value?.state === 'conflict',
+)
+const submit = handleSubmit(async (formValues) => {
+  if (alreadyAttributed.value) return
   const result = await record.submit(bodyFrom(formValues))
   if (result) emit('confirmed', result.confirmation)
 })
 
+async function onSubmit(event: Event) {
+  if (isSubmitting.value) return
+  isSubmitting.value = true
+  try {
+    await submit(event)
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
 async function retry(): Promise<void> {
   const result = await record.retry()
   if (result) emit('confirmed', result.confirmation)
-}
-
-/** Явное решение пользователя после 409: та же оплата как обычная, новым ключом. */
-async function confirmAsOrganic(): Promise<void> {
-  setFieldValue('attributionType', 'ORGANIC')
-  await onSubmit()
 }
 
 function finish(): void {
@@ -161,7 +173,7 @@ function finish(): void {
 }
 
 // Закрытие сбрасывает форму и результат, кроме неизвестного исхода: его
-// черновик с ключом хранится до повторной попытки или явной отмены.
+// черновик с ключом сохраняется до установления результата.
 watch(open, (isOpen) => {
   if (isOpen) {
     if (record.status.value !== 'unknown') {
@@ -193,7 +205,7 @@ watch(
     title="Подтвердить оплату"
     description="Укажите деньги, которые действительно получены. Запись сохранится в истории подтверждений."
     size="lg"
-    :dismissible="!record.isPending.value"
+    :dismissible="!isSubmitting && !record.isPending.value"
   >
     <div v-if="success" class="flex flex-col gap-4">
       <UiAlert tone="success" title="Оплата подтверждена">
@@ -216,7 +228,7 @@ watch(
             placeholder="0,00"
             :described-by="describedBy"
             :invalid="invalid"
-            :disabled="record.isPending.value"
+            :disabled="commandLocked"
           />
         </UiField>
         <UiField v-slot="{ id, describedBy, invalid }" label="Валюта" :error="errors.currency">
@@ -227,7 +239,7 @@ watch(
             :options="currencyOptions"
             :described-by="describedBy"
             :invalid="invalid"
-            :disabled="record.isPending.value"
+            :disabled="commandLocked"
           />
         </UiField>
       </div>
@@ -251,7 +263,7 @@ watch(
             name="attributionType"
             :value="type"
             class="mt-1 size-4 shrink-0 accent-brand"
-            :disabled="record.isPending.value || (type === 'RECOVERED' && !evidenceComplete)"
+            :disabled="commandLocked || (type === 'RECOVERED' && !evidenceComplete)"
           />
           <span class="flex flex-col gap-1 text-sm">
             <span class="font-semibold text-ink">{{ attributionLabel(type) }}</span>
@@ -287,7 +299,7 @@ watch(
           :options="actionOptions"
           :described-by="describedBy"
           :invalid="invalid"
-          :disabled="record.isPending.value"
+          :disabled="commandLocked"
         />
       </UiField>
 
@@ -298,7 +310,7 @@ watch(
             type="checkbox"
             name="confirmed"
             class="size-4 accent-brand"
-            :disabled="record.isPending.value"
+            :disabled="commandLocked"
           />
           Я подтверждаю, что оплата получена
         </label>
@@ -312,29 +324,33 @@ watch(
         {{ errorView.description }}
       </UiAlert>
       <UiAlert v-if="alreadyAttributed" tone="warning" title="Возвращённая выручка уже учтена">
-        У этой сделки уже есть подтверждение с типом «возвращённая». Эту оплату можно сохранить как
-        обычную — без связи с риском.
-        <div class="mt-3">
-          <UiButton size="sm" :loading="record.isPending.value" @click="confirmAsOrganic">
-            Подтвердить как обычную оплату
-          </UiButton>
-        </div>
+        Сначала сверьте существующее подтверждение в истории оплат. Не записывайте тот же платёж
+        повторно. Для отдельного дополнительного платежа откройте новую форму и подтвердите его
+        сумму.
       </UiAlert>
       <UiAlert v-if="record.canRetry.value" tone="warning" title="Результат неизвестен">
-        Ответ сервера не получен. Повторите отправку — подтверждение не задвоится.
+        Сохранена незавершённая отправка: {{ record.draft.value?.body.amount }}
+        {{ record.draft.value?.body.currency }}. Повтор отправит исходные данные с прежним ключом.
         <div class="mt-3 flex flex-wrap gap-2">
           <UiButton size="sm" :loading="record.isPending.value" @click="retry">
             Повторить отправку
           </UiButton>
-          <UiButton size="sm" variant="ghost" @click="record.reset()">Отменить</UiButton>
         </div>
       </UiAlert>
 
       <div class="flex flex-wrap justify-end gap-3">
-        <UiButton variant="secondary" :disabled="record.isPending.value" @click="finish">
-          Отмена
+        <UiButton
+          variant="secondary"
+          :disabled="isSubmitting || record.isPending.value"
+          @click="finish"
+        >
+          {{ record.canRetry.value ? 'Закрыть' : 'Отмена' }}
         </UiButton>
-        <UiButton type="submit" :disabled="record.canRetry.value" :loading="record.isPending.value">
+        <UiButton
+          type="submit"
+          :disabled="commandLocked || alreadyAttributed"
+          :loading="record.isPending.value"
+        >
           {{ submitLabel }}
         </UiButton>
       </div>

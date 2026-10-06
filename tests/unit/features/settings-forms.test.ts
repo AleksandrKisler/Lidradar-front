@@ -161,6 +161,38 @@ describe('формы настроек', () => {
     edit.unmount()
   })
 
+  it.each(['create', 'update'] as const)(
+    'точка: %s защищена от повторного submit во время валидации и запроса',
+    async (kind) => {
+      let resolveResponse!: (response: Response) => void
+      const response = new Promise<Response>((resolve) => {
+        resolveResponse = resolve
+      })
+      fetchMock.mockImplementation(async () => (await response).clone())
+      const wrapper = mountWith(LocationForm, {
+        tenantId: 'tenant-a',
+        location: kind === 'update' ? location : null,
+        defaultTimezone: 'Europe/Moscow',
+      })
+      await wrapper.get('input[name="locationName"]').setValue('Новая точка')
+      const form = wrapper.get('form')
+      await Promise.all([form.trigger('submit'), form.trigger('submit')])
+      await settle()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+      await form.trigger('submit')
+      await settle()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      resolveResponse(
+        jsonResponse({ ...location, name: 'Новая точка' }, kind === 'create' ? 201 : 200),
+      )
+      await settle()
+      expect(wrapper.emitted('saved')).toHaveLength(1)
+      expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+      wrapper.unmount()
+    },
+  )
+
   it('график: локальная проверка, атомарный PUT и признак несохранённых изменений', async () => {
     fetchMock.mockImplementation(() =>
       Promise.resolve(jsonResponse({ ...location, businessHours: [] })),

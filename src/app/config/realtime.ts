@@ -22,6 +22,10 @@ import { env } from '@/shared/config'
 import type { SessionStore } from '@/entities/session'
 import { invalidateRisk } from '@/entities/risk'
 
+// Product decision 2026-10-05: visible Radar freshness <= 30 seconds.
+// Poll every 15 seconds, leaving the HTTP client's 15-second timeout budget.
+export const SNAPSHOT_REFETCH_INTERVAL_MS = 15_000
+
 export interface RealtimeDependencies {
   session: SessionStore
   queryClient: QueryClient
@@ -45,6 +49,20 @@ export function installRealtime(deps: RealtimeDependencies): RealtimeInstallatio
   const { session, queryClient } = deps
   const state = ref<RealtimeState>('stopped')
   let activeTenant: string | null = null
+  let online = typeof navigator === 'undefined' || navigator.onLine
+  const targetWindow = deps.window ?? window
+  const targetDocument = deps.document ?? document
+
+  function reconcileVisible() {
+    if (!activeTenant || !online || targetDocument.visibilityState === 'hidden') return
+    // Only mounted queries issue REST requests. Never abort an ongoing refetch
+    // or accumulate overlapping requests on a slow/unavailable server.
+    void queryClient.invalidateQueries(
+      { queryKey: tenantScope(activeTenant), refetchType: 'active' },
+      { cancelRefetch: false },
+    )
+  }
+  const safetyTimer = setInterval(reconcileVisible, SNAPSHOT_REFETCH_INTERVAL_MS)
 
   const connection = (deps.createConnection ?? ((options) => new RealtimeConnection(options)))({
     baseUrl: env.VITE_API_ORIGIN,
@@ -76,12 +94,19 @@ export function installRealtime(deps: RealtimeDependencies): RealtimeInstallatio
     { immediate: true },
   )
 
-  const targetWindow = deps.window ?? window
-  const targetDocument = deps.document ?? document
-  const onOnline = () => connection.notifyOnline()
-  const onOffline = () => connection.notifyOffline()
-  const onVisibility = () =>
+  const onOnline = () => {
+    online = true
+    connection.notifyOnline()
+    reconcileVisible()
+  }
+  const onOffline = () => {
+    online = false
+    connection.notifyOffline()
+  }
+  const onVisibility = () => {
     connection.notifyVisibility(targetDocument.visibilityState !== 'hidden')
+    reconcileVisible()
+  }
   targetWindow.addEventListener('online', onOnline)
   targetWindow.addEventListener('offline', onOffline)
   targetDocument.addEventListener('visibilitychange', onVisibility)
@@ -92,6 +117,7 @@ export function installRealtime(deps: RealtimeDependencies): RealtimeInstallatio
     connection,
     dispose: () => {
       stopWatching()
+      clearInterval(safetyTimer)
       targetWindow.removeEventListener('online', onOnline)
       targetWindow.removeEventListener('offline', onOffline)
       targetDocument.removeEventListener('visibilitychange', onVisibility)

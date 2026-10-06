@@ -20,6 +20,10 @@ export function useRecordOutcome(
   const session = useSessionStore()
   const queryClient = useQueryClient()
   return useIdempotentMutation<OutcomeDraft, RecordedOutcome>({
+    scope: () =>
+      session.user && session.tenantId
+        ? JSON.stringify([session.user.id, session.tenantId, 'outcome', toValue(opportunityId)])
+        : null,
     execute: (body, key) =>
       createOutcome(session.tenantId ?? '', toValue(opportunityId), key, body),
     onSuccess: async () => {

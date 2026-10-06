@@ -38,6 +38,7 @@ describe('RecordActionForm', () => {
   let queryClient: QueryClient
 
   beforeEach(async () => {
+    localStorage.clear()
     setActivePinia(createPinia())
     vi.mocked(createAction).mockReset()
     vi.mocked(fetchMe).mockResolvedValue({
@@ -129,6 +130,28 @@ describe('RecordActionForm', () => {
     wrapper.unmount()
   })
 
+  it.each([false, true])(
+    'закрытый риск: обновляет карточку, не объявляет успех и сохраняет отказ при ошибке обновления %s',
+    async (refreshFails) => {
+      vi.mocked(createAction).mockRejectedValue(
+        new ApiError({ httpStatus: 409, code: 'RISK_CLOSED', message: 'raw' }),
+      )
+      const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+      if (refreshFails) invalidate.mockRejectedValue(new Error('offline'))
+      else invalidate.mockResolvedValue()
+      const wrapper = mountForm()
+      await fillAndSubmit(wrapper)
+      expect(wrapper.get('[role="alert"]').text()).toContain('Риск закрыт')
+      expect(wrapper.get('[role="alert"]').text()).not.toContain('raw')
+      expect(wrapper.text()).not.toContain('Повторить отправку')
+      expect(wrapper.emitted('recorded')).toBeUndefined()
+      expect(invalidate).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ['tenant', 'tenant-a', 'risk', 'risk-1'] }),
+      )
+      wrapper.unmount()
+    },
+  )
+
   it('409 по ключу показывает безопасную подпись и не предлагает повтор', async () => {
     vi.mocked(createAction).mockRejectedValue(
       new ApiError({
@@ -145,7 +168,7 @@ describe('RecordActionForm', () => {
     expect(alert.text()).toContain('t-9')
     expect(alert.text()).not.toContain('raw')
     expect(wrapper.text()).not.toContain('Повторить отправку')
-    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
     wrapper.unmount()
   })
 })

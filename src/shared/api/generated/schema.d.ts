@@ -1075,7 +1075,7 @@ export interface paths {
         put?: never;
         /**
          * Записать неизменяемое корректирующее действие
-         * @description Требует action.manage (у OWNER и MANAGER есть). Переход по внешней ссылке фиксируется клиентом явно как действие OPEN_CONVERSATION. Риск переходит в ACTED.
+         * @description Требует action.manage (у OWNER и MANAGER есть). Новое действие допустимо только в OPEN, ACKNOWLEDGED, ACTED; для закрытого риска возвращается 409 RISK_CLOSED без записи действия и аудита. Проверка статуса и запись атомарны относительно закрытия. Точный повтор успешного запроса возвращает прежнее действие даже после закрытия. Переход по внешней ссылке фиксируется клиентом явно как действие OPEN_CONVERSATION. Активный риск переходит в ACTED.
          */
         post: operations["createRiskAction"];
         delete?: never;
@@ -4989,7 +4989,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description Ключ идемпотентности использован с другим содержимым. */
+            /** @description RISK_CLOSED — риск уже закрыт; IDEMPOTENCY_CONFLICT — ключ использован с другим содержимым. */
             409: {
                 headers: {
                     [name: string]: unknown;

@@ -74,6 +74,7 @@ async function mountDialog(overrides: Partial<RevenueEvidence> = {}) {
 
 describe('ConfirmRevenueDialog', () => {
   beforeEach(async () => {
+    localStorage.clear()
     setActivePinia(createPinia())
     vi.mocked(confirmRevenue).mockReset()
     vi.mocked(fetchMe).mockResolvedValue({
@@ -153,7 +154,7 @@ describe('ConfirmRevenueDialog', () => {
     wrapper.unmount()
   })
 
-  it('409 предлагает обычную оплату; согласие отправляет ORGANIC новым ключом', async () => {
+  it('409 требует сверки истории и не предлагает повторить тот же платёж как ORGANIC', async () => {
     vi.mocked(confirmRevenue)
       .mockRejectedValueOnce(
         new ApiError({ httpStatus: 409, code: 'RECOVERED_ALREADY_ATTRIBUTED', traceId: 't' }),
@@ -174,17 +175,10 @@ describe('ConfirmRevenueDialog', () => {
       true,
     )
 
-    const offer = dialog()
-      .findAll('button')
-      .find((button) => button.text() === 'Подтвердить как обычную оплату')!
-    await offer.trigger('click')
-    await settle()
-    expect(confirmRevenue).toHaveBeenCalledTimes(2)
-    const first = vi.mocked(confirmRevenue).mock.calls[0]!
-    const second = vi.mocked(confirmRevenue).mock.calls[1]!
-    expect(second[3]).toEqual({ amount: '31000.00', currency: 'RUB', attributionType: 'ORGANIC' })
-    expect(second[2]).not.toBe(first[2])
-    expect(dialog().text()).toContain('Оплата без связи с риском')
+    expect(dialog().text()).not.toContain('Подтвердить как обычную оплату')
+    expect(dialog().text()).toContain('Сначала сверьте существующее подтверждение')
+    expect(dialog().get('button[type="submit"]').attributes('disabled')).toBeDefined()
+    expect(confirmRevenue).toHaveBeenCalledTimes(1)
     wrapper.unmount()
   })
 

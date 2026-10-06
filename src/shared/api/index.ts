@@ -17,6 +17,7 @@ export {
 } from './client/create-client'
 export type { ApiClient, CreateApiClientOptions } from './client/create-client'
 export { ApiError, isApiError, parseRetryAfter, CLIENT_ERROR_CODES } from './client/api-error'
+export { hasPendingCommand } from './client/pending-command'
 export type { ApiErrorInit } from './client/api-error'
 export { describeError } from './client/messages'
 export type { ApiErrorDescription } from './client/messages'

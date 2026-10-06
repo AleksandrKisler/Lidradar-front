@@ -4,7 +4,7 @@
  * напоминает явно, подтверждение суммы — отдельное действие. Отправка
  * идемпотентна так же, как у действия.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { describeError, isApiError } from '@/shared/api'
@@ -57,13 +57,31 @@ function finish(result: { outcome: Outcome } | null): void {
   resetForm({ values: { status: '', note: '' } })
 }
 
-const onSubmit = handleSubmit(async (formValues) => {
+const isSubmitting = ref(false)
+const commandLocked = computed(
+  () =>
+    isSubmitting.value ||
+    record.isPending.value ||
+    record.canRetry.value ||
+    record.draft.value?.state === 'conflict',
+)
+const submit = handleSubmit(async (formValues) => {
   const draft = {
     status: formValues.status as OutcomeStatus,
     ...(formValues.note ? { note: formValues.note } : {}),
   }
   finish(await record.submit(draft))
 })
+
+async function onSubmit(event: Event) {
+  if (isSubmitting.value) return
+  isSubmitting.value = true
+  try {
+    await submit(event)
+  } finally {
+    isSubmitting.value = false
+  }
+}
 
 async function retry(): Promise<void> {
   finish(await record.retry())
@@ -86,7 +104,7 @@ async function retry(): Promise<void> {
         placeholder="Выберите исход"
         :described-by="describedBy"
         :invalid="invalid"
-        :disabled="disabled || record.isPending.value"
+        :disabled="disabled || commandLocked"
       />
     </UiField>
     <UiField v-slot="{ id, describedBy, invalid }" label="Заметка" :error="errors.note">
@@ -98,7 +116,7 @@ async function retry(): Promise<void> {
         :maxlength="NOTE_MAX_LENGTH"
         :described-by="describedBy"
         :invalid="invalid"
-        :disabled="disabled || record.isPending.value"
+        :disabled="disabled || commandLocked"
       />
     </UiField>
 
@@ -108,11 +126,14 @@ async function retry(): Promise<void> {
     </UiAlert>
     <UiAlert v-if="record.canRetry.value" tone="warning" title="Результат неизвестен">
       Ответ сервера не получен. Повторите отправку — запись не задвоится.
+      <p v-if="record.draft.value" class="mt-2">
+        Сохранено: {{ outcomeStatusLabel(record.draft.value.body.status) }}.
+        {{ record.draft.value.body.note }}
+      </p>
       <div class="mt-3 flex flex-wrap gap-2">
         <UiButton size="sm" :loading="record.isPending.value" @click="retry">
           Повторить отправку
         </UiButton>
-        <UiButton size="sm" variant="ghost" @click="record.reset()">Отменить</UiButton>
       </div>
     </UiAlert>
 
@@ -120,7 +141,7 @@ async function retry(): Promise<void> {
       type="submit"
       variant="secondary"
       block
-      :disabled="disabled || record.canRetry.value"
+      :disabled="disabled || commandLocked"
       :loading="record.isPending.value"
     >
       Записать исход

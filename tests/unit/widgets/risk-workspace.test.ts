@@ -5,6 +5,7 @@ import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { fetchMe, useSessionStore, type AuthMeResponse } from '@/entities/session'
 import { RiskWorkspace } from '@/widgets/risk-workspace'
 import { riskDetailFixture } from '../fixtures/risk-detail'
+import { writePendingCommand } from '@/shared/api/client/pending-command'
 
 vi.mock('@/entities/session/api/auth-api', () => ({
   fetchMe: vi.fn(),
@@ -91,10 +92,50 @@ async function mountWorkspace(role: AuthMeResponse['memberships'][number]['role'
   return wrapper
 }
 
-beforeEach(() => vi.mocked(fetchMe).mockReset())
+beforeEach(() => {
+  vi.mocked(fetchMe).mockReset()
+  localStorage.clear()
+})
 afterEach(() => vi.unstubAllGlobals())
 
 describe('RiskWorkspace', () => {
+  it('после reload закрытого риска позволяет повторить только сохранённое действие', async () => {
+    const key = 'b9b0c437-e0e6-43f4-ab75-7d037df4b0cf'
+    writePendingCommand(JSON.stringify(['u', 'tenant-a', 'action', 'risk-1']), {
+      key,
+      state: 'submitting',
+      body: { type: 'CALL', note: 'Уже позвонили' },
+    })
+    const fetchMock = stubApi(() => ({
+      ...riskDetailFixture,
+      risk: { ...riskDetailFixture.risk, status: 'RESOLVED' },
+    }))
+    const wrapper = await mountWorkspace()
+    expect(wrapper.text()).toContain('Проверить незавершённое действие')
+    expect(wrapper.text()).toContain('Результат неизвестен')
+    expect(wrapper.get('select[name="actionType"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('select[name="outcomeStatus"]').exists()).toBe(false)
+    const posts: Request[] = []
+    const original = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation((request: Request) => {
+      if (request.method === 'POST') {
+        posts.push(request)
+        return Promise.resolve(
+          jsonResponse({ action: riskDetailFixture.actions[0], replayed: true }),
+        )
+      }
+      return original(request)
+    })
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Повторить отправку')!
+      .trigger('click')
+    await flushPromises()
+    expect(posts).toHaveLength(1)
+    expect(posts[0]!.headers.get('Idempotency-Key')).toBe(key)
+    expect(await posts[0]!.json()).toEqual({ type: 'CALL', note: 'Уже позвонили' })
+    wrapper.unmount()
+  })
   it('показывает контекст и команды активного риска владельцу', async () => {
     stubApi(() => riskDetailFixture)
     const wrapper = await mountWorkspace()

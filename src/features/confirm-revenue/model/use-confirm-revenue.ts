@@ -20,6 +20,10 @@ export function useConfirmRevenue(
   const session = useSessionStore()
   const queryClient = useQueryClient()
   return useIdempotentMutation<ConfirmRevenueRequest, ConfirmedRevenue>({
+    scope: () =>
+      session.user && session.tenantId
+        ? JSON.stringify([session.user.id, session.tenantId, 'revenue', toValue(opportunityId)])
+        : null,
     execute: (body, key) =>
       confirmRevenue(session.tenantId ?? '', toValue(opportunityId), key, body),
     onSuccess: async () => {

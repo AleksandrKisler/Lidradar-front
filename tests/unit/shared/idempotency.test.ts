@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
-import { effectScope } from 'vue'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { effectScope, nextTick, ref } from 'vue'
 import {
   ApiError,
   draftFor,
@@ -18,7 +18,7 @@ describe('черновик идемпотентной отправки', () => {
     expect(isUnknownResult(network())).toBe(true)
     expect(isUnknownResult(serverError())).toBe(true)
     expect(isUnknownResult(badRequest())).toBe(false)
-    expect(isUnknownResult(new Error('x'))).toBe(false)
+    expect(isUnknownResult(new Error('x'))).toBe(true)
   })
 
   it('первый черновик получает новый ключ', () => {
@@ -32,7 +32,7 @@ describe('черновик идемпотентной отправки', () => {
     const unknown: IdempotentDraft<{ type: string; note: string }> = settleFailure(first, network())
     expect(unknown.state).toBe('unknown')
     expect(draftFor(unknown, { type: 'CALL', note: 'a' }).key).toBe(first.key)
-    expect(draftFor(unknown, { type: 'CALL', note: 'b' }).key).not.toBe(first.key)
+    expect(() => draftFor(unknown, { type: 'CALL', note: 'b' })).toThrow('Unresolved command')
     const failed = settleFailure(first, badRequest())
     expect(failed.state).toBe('failed')
     expect(draftFor(failed, { type: 'CALL', note: 'a' }).key).not.toBe(first.key)
@@ -40,6 +40,7 @@ describe('черновик идемпотентной отправки', () => {
 })
 
 describe('useIdempotentMutation', () => {
+  beforeEach(() => localStorage.clear())
   function setup(execute: (body: { type: string }, key: string) => Promise<string>) {
     const scope = effectScope()
     const onSuccess = vi.fn()
@@ -99,5 +100,96 @@ describe('useIdempotentMutation', () => {
     expect(mutation.status.value).toBe('idle')
     expect(mutation.draft.value).toBeNull()
     stop()
+  })
+
+  it('lost response после commit: reload/logout сохраняют исходную пару и не создают вторую оплату', async () => {
+    const actorScope = ref<string | null>('user-a/tenant-a/revenue/opportunity-1')
+    const rows = new Map<string, number>()
+    let loseResponse = true
+    const execute = vi.fn(async (body: { amount: number }, key: string) => {
+      if (!rows.has(key)) rows.set(key, body.amount)
+      if (loseResponse) {
+        loseResponse = false
+        throw network()
+      }
+      return rows.get(key)!
+    })
+    const firstScope = effectScope()
+    const first = firstScope.run(() =>
+      useIdempotentMutation({ execute, scope: () => actorScope.value }),
+    )!
+    const body = { amount: 100 }
+    await first.submit(body)
+    const key = first.draft.value!.key
+    body.amount = 900
+    first.reset()
+    expect(first.canRetry.value).toBe(true)
+    expect(await first.submit(body)).toBeNull()
+    expect(execute).toHaveBeenCalledTimes(1)
+    firstScope.stop()
+    const secondScope = effectScope()
+    const second = secondScope.run(() =>
+      useIdempotentMutation({ execute, scope: () => actorScope.value }),
+    )!
+    expect(second.draft.value?.body.amount).toBe(100)
+    actorScope.value = null
+    await nextTick()
+    expect(second.draft.value).toBeNull()
+    actorScope.value = 'user-b/tenant-a/revenue/opportunity-1'
+    await nextTick()
+    expect(second.draft.value).toBeNull()
+    actorScope.value = 'user-a/tenant-a/revenue/opportunity-1'
+    await nextTick()
+    expect(await second.retry()).toBe(100)
+    expect(execute.mock.calls[1]).toEqual([{ amount: 100 }, key])
+    expect(rows.size).toBe(1)
+    expect(localStorage.length).toBe(0)
+    secondScope.stop()
+  })
+
+  it('ошибка обновления после успеха не превращает подтверждённый commit в unknown', async () => {
+    const execute = vi.fn().mockResolvedValue('ok')
+    const mutation = useIdempotentMutation({
+      execute,
+      onSuccess: () => {
+        throw new Error('refetch')
+      },
+    })
+    expect(await mutation.submit({ type: 'CALL' })).toBe('ok')
+    expect(mutation.status.value).toBe('success')
+    expect(mutation.canRetry.value).toBe(false)
+  })
+
+  it('повреждённый журнал блокирует новый POST, а конфликт нельзя сбросить', async () => {
+    const execute = vi
+      .fn()
+      .mockRejectedValue(new ApiError({ httpStatus: 409, code: 'IDEMPOTENCY_CONFLICT' }))
+    const scope = effectScope()
+    const mutation = scope.run(() =>
+      useIdempotentMutation({ execute, scope: () => 'corrupt-test' }),
+    )!
+    await mutation.submit({ type: 'CALL' })
+    mutation.reset()
+    expect(await mutation.submit({ type: 'OTHER' })).toBeNull()
+    expect(execute).toHaveBeenCalledTimes(1)
+    const storageKey = localStorage.key(0)!
+    localStorage.setItem(storageKey, 'corrupted')
+    expect(await mutation.submit({ type: 'CALL' })).toBeNull()
+    expect(execute).toHaveBeenCalledTimes(1)
+    expect(mutation.error.value).toMatchObject({ code: 'PENDING_COMMAND_UNAVAILABLE' })
+    scope.stop()
+  })
+
+  it('ошибка сохранения до запроса не отправляет команду без восстановимого ключа', async () => {
+    const execute = vi.fn()
+    const storage = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('quota')
+    })
+    const scope = effectScope()
+    const mutation = scope.run(() => useIdempotentMutation({ execute, scope: () => 'quota-test' }))!
+    expect(await mutation.submit({ type: 'CALL' })).toBeNull()
+    expect(execute).not.toHaveBeenCalled()
+    storage.mockRestore()
+    scope.stop()
   })
 })

@@ -40,7 +40,7 @@
     "date-fns": "^4.1.0",
     "openapi-fetch": "0.17.0",
     "pinia": "^2.2.4",
-    "radashi": "^12.3.3",
+    "radashi": "^12.9.6",
     "reka-ui": "2.10.4",
     "valibot": "^1.2.0",
     "vee-validate": "^4.15.1",

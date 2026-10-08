@@ -398,13 +398,16 @@ test.describe('владелец организации', () => {
     await expect(page).toHaveURL(/\/onboarding\/channel$/)
     await expect(page.getByRole('heading', { name: 'Источник сообщений' })).toBeVisible()
     await expect(page.getByRole('list', { name: 'Шаги настройки' })).toContainText('Точка и график')
-    await expect(page.getByRole('link', { name: 'Перейти к подключению' })).toHaveAttribute(
-      'href',
-      '/integrations',
-    )
+    // Обязательное подключение — главное действие страницы, а не ссылка в плашке.
+    await expect(page.getByRole('button', { name: 'Подключить источник' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Перейти к подключению' })).toHaveCount(0)
     // Шаги слева видны на широком экране; на телефоне колонка скрыта, содержимое остаётся.
     if ((page.viewportSize()?.width ?? 0) >= 768) {
-      await expect(page.getByRole('navigation', { name: 'Шаги начала работы' })).toBeVisible()
+      const steps = page.getByRole('navigation', { name: 'Шаги начала работы' })
+      await expect(steps).toBeVisible()
+      // Нумеруются только обязательные шаги, как в «Шаг 4 из 4».
+      await expect(steps).toContainText('4')
+      await expect(steps).not.toContainText('5')
     }
     await expectNoAxeViolations(page)
     await page.getByRole('link', { name: 'Назад' }).click()
@@ -415,10 +418,110 @@ test.describe('владелец организации', () => {
     await page.getByRole('link', { name: 'Назад' }).click()
     await expect(page).toHaveURL(/\/onboarding\/location$/)
     await expect(page.getByRole('heading', { name: 'График точки' })).toBeVisible()
-    await page.getByRole('button', { name: 'Сохранить график' }).click()
-    await expect(page.getByText('График сохранён.')).toBeVisible()
-    await page.getByRole('button', { name: 'Продолжить' }).click()
+    // У времени видимые подписи, а отдельной кнопки сохранения в мастере нет.
+    await expect(page.getByRole('button', { name: 'Сохранить график' })).toHaveCount(0)
+    await expect(page.getByText('График ещё не сохранён')).toHaveCount(0)
+    await expectNoAxeViolations(page)
+    // «Сохранить и продолжить» сам отправляет неделю одним запросом и ведёт дальше.
+    const putHours = page.waitForRequest(
+      (request) => request.method() === 'PUT' && request.url().includes('/business-hours'),
+    )
+    await page.getByRole('button', { name: 'Сохранить и продолжить' }).click()
+    expect(((await putHours).postDataJSON() as { days: unknown[] }).days).toHaveLength(7)
     await expect(page).toHaveURL(/\/onboarding\/services$/)
+  })
+
+  test('онбординг: график с ошибкой не пускает дальше и объясняет причину', async ({ page }) => {
+    await page.goto('/onboarding/location')
+    await expect(page.getByRole('heading', { name: 'График точки' })).toBeVisible()
+    await page.getByLabel('Понедельник, открытие').fill('21:00')
+    await page.getByRole('button', { name: 'Сохранить и продолжить' }).click()
+    await expect(page.getByText('Открытие должно быть раньше закрытия')).toBeVisible()
+    await expect(page).toHaveURL(/\/onboarding\/location$/)
+    // Одинаковое время для всех рабочих дней задаётся одним действием.
+    await page.getByLabel('Понедельник, открытие').fill('08:00')
+    await page.getByLabel('Понедельник, закрытие').fill('19:00')
+    await page
+      .getByRole('button', { name: 'Применить время понедельника ко всем рабочим дням' })
+      .click()
+    await expect(page.getByLabel('Суббота, открытие')).toHaveValue('08:00')
+    await expect(page.getByLabel('Пятница, закрытие')).toHaveValue('19:00')
+    await expect(page.getByRole('button', { name: /Применить время/ })).toHaveCount(0)
+  })
+
+  test('онбординг: источник подключается на шаге, а выход без него подписан честно', async ({
+    page,
+  }) => {
+    await page.goto('/onboarding/channel')
+    await expect(page.getByRole('heading', { name: 'Подключите источник' })).toBeVisible()
+    // Иерархия: подключение — главное, уведомления тихие, выход без источника не главный.
+    const connect = page.getByRole('button', { name: 'Подключить источник' })
+    await expect(connect).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Подключить уведомления' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Перейти в Radar' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Подключу позже' })).toBeVisible()
+    await expect(page.getByText('Без источника в Radar не появится ни одного риска')).toBeVisible()
+    await expectNoAxeViolations(page)
+
+    // Подключение прямо на шаге: подсказка про токен рядом с полем.
+    await connect.click()
+    const dialog = page.getByRole('dialog', { name: 'Подключить источник' })
+    await dialog.getByText('Где взять токен бота').click()
+    await expect(dialog.getByText('@BotFather').first()).toBeVisible()
+    await dialog.getByLabel('Название подключения').fill('Telegram · переписка клиентов')
+    await dialog.getByLabel('Токен бота').fill('123456789:AAHf1234567890abcdefghijklmnop')
+    await dialog.getByRole('button', { name: 'Подключить' }).click()
+    await expect(dialog.getByText('Подключение создано')).toBeVisible()
+    await expect(dialog.getByText('Последний шаг в Telegram')).toBeVisible()
+    await dialog.getByRole('button', { name: 'Готово' }).click()
+
+    // Страница перешла в состояние «источник подключён»: видны подключение и главная кнопка.
+    await expect(page.getByRole('heading', { name: 'Источник подключён' })).toBeVisible()
+    await expect(page.getByRole('list', { name: 'Подключённые источники' })).toContainText(
+      'Telegram · переписка клиентов',
+    )
+    await expect(page.getByRole('button', { name: 'Перейти в Radar' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Подключу позже' })).toHaveCount(0)
+    await expect(page.getByText('Без источника в Radar не появится')).toHaveCount(0)
+    await expectNoAxeViolations(page)
+    await page.getByRole('button', { name: 'Перейти в Radar' }).click()
+    await expect(page).toHaveURL(/\/radar$/)
+  })
+
+  test('Radar без источника не успокаивает, а ведёт к подключению', async ({ page }) => {
+    await page.route('**/api/v1/risks**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: [], nextCursor: null }),
+      }),
+    )
+    await page.goto('/radar')
+    await expect(
+      page.getByRole('heading', { name: 'Источник сообщений не подключён' }),
+    ).toBeVisible()
+    await expect(page.getByText('Сейчас всё под контролем')).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Подключить источник' })).toHaveAttribute(
+      'href',
+      '/integrations',
+    )
+    await expectNoAxeViolations(page)
+
+    // Webhook называет себя вариантом для разработчика и даёт письмо ему одной кнопкой.
+    await page.getByRole('link', { name: 'Подключить источник' }).click()
+    await page.getByRole('button', { name: 'Подключить источник' }).first().click()
+    const dialog = page.getByRole('dialog', { name: 'Подключить источник' })
+    await dialog.getByLabel('Источник').selectOption('GENERIC_WEBHOOK')
+    await expect(dialog.getByText('Для разработчика')).toBeVisible()
+    await dialog.getByLabel('Название подключения').fill('CRM')
+    await page.keyboard.press('Enter')
+    await expect(dialog.getByRole('button', { name: 'Скопировать для разработчика' })).toBeVisible()
+    await dialog.getByRole('button', { name: 'Готово' }).click()
+
+    // С подключённым источником пустая лента снова говорит «всё под контролем».
+    await page.goto('/radar')
+    await expect(page.getByText('Сейчас всё под контролем')).toBeVisible()
+    await expect(page.getByText('Источник сообщений не подключён')).toHaveCount(0)
   })
 
   test('интеграции: подключение Telegram и webhook, проверка связи, отключение', async ({
@@ -536,7 +639,7 @@ test.describe('владелец организации', () => {
     await expect(row.getByRole('status')).toContainText('Telegram не привязан')
 
     // Одноразовая ссылка открывается в новой вкладке без opener; проверка подтверждает привязку.
-    await telegram.getByRole('button', { name: 'Подключить Telegram' }).click()
+    await telegram.getByRole('button', { name: 'Подключить уведомления' }).click()
     const open = telegram.getByRole('link', { name: 'Открыть бота' })
     await expect(open).toHaveAttribute(
       'href',

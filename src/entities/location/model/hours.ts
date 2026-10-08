@@ -15,14 +15,20 @@ export interface DayDraft {
   closesAt: string
 }
 
-export const WEEKDAYS: readonly { weekday: number; label: string; short: string }[] = [
-  { weekday: 1, label: 'Понедельник', short: 'Пн' },
-  { weekday: 2, label: 'Вторник', short: 'Вт' },
-  { weekday: 3, label: 'Среда', short: 'Ср' },
-  { weekday: 4, label: 'Четверг', short: 'Чт' },
-  { weekday: 5, label: 'Пятница', short: 'Пт' },
-  { weekday: 6, label: 'Суббота', short: 'Сб' },
-  { weekday: 7, label: 'Воскресенье', short: 'Вс' },
+export const WEEKDAYS: readonly {
+  weekday: number
+  label: string
+  short: string
+  /** Родительный падеж для фраз вида «время понедельника». */
+  genitive: string
+}[] = [
+  { weekday: 1, label: 'Понедельник', short: 'Пн', genitive: 'понедельника' },
+  { weekday: 2, label: 'Вторник', short: 'Вт', genitive: 'вторника' },
+  { weekday: 3, label: 'Среда', short: 'Ср', genitive: 'среды' },
+  { weekday: 4, label: 'Четверг', short: 'Чт', genitive: 'четверга' },
+  { weekday: 5, label: 'Пятница', short: 'Пт', genitive: 'пятницы' },
+  { weekday: 6, label: 'Суббота', short: 'Сб', genitive: 'субботы' },
+  { weekday: 7, label: 'Воскресенье', short: 'Вс', genitive: 'воскресенья' },
 ]
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/

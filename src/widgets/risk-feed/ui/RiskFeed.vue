@@ -6,8 +6,12 @@
  * Ошибка при обновлении не стирает последний успешный снимок: список
  * остаётся, а предупреждение указывает время последней удачной загрузки.
  * Пустое состояние показывается только после успешного пустого ответа.
+ * Если известно, что источник сообщений не подключён, пустая лента говорит об
+ * этом и ведёт к подключению: фраза «всё под контролем» при отсутствии
+ * переписки была бы ложным успокоением.
  */
 import { computed, onScopeDispose, ref, toRef } from 'vue'
+import { RouterLink } from 'vue-router'
 import { formatTime } from '@/shared/lib'
 import {
   UiAlert,
@@ -21,7 +25,15 @@ import {
 import { toRiskCard, useActiveRisksQuery, type RiskFilters } from '@/entities/risk'
 import RiskCard from './RiskCard.vue'
 
-const props = defineProps<{ tenantId: string; filters: RiskFilters; timeZone: string }>()
+const props = defineProps<{
+  tenantId: string
+  filters: RiskFilters
+  timeZone: string
+  /** Известно, что ни один источник сообщений не подключён. */
+  sourceMissing?: boolean | undefined
+  /** У пользователя есть право подключать источники. */
+  canConnectSource?: boolean | undefined
+}>()
 
 const query = useActiveRisksQuery(toRef(props, 'tenantId'), toRef(props, 'filters'))
 
@@ -87,6 +99,29 @@ onScopeDispose(() => clearInterval(timer))
       title="Не удалось загрузить риски"
       @retry="query.refetch()"
     />
+
+    <UiCard v-else-if="!cards.length && sourceMissing" :padded="false">
+      <UiEmptyState
+        title="Источник сообщений не подключён"
+        :description="
+          canConnectSource
+            ? 'Radar пока не получает переписку, поэтому рисков нет. Подключите Telegram или webhook: первые риски появятся вместе с сообщениями.'
+            : 'Radar пока не получает переписку, поэтому рисков нет. Источник подключает владелец организации в разделе «Интеграции».'
+        "
+      >
+        <template #icon>
+          <UiIcon name="link-off" class="size-12" />
+        </template>
+        <template v-if="canConnectSource" #actions>
+          <RouterLink
+            :to="{ name: 'integrations' }"
+            class="inline-flex h-11 items-center justify-center rounded-control bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-dark"
+          >
+            Подключить источник
+          </RouterLink>
+        </template>
+      </UiEmptyState>
+    </UiCard>
 
     <UiCard v-else-if="!cards.length" :padded="false">
       <UiEmptyState

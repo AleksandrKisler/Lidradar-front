@@ -118,6 +118,55 @@ describe('интеграции', () => {
     wrapper.unmount()
   })
 
+  it('Telegram: у токена есть подсказка, где его взять, после подключения названо последнее действие', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ ...connection, webhookSecret: null }, 201))
+    const wrapper = mount(ConnectChannelDialog, {
+      props: { tenantId: 'tenant-a', locations: [], open: true },
+      global: { plugins: plugins() },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    // Поле называет источник токена, а раскрывающаяся инструкция идёт сразу за ним.
+    expect(dialog().text()).toContain('Токен выдаёт бот @BotFather')
+    const help = dialog().get('[data-testid="telegram-token-help"]')
+    expect(help.get('summary').text()).toBe('Где взять токен бота')
+    expect(help.text()).toContain('/newbot')
+    expect(help.text()).toContain('Business Mode')
+    expect(help.text()).toContain('Telegram Premium')
+    expect(help.text()).toContain('Токен никому не передавайте')
+    // Подсказка закрыта по умолчанию: форма не вырастает у тех, кому она не нужна.
+    expect(help.attributes('open')).toBeUndefined()
+
+    await dialog().get('input[name="connectionName"]').setValue('Telegram · переписка')
+    await dialog()
+      .get('input[name="botToken"]')
+      .setValue('123456789:AAHf1234567890abcdefghijklmnop')
+    await dialog().get('form').trigger('submit')
+    await settle()
+    // Подключение создано, но сообщения придут, только когда бот добавлен в Telegram.
+    expect(dialog().text()).toContain('Последний шаг в Telegram')
+    expect(dialog().text()).toContain('Telegram Business')
+    expect(dialog().text()).toContain('Пока бот не подключён, сообщения не придут')
+    expect(dialog().find('[data-testid="telegram-token-help"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('Webhook: назван вариантом для разработчика, подсказки про токен нет', async () => {
+    const wrapper = mount(ConnectChannelDialog, {
+      props: { tenantId: 'tenant-a', locations: [], open: true },
+      global: { plugins: plugins() },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    await dialog().get('select[name="provider"]').setValue('GENERIC_WEBHOOK')
+    await flushPromises()
+    expect(dialog().text()).toContain('Для разработчика')
+    expect(dialog().text()).toContain('Если разработчика нет, выберите Telegram')
+    expect(dialog().find('[data-testid="telegram-token-help"]').exists()).toBe(false)
+    expect(dialog().find('input[name="botToken"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
   it('две отправки подряд в окне проверки формы создают одно подключение', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ ...connection, webhookSecret: null }, 201))
     const wrapper = mount(ConnectChannelDialog, {

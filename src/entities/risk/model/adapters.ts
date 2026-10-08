@@ -2,7 +2,7 @@
  * Адаптеры транспортной модели риска к моделям представления.
  *
  * Компоненты не читают `RiskDetail` напрямую: адаптер закрепляет запасные
- * подписи для отсутствующих связей («Без имени», «Сумма не указана») и
+ * подписи для отсутствующих связей («Без имени», «Сумма не определена») и
  * оставляет форматирование дат компоненту, которому известен часовой пояс.
  */
 import { formatMoney } from '@/shared/lib'
@@ -14,6 +14,7 @@ import {
   riskStatusLabel,
   riskStatusTone,
   riskTypeLabel,
+  riskTypeTone,
   severityLabel,
   severityTone,
   type Tone,
@@ -29,6 +30,7 @@ export interface RiskCardViewModel {
   severityLabel: string
   severityTone: Tone
   typeLabel: string
+  typeTone: Tone
   statusLabel: string
   /** Причина риска — недоверенный текст, выводится только как текст. */
   reason: string
@@ -95,6 +97,7 @@ export function toRiskCard(detail: RiskDetail): RiskCardViewModel {
     severityLabel: severityLabel(risk.severity),
     severityTone: severityTone(risk.severity),
     typeLabel: riskTypeLabel(risk.type),
+    typeTone: riskTypeTone(risk.type),
     statusLabel: riskStatusLabel(risk.status),
     reason: risk.reason,
     contactName: contact?.displayName?.trim() || UNNAMED_CONTACT,
@@ -158,15 +161,12 @@ export function toRiskWorkspace(detail: RiskDetail): RiskWorkspaceViewModel {
     outcomeAt: detail.outcome?.createdAt ?? null,
     money: currency
       ? {
-          potential: formatMoney(
-            revenue?.potential ?? opportunity?.potentialRevenue ?? null,
-            currency,
-          ),
+          potential: formatMoney(opportunity?.potentialRevenue ?? null, currency),
           confirmedRecovered: revenue ? formatMoney(revenue.confirmedRecovered, currency) : null,
           currency,
         }
       : null,
-    potentialAmount: revenue?.potential ?? opportunity?.potentialRevenue ?? null,
+    potentialAmount: opportunity?.potentialRevenue ?? null,
     acknowledgedAt: risk.acknowledgedAt ?? null,
     actedAt: risk.actedAt ?? null,
     resolvedAt: risk.resolvedAt ?? null,

@@ -20,6 +20,9 @@ describe('фильтры Radar в query-строке', () => {
     expect(parseRiskFilters({ severity: ['LOW', 'HIGH'], riskType: null })).toEqual({
       severity: 'LOW',
     })
+    expect(parseRiskFilters({ riskType: 'UNFINISHED_AGREEMENT' })).toEqual({
+      riskType: 'UNFINISHED_AGREEMENT',
+    })
   })
 
   it('сериализует без пустых значений', () => {

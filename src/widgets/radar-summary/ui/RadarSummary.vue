@@ -36,8 +36,15 @@ const tiles = computed(() => {
     {
       key: 'potential',
       label: 'Потенциальная выручка',
-      value: money(summary.potentialRevenue) ?? '—',
-      note: 'оценка открытых сделок под риском',
+      value:
+        summary.opportunitiesWithUnknownAmount > 0 &&
+        summary.opportunitiesWithUnknownAmount === summary.opportunitiesAtRisk
+          ? 'Сумма не определена'
+          : (money(summary.potentialRevenue) ?? '—'),
+      note:
+        summary.opportunitiesWithUnknownAmount > 0
+          ? `сделок без суммы: ${summary.opportunitiesWithUnknownAmount}`
+          : 'оценка открытых сделок под риском',
     },
     {
       key: 'recovered',

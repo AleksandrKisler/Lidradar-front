@@ -48,7 +48,7 @@ const emit = defineEmits<{ more: [] }>()
                 {{ payment.contactDisplayName ?? 'Без имени' }}
               </span>
               <span class="block text-xs text-muted">
-                {{ payment.serviceName ?? 'Услуга не указана' }}
+                {{ payment.serviceName ?? 'Услуга не уточнена' }}
               </span>
             </td>
             <td class="py-3 pr-4 text-muted">

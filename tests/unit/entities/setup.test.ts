@@ -151,6 +151,7 @@ describe('запросы настроек', () => {
       name: 'Точка',
       timezone: 'Europe/Moscow',
       responseThresholdMinutes: 45,
+      agreementThresholdMinutes: 120,
     })
     await updateLocation('t', 'loc-1', { active: false })
     await replaceBusinessHours('t', 'loc-1', toBusinessHoursRequest('Europe/Moscow', defaultWeek()))

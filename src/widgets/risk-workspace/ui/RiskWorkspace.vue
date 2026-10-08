@@ -144,17 +144,16 @@ const unavailableText = computed(() =>
       <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-2">
           <RiskSeverityBadge :severity="vm.severity" />
-          <span class="text-sm font-semibold text-ink">{{ vm.typeLabel }}</span>
+          <UiBadge :tone="vm.typeTone">{{ vm.typeLabel }}</UiBadge>
           <UiBadge :tone="vm.statusTone">{{ vm.statusLabel }}</UiBadge>
         </div>
         <h1 id="risk-title" class="mt-2 text-2xl font-bold break-words text-ink md:text-3xl">
           {{ vm.contactName }}
         </h1>
         <p class="mt-1 text-sm text-muted">
-          <template v-if="vm.serviceName">{{ vm.serviceName }}</template>
-          <template v-if="vm.serviceName && vm.channelName"> · </template>
+          {{ vm.serviceName ?? 'Услуга не уточнена' }}
+          <template v-if="vm.channelName"> · </template>
           <template v-if="vm.channelName">{{ vm.channelName }}</template>
-          <template v-if="!vm.serviceName && !vm.channelName">Услуга не определена</template>
         </p>
       </div>
       <div class="flex items-start gap-4">
@@ -163,7 +162,7 @@ const unavailableText = computed(() =>
             Потенциальная выручка
           </p>
           <p class="text-2xl font-bold text-ink tabular-nums">
-            {{ vm.money?.potential ?? 'Сумма не указана' }}
+            {{ vm.money?.potential ?? 'Сумма не определена' }}
           </p>
         </div>
         <UiButton
@@ -199,22 +198,6 @@ const unavailableText = computed(() =>
                 </time>
               </dd>
             </div>
-            <div class="flex min-w-0 flex-wrap gap-x-1">
-              <dt class="text-muted">Источник</dt>
-              <dd class="text-ink">{{ vm.sourceLabel }}</dd>
-            </div>
-            <div v-if="vm.confidence !== null" class="flex gap-1">
-              <dt class="text-muted">Уверенность AI</dt>
-              <dd class="text-ink">{{ Math.round(vm.confidence * 100) }} %</dd>
-            </div>
-            <div class="flex min-w-0 flex-wrap gap-x-1">
-              <dt class="text-muted">Код причины</dt>
-              <dd class="font-mono text-xs break-all text-ink">{{ vm.reasonCode }}</dd>
-            </div>
-            <div class="flex min-w-0 flex-wrap gap-x-1">
-              <dt class="text-muted">Версия правил</dt>
-              <dd class="font-mono text-xs break-all text-ink">{{ vm.policyVersion }}</dd>
-            </div>
           </dl>
         </UiCard>
 
@@ -224,7 +207,7 @@ const unavailableText = computed(() =>
             <div class="flex min-w-0 flex-wrap gap-x-1">
               <dt class="text-muted">Услуга</dt>
               <dd class="text-ink">
-                {{ vm.serviceName ?? 'не определена' }}
+                {{ vm.serviceName ?? 'Услуга не уточнена' }}
                 <span v-if="vm.serviceActive === false" class="text-muted">(неактивна)</span>
               </dd>
             </div>
@@ -407,7 +390,7 @@ const unavailableText = computed(() =>
             <div class="flex justify-between gap-3">
               <dt class="text-muted">Потенциальная</dt>
               <dd class="font-semibold text-ink tabular-nums">
-                {{ vm.money?.potential ?? 'не указана' }}
+                {{ vm.money?.potential ?? 'Сумма не определена' }}
               </dd>
             </div>
             <div class="flex justify-between gap-3">

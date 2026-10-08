@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Настройки уведомлений (макет 11): личная привязка Telegram и пять строк
+ * Настройки уведомлений: личная привязка Telegram и строки
  * настроек — по одной на тип риска. Раздел доступен владельцу и менеджеру:
  * настройки принадлежат текущему пользователю, а не организации.
  */
@@ -26,7 +26,7 @@ const timeZone = computed(() => organization.data.value?.defaultTimezone ?? 'UTC
 const link = useTelegramLinkQuery(() => session.tenantId)
 const preferences = usePreferencesQuery(() => session.tenantId)
 
-/** Пять строк в порядке типов риска; отсутствующая строка — сбой контракта, показываем что есть. */
+/** Строки в порядке типов риска; отсутствующая строка — сбой контракта, показываем что есть. */
 const rows = computed(() =>
   RISK_TYPES.map((riskType) =>
     preferences.data.value?.find((item) => item.riskType === riskType),

@@ -35,6 +35,7 @@ export {
   severityLabel,
   severityTone,
   riskTypeLabel,
+  riskTypeTone,
   riskStatusLabel,
   riskStatusTone,
   riskSourceLabel,

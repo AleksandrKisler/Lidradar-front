@@ -1859,6 +1859,8 @@ export interface components {
             /** @description IANA timezone name. */
             timezone: string;
             responseThresholdMinutes: number;
+            /** @default 120 */
+            agreementThresholdMinutes: number;
             active: boolean;
             businessHours: components["schemas"]["BusinessHour"][];
             /** Format: date-time */
@@ -1874,11 +1876,14 @@ export interface components {
             timezone: string;
             /** @default 45 */
             responseThresholdMinutes: number;
+            /** @default 120 */
+            agreementThresholdMinutes: number;
         };
         UpdateLocationRequest: {
             name?: string;
             timezone?: string;
             responseThresholdMinutes?: number;
+            agreementThresholdMinutes?: number;
             active?: boolean;
         };
         BusinessHoursRequest: {
@@ -2200,7 +2205,7 @@ export interface components {
         /** @enum {string} */
         RiskSeverity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
         /** @enum {string} */
-        RiskType: "NO_RESPONSE" | "BOOKING_NOT_CONFIRMED" | "PROMISE_NOT_FULFILLED" | "CUSTOMER_SILENT_AFTER_PRICE" | "FOLLOW_UP_CANDIDATE";
+        RiskType: "NO_RESPONSE" | "BOOKING_NOT_CONFIRMED" | "PROMISE_NOT_FULFILLED" | "CUSTOMER_SILENT_AFTER_PRICE" | "FOLLOW_UP_CANDIDATE" | "UNFINISHED_AGREEMENT";
         TelegramLinkToken: {
             /** Format: uri */
             startUrl: string;
@@ -2562,7 +2567,7 @@ export interface components {
             riskType: components["schemas"]["RiskType"];
         };
         AnalyticsRisks: components["schemas"]["AnalyticsRiskCounters"] & {
-            /** @description Всегда пять типов в порядке §27. */
+            /** @description Все поддерживаемые типы риска в каноническом порядке. */
             byType: components["schemas"]["AnalyticsRiskType"][];
         };
         AnalyticsOutcomes: {
@@ -2579,6 +2584,12 @@ export interface components {
             /** @description Их часть с атрибуцией RECOVERED (§39). */
             confirmedRecovered: string;
             confirmedPayments: number;
+            /** @description Сумма известных оценок уникальных активных сделок в валюте отчёта с активным риском обнаруженным в выбранном периоде. */
+            atRiskPotential: string;
+            /** @description Число этих сделок без повторов по рискам. */
+            atRiskOpportunities: number;
+            /** @description Число этих сделок без определённой суммы. */
+            atRiskUnknownAmountOpportunities: number;
         };
         AnalyticsDailyPoint: {
             /**
@@ -3013,6 +3024,10 @@ export interface components {
             }[];
         };
         RadarSummary: {
+            /** @description Уникальные сделки под риском в валюте организации. */
+            opportunitiesAtRisk: number;
+            /** @description Из них без определённой суммы. */
+            opportunitiesWithUnknownAmount: number;
             openRisks: number;
             criticalRisks: number;
             potentialRevenue: string;

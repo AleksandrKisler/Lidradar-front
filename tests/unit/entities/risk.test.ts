@@ -14,6 +14,7 @@ import {
   riskKeys,
   riskStatusLabel,
   riskTypeLabel,
+  riskTypeTone,
   severityLabel,
   severityTone,
   toRiskCard,
@@ -79,6 +80,21 @@ describe('адаптер карточки риска', () => {
     expect(card.potential).toBeNull()
     expect(card.currency).toBeNull()
   })
+
+  it('не подменяет неизвестную сумму нулём из сводки выручки', () => {
+    const detail = {
+      ...riskDetailFixture,
+      opportunity: { ...riskDetailFixture.opportunity!, potentialRevenue: null, serviceId: null },
+      service: null,
+      revenue: { currency: 'RUB', potential: '0.00', confirmedRecovered: '0.00' },
+    }
+    const card = toRiskCard(detail)
+    const workspace = toRiskWorkspace(detail)
+    expect(card.serviceName).toBeNull()
+    expect(card.potential).toBeNull()
+    expect(workspace.money?.potential).toBeNull()
+    expect(workspace.potentialAmount).toBeNull()
+  })
 })
 
 describe('подписи перечислений', () => {
@@ -88,6 +104,8 @@ describe('подписи перечислений', () => {
     expect(severityLabel('ULTRA')).toBe('ULTRA')
     expect(severityTone('ULTRA')).toBe('neutral')
     expect(riskTypeLabel('FOLLOW_UP_CANDIDATE')).toBe('Стоит напомнить о себе')
+    expect(riskTypeLabel('UNFINISHED_AGREEMENT')).toBe('Договорённость требует внимания')
+    expect(riskTypeTone('UNFINISHED_AGREEMENT')).toBe('info')
     expect(riskTypeLabel('NEW_TYPE')).toBe('NEW_TYPE')
     expect(riskStatusLabel('FALSE_POSITIVE')).toBe('Ложное срабатывание')
   })

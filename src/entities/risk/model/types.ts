@@ -38,6 +38,7 @@ export const RISK_SEVERITIES: readonly RiskSeverity[] = ['CRITICAL', 'HIGH', 'ME
 export const RISK_TYPES: readonly RiskType[] = [
   'NO_RESPONSE',
   'BOOKING_NOT_CONFIRMED',
+  'UNFINISHED_AGREEMENT',
   'PROMISE_NOT_FULFILLED',
   'CUSTOMER_SILENT_AFTER_PRICE',
   'FOLLOW_UP_CANDIDATE',

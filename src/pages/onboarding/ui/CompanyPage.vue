@@ -19,7 +19,7 @@ function onCreated(): void {
 
 <template>
   <UiCard>
-    <p class="text-xs font-semibold tracking-wide text-brand-dark uppercase">Шаг 1 из 4</p>
+    <p class="text-xs font-semibold tracking-wide text-brand-dark">Шаг 1 из 4</p>
     <h1 class="mt-2 text-2xl font-bold text-ink">Расскажите о компании</h1>
     <p class="mt-2 text-sm leading-6 text-muted">
       Это поможет показывать риски в нужном контексте и считать показатели в одной валюте. Первую

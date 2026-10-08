@@ -7,7 +7,7 @@
  */
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { UiAccessDenied } from '@/shared/ui'
+import { UiAccessDenied, UiIcon } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
 import { useOnboardingQuery } from '@/entities/organization'
 import { LogoutButton } from '@/features/auth-session'
@@ -32,7 +32,9 @@ function onLoggedOut({ confirmed }: { confirmed: boolean }): void {
     <header
       class="flex items-center justify-between gap-4 border-b border-line bg-paper px-5 py-3 md:px-12"
     >
-      <p class="text-lg font-bold tracking-tight text-ink">◉ LidRadar</p>
+      <p class="flex items-center gap-2 text-lg font-bold tracking-tight text-ink">
+        <UiIcon name="radar" class="size-7" />LidRadar
+      </p>
       <div class="flex items-center gap-3">
         <p class="hidden text-sm text-muted sm:block">{{ session.user?.displayName }}</p>
         <LogoutButton variant="secondary" @logged-out="onLoggedOut" />
@@ -43,7 +45,7 @@ function onLoggedOut({ confirmed }: { confirmed: boolean }): void {
       class="mx-auto grid w-full max-w-5xl gap-10 px-5 py-10 md:grid-cols-[240px_minmax(0,1fr)] md:px-12"
     >
       <aside class="hidden md:block">
-        <p class="mb-5 text-xs font-semibold tracking-wide text-muted uppercase">Начало работы</p>
+        <p class="mb-5 text-xs font-semibold tracking-wide text-muted">Начало работы</p>
         <OnboardingProgress
           :status="status.data.value ?? null"
           :current="route.meta.onboardingStep ?? null"

@@ -39,7 +39,7 @@ const rows = computed(() => sortMembers(props.members))
         Участники компании
       </caption>
       <thead>
-        <tr class="text-xs font-semibold tracking-wide text-muted uppercase">
+        <tr class="text-xs font-semibold tracking-wide text-muted">
           <th scope="col" class="pb-2">Сотрудник</th>
           <th scope="col" class="pb-2">Роль</th>
           <th scope="col" class="pb-2">Доступ</th>

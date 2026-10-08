@@ -9,7 +9,15 @@
  */
 import { computed, onScopeDispose, ref, toRef } from 'vue'
 import { formatTime } from '@/shared/lib'
-import { UiAlert, UiButton, UiCard, UiEmptyState, UiErrorState, UiSkeleton } from '@/shared/ui'
+import {
+  UiAlert,
+  UiButton,
+  UiCard,
+  UiEmptyState,
+  UiErrorState,
+  UiIcon,
+  UiSkeleton,
+} from '@/shared/ui'
 import { toRiskCard, useActiveRisksQuery, type RiskFilters } from '@/entities/risk'
 import RiskCard from './RiskCard.vue'
 
@@ -86,17 +94,7 @@ onScopeDispose(() => clearInterval(timer))
         description="Активных рисков нет. Новые ситуации появятся здесь автоматически: мы продолжаем проверять переписку."
       >
         <template #icon>
-          <svg
-            class="size-12"
-            viewBox="0 0 48 48"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            aria-hidden="true"
-          >
-            <circle cx="24" cy="24" r="18" />
-            <path d="M16 24l6 6 10-12" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
+          <UiIcon name="check-circle" class="size-12" />
         </template>
       </UiEmptyState>
     </UiCard>

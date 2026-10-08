@@ -2,12 +2,13 @@
 /**
  * Страница риска: рабочее пространство по идентификатору из адреса.
  * Идентификатор не доверенный — неверный формат сразу даёт «не найдено»
- * без запроса. Ссылка «Radar» возвращает к ленте с прежними фильтрами,
- * если пользователь пришёл оттуда.
+ * без запроса. Ссылка «Radar» (в одной строке с «Обновить» внутри рабочего
+ * пространства) возвращает к ленте с прежними фильтрами, если пользователь
+ * пришёл оттуда.
  */
 import { computed } from 'vue'
 import { RouterLink, useRoute, type RouteLocationRaw } from 'vue-router'
-import { UiCard, UiEmptyState } from '@/shared/ui'
+import { UiCard, UiEmptyState, UiIcon } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
 import { RiskWorkspace } from '@/widgets/risk-workspace'
 
@@ -30,30 +31,36 @@ const backTarget = computed<RouteLocationRaw>(() => {
 
 <template>
   <div class="flex flex-col gap-5">
-    <nav aria-label="Навигация по разделу">
-      <RouterLink :to="backTarget" class="text-sm font-semibold text-brand-dark hover:underline">
-        ← Radar
-      </RouterLink>
-    </nav>
     <RiskWorkspace
       v-if="riskId && session.tenantId"
       :tenant-id="session.tenantId"
       :risk-id="riskId"
+      :back-to="backTarget"
     />
-    <UiCard v-else :padded="false">
-      <UiEmptyState
-        title="Риск не найден"
-        description="Проверьте ссылку: такого риска нет в этой организации."
-      >
-        <template #actions>
-          <RouterLink
-            :to="{ name: 'radar' }"
-            class="text-sm font-semibold text-brand-dark hover:underline"
-          >
-            Вернуться в Radar
-          </RouterLink>
-        </template>
-      </UiEmptyState>
-    </UiCard>
+    <template v-else>
+      <nav aria-label="Навигация по разделу">
+        <RouterLink
+          :to="backTarget"
+          class="inline-flex items-center gap-1 text-sm font-medium text-brand-dark hover:underline"
+        >
+          <UiIcon name="arrow-back" class="size-5" />Radar
+        </RouterLink>
+      </nav>
+      <UiCard :padded="false">
+        <UiEmptyState
+          title="Риск не найден"
+          description="Проверьте ссылку: такого риска нет в этой организации."
+        >
+          <template #actions>
+            <RouterLink
+              :to="{ name: 'radar' }"
+              class="text-sm font-medium text-brand-dark hover:underline"
+            >
+              Вернуться в Radar
+            </RouterLink>
+          </template>
+        </UiEmptyState>
+      </UiCard>
+    </template>
   </div>
 </template>

@@ -30,7 +30,7 @@ defineProps<{ report: RiskPrecisionReport; timeZone: string }>()
           Точность сигналов по типам
         </caption>
         <thead>
-          <tr class="text-xs font-semibold tracking-wide text-muted uppercase">
+          <tr class="text-xs font-semibold tracking-wide text-muted">
             <th scope="col" class="pb-2">Тип</th>
             <th scope="col" class="pb-2 text-right">Рисков</th>
             <th scope="col" class="pb-2 text-right">С вердиктом</th>

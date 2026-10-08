@@ -132,7 +132,7 @@ function update(patch: Partial<Record<keyof JobFilters, string | undefined>>): v
             Задания
           </caption>
           <thead>
-            <tr class="text-xs font-semibold tracking-wide text-muted uppercase">
+            <tr class="text-xs font-semibold tracking-wide text-muted">
               <th scope="col" class="pb-2">Задание</th>
               <th scope="col" class="pb-2">Организация</th>
               <th scope="col" class="pb-2">Тип</th>

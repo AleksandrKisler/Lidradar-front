@@ -21,7 +21,7 @@ describe('Radar summary unknown amounts', () => {
     wrapper.unmount()
   })
 
-  it('does not present an unknown potential as zero', () => {
+  it('shows the known amount with a "+ ?" marker instead of a bare zero', () => {
     const wrapper = mount(RadarSummary, {
       props: {
         summary: { ...summary, potentialRevenue: '0.00', opportunitiesWithUnknownAmount: 2 },
@@ -30,7 +30,8 @@ describe('Radar summary unknown amounts', () => {
         error: null,
       },
     })
-    expect(wrapper.text()).toContain('Сумма не определена')
+    expect(wrapper.text()).not.toContain('Сумма не определена')
+    expect(wrapper.text()).toMatch(/0\s*₽\s*\+\s*\?/)
     expect(wrapper.text()).toContain('сделок без суммы: 2')
     wrapper.unmount()
   })
@@ -44,7 +45,7 @@ describe('Radar summary unknown amounts', () => {
         error: null,
       },
     })
-    expect(wrapper.text()).not.toContain('Сумма не определена')
+    expect(wrapper.text()).not.toMatch(/\+\s*\?/)
     expect(wrapper.text()).toMatch(/0\s*₽/)
     wrapper.unmount()
   })

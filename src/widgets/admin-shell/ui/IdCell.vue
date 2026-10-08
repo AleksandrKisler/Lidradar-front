@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /** Идентификатор объекта: сокращённый показ, полное значение в подсказке и кнопка копирования. */
 import { ref } from 'vue'
+import { UiIcon } from '@/shared/ui'
 import { shortId } from '@/entities/admin'
 
 const props = defineProps<{ value: string | null | undefined }>()
@@ -23,11 +24,11 @@ async function copy(): Promise<void> {
     <code class="text-xs text-ink" :title="value">{{ shortId(value) }}</code>
     <button
       type="button"
-      class="rounded px-1 text-xs text-brand-dark hover:underline"
+      class="inline-flex size-6 items-center justify-center rounded text-brand-dark hover:bg-brand-pale"
       :aria-label="`Скопировать ${value}`"
       @click="copy"
     >
-      {{ copied ? '✓' : '⧉' }}
+      <UiIcon :name="copied ? 'check' : 'content-copy'" class="size-4" />
     </button>
   </span>
   <span v-else class="text-xs text-muted">—</span>

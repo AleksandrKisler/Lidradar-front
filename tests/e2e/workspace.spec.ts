@@ -170,7 +170,7 @@ test.describe('владелец организации', () => {
     await expectNoAxeViolations(page)
 
     // Возврат в Radar сохраняет фильтры, с которыми открыли карточку.
-    await page.getByRole('link', { name: '← Radar' }).click()
+    await page.getByRole('link', { name: 'Radar', exact: true }).click()
     await expect(page).toHaveURL(/\/radar\?severity=CRITICAL$/)
   })
 

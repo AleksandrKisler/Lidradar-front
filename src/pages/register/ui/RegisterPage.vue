@@ -18,7 +18,7 @@ function onSuccess(): void {
 <template>
   <div>
     <UiCard class="shadow-sm">
-      <p class="text-xs font-semibold tracking-wide text-muted uppercase">Новый аккаунт</p>
+      <p class="text-xs font-semibold tracking-wide text-muted">Новый аккаунт</p>
       <h1 class="mt-2 text-2xl font-bold text-ink">Создайте аккаунт</h1>
       <p class="mt-2 text-sm text-muted">
         Первую организацию вы создадите сразу после регистрации.

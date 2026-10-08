@@ -34,7 +34,7 @@ const emit = defineEmits<{ more: [] }>()
           Подтверждённые оплаты
         </caption>
         <thead>
-          <tr class="text-xs font-semibold tracking-wide text-muted uppercase">
+          <tr class="text-xs font-semibold tracking-wide text-muted">
             <th scope="col" class="pb-2">Клиент / услуга</th>
             <th scope="col" class="pb-2">Связь с риском</th>
             <th scope="col" class="pb-2">Подтверждено</th>

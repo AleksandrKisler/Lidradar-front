@@ -18,7 +18,7 @@ defineProps<{ rows: AnalyticsRiskType[] }>()
         Риски по типам
       </caption>
       <thead>
-        <tr class="text-xs font-semibold tracking-wide text-muted uppercase">
+        <tr class="text-xs font-semibold tracking-wide text-muted">
           <th scope="col" class="pb-2">Тип</th>
           <th scope="col" class="pb-2 text-right">Найдено</th>
           <th scope="col" class="pb-2 text-right">Отреагировали</th>

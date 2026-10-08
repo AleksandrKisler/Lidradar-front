@@ -4,6 +4,7 @@
  * выбор пространства и создание организации. Бокового меню нет — данных
  * организации ещё нет.
  */
+import { UiIcon } from '@/shared/ui'
 import { RouterLink, useRouter } from 'vue-router'
 import { computed } from 'vue'
 import { useSessionStore } from '@/entities/session'
@@ -25,7 +26,9 @@ function onLoggedOut({ confirmed }: { confirmed: boolean }): void {
     <header
       class="flex items-center justify-between gap-4 border-b border-line bg-paper px-5 py-3 md:px-12"
     >
-      <p class="text-lg font-bold tracking-tight text-ink">◉ LidRadar</p>
+      <p class="flex items-center gap-2 text-lg font-bold tracking-tight text-ink">
+        <UiIcon name="radar" class="size-7" />LidRadar
+      </p>
       <div class="flex items-center gap-3">
         <RouterLink
           v-if="isPlatformAdmin"

@@ -61,7 +61,7 @@ function continueToServices(): void {
 <template>
   <div class="flex flex-col gap-6">
     <div>
-      <p class="text-xs font-semibold tracking-wide text-brand-dark uppercase">Шаг 2 из 4</p>
+      <p class="text-xs font-semibold tracking-wide text-brand-dark">Шаг 2 из 4</p>
       <h1 class="mt-2 text-2xl font-bold text-ink">Когда вы отвечаете клиентам?</h1>
       <p class="mt-2 text-sm leading-6 text-muted">
         LidRadar учитывает рабочие часы точки при проверке ожидания ответа. Ночью и в выходные

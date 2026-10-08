@@ -59,15 +59,15 @@ function when(value: string | null): string {
 
     <dl class="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-3">
       <div class="flex flex-col">
-        <dt class="text-xs font-semibold tracking-wide text-muted uppercase">Последнее событие</dt>
+        <dt class="text-xs font-semibold tracking-wide text-muted">Последнее событие</dt>
         <dd class="text-ink">{{ when(snapshot.lastEventAt) }}</dd>
       </div>
       <div class="flex flex-col">
-        <dt class="text-xs font-semibold tracking-wide text-muted uppercase">Последний успех</dt>
+        <dt class="text-xs font-semibold tracking-wide text-muted">Последний успех</dt>
         <dd class="text-ink">{{ when(snapshot.lastSuccessAt) }}</dd>
       </div>
       <div class="flex flex-col">
-        <dt class="text-xs font-semibold tracking-wide text-muted uppercase">Последняя ошибка</dt>
+        <dt class="text-xs font-semibold tracking-wide text-muted">Последняя ошибка</dt>
         <dd class="text-ink">
           {{ when(snapshot.lastErrorAt) }}
           <span v-if="snapshot.lastErrorCode" class="block text-xs text-danger">

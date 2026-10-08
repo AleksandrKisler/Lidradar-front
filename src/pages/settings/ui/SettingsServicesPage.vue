@@ -103,7 +103,7 @@ function openEdit(service: ServiceCatalogItem): void {
             Услуги организации
           </caption>
           <thead>
-            <tr class="text-xs font-semibold tracking-wide text-muted uppercase">
+            <tr class="text-xs font-semibold tracking-wide text-muted">
               <th scope="col" class="pb-2">Название</th>
               <th scope="col" class="pb-2">Точка</th>
               <th scope="col" class="pb-2">Цена</th>

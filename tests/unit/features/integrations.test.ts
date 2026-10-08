@@ -132,7 +132,8 @@ describe('интеграции', () => {
     expect(help.get('summary').text()).toBe('Где взять токен бота')
     expect(help.text()).toContain('/newbot')
     expect(help.text()).toContain('Business Mode')
-    expect(help.text()).toContain('Telegram Premium')
+    // Платной подписки Telegram для работы не требуется: инструкция её не упоминает.
+    expect(help.text()).not.toMatch(/premium|премиум|подписк/i)
     expect(help.text()).toContain('Токен никому не передавайте')
     // Подсказка закрыта по умолчанию: форма не вырастает у тех, кому она не нужна.
     expect(help.attributes('open')).toBeUndefined()

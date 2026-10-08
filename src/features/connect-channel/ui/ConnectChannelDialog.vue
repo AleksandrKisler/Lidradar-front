@@ -322,7 +322,7 @@ watch(open, (isOpen) => {
           <li>Вставьте токен в поле выше и нажмите «Подключить».</li>
           <li>
             Затем подключите бота к бизнес-аккаунту: в Telegram откройте «Настройки», «Telegram
-            Business», «Чат-боты». Для этого нужна подписка Telegram Premium.
+            Business», «Чат-боты».
           </li>
         </ol>
         <p class="mt-3 text-xs text-muted">

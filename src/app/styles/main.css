@@ -123,3 +123,29 @@
     }
   }
 }
+
+/*
+ * Кольца диаграмм разворачиваются по часовой стрелке один раз при появлении.
+ * Угол анимируется через зарегистрированное свойство; пока оно не поддержано,
+ * кольца просто видны сразу. Уважение к prefers-reduced-motion обеспечивает
+ * общее правило выше: длительность сводится к нулю.
+ */
+@property --ring-sweep {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 360deg;
+}
+
+@keyframes ring-reveal {
+  from {
+    --ring-sweep: 0deg;
+  }
+  to {
+    --ring-sweep: 360deg;
+  }
+}
+
+.ring-reveal {
+  mask-image: conic-gradient(#000 var(--ring-sweep), transparent var(--ring-sweep));
+  animation: ring-reveal 0.9s cubic-bezier(0.05, 0.7, 0.1, 1) both;
+}

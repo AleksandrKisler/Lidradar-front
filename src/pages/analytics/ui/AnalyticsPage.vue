@@ -113,10 +113,10 @@ function setRange(next: DateRange): void {
       <template v-else-if="summary.data.value">
         <MetricCards :summary="summary.data.value" />
         <div class="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <UiCard as="section" aria-labelledby="chart-title">
+          <UiCard as="section" aria-labelledby="chart-title" class="flex flex-col">
             <h2 id="chart-title" class="text-lg font-bold text-ink">Возвращённая выручка</h2>
             <p class="mt-1 text-sm text-muted">Только подтверждённые суммы · {{ currency }}</p>
-            <div class="mt-4">
+            <div class="mt-4 flex flex-1 flex-col">
               <RevenueChart :series="summary.data.value.series" :currency="currency" />
             </div>
           </UiCard>

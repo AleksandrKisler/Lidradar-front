@@ -81,25 +81,25 @@ async function onRevoked(_member: Member, self: boolean): Promise<void> {
     <SettingsTabs />
 
     <UiCard as="section" aria-labelledby="members-title">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
+      <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <div class="min-w-0">
           <h2 id="members-title" class="text-lg font-bold text-ink">Участники компании</h2>
           <p class="mt-1 text-sm text-muted">Доступ можно отозвать, не теряя историю действий.</p>
         </div>
-        <UiButton @click="inviteOpen = true">Пригласить</UiButton>
+        <UiButton class="w-full sm:w-auto" @click="inviteOpen = true">Пригласить</UiButton>
       </div>
-      <div v-if="members.isPending.value" class="mt-4" role="status" aria-label="Загрузка команды">
+      <div v-if="members.isPending.value" class="mt-6" role="status" aria-label="Загрузка команды">
         <UiSkeleton class="h-12 w-full" />
         <UiSkeleton class="mt-2 h-12 w-full" />
       </div>
       <UiErrorState
         v-else-if="members.isError.value"
-        class="mt-4"
+        class="mt-6"
         :error="members.error.value"
         title="Не удалось загрузить участников"
         @retry="members.refetch()"
       />
-      <div v-else-if="members.data.value" class="mt-4">
+      <div v-else-if="members.data.value" class="mt-6">
         <MembersTable
           :tenant-id="tenantId"
           :members="members.data.value"

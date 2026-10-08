@@ -2,6 +2,13 @@
 /**
  * Участники компании (макет 12): текущий пользователь помечен «вы», отозванные
  * остаются в списке с датой — на них ссылаются факты, история сохраняется.
+ *
+ * Раскладка выбирается по ширине самой карточки (container query), а не окна.
+ * В широкой — таблица из четырёх столбцов: бейджи и кнопки стоят на одной
+ * линии с центром аватара, заметка о защите владельца висит под кнопками.
+ * В узкой — каждый участник блоком: человек, затем роль и доступ, затем
+ * действия; горизонтальной прокрутки нет, кнопки не уходят за край. Роли ARIA
+ * заданы явно, чтобы смена `display` не стёрла табличную семантику.
  */
 import { computed } from 'vue'
 import { formatDateTime } from '@/shared/lib'
@@ -29,61 +36,104 @@ const emit = defineEmits<{
 }>()
 
 const rows = computed(() => sortMembers(props.members))
+
+/** Места переноса длинной почты: после «@», «.», «_» и «-», а не посреди слова. */
+const emailParts = (email: string) => email.match(/[^@._-]+[@._-]?|[@._-]/g) ?? [email]
 </script>
 
 <template>
-  <!-- Прокручиваемая область доступна с клавиатуры даже когда все кнопки в ней отключены. -->
-  <div class="relative overflow-x-auto" tabindex="0" role="region" aria-label="Таблица участников">
-    <table class="w-full min-w-[640px] text-left text-sm">
+  <div class="@container">
+    <table role="table" class="block w-full text-left text-sm @3xl:table">
       <caption class="sr-only">
         Участники компании
       </caption>
-      <thead>
-        <tr class="text-xs font-semibold tracking-wide text-muted">
-          <th scope="col" class="pb-2">Сотрудник</th>
-          <th scope="col" class="pb-2">Роль</th>
-          <th scope="col" class="pb-2">Доступ</th>
-          <th scope="col" class="pb-2"><span class="sr-only">Действия</span></th>
+      <thead role="rowgroup" class="sr-only @3xl:not-sr-only @3xl:table-header-group">
+        <tr role="row" class="@3xl:table-row">
+          <th
+            scope="col"
+            role="columnheader"
+            class="border-b border-line pr-4 pb-3 text-xs font-medium text-muted"
+          >
+            Сотрудник
+          </th>
+          <th
+            scope="col"
+            role="columnheader"
+            class="w-32 border-b border-line pr-4 pb-3 text-xs font-medium text-muted"
+          >
+            Роль
+          </th>
+          <th
+            scope="col"
+            role="columnheader"
+            class="w-44 border-b border-line pr-4 pb-3 text-xs font-medium text-muted"
+          >
+            Доступ
+          </th>
+          <th scope="col" role="columnheader" class="w-px border-b border-line pb-3">
+            <span class="sr-only">Действия</span>
+          </th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-line">
-        <tr v-for="member in rows" :key="member.membershipId">
-          <td class="py-3 pr-4">
-            <div class="flex items-center gap-3">
+      <tbody role="rowgroup" class="block divide-y divide-line @3xl:table-row-group">
+        <tr
+          v-for="member in rows"
+          :key="member.membershipId"
+          role="row"
+          class="flex flex-wrap items-center gap-x-2 gap-y-3 py-4 @3xl:table-row"
+        >
+          <td
+            role="cell"
+            class="basis-full @3xl:table-cell @3xl:basis-auto @3xl:py-4 @3xl:pr-4 @3xl:align-top"
+          >
+            <div class="flex items-start gap-3">
               <span
-                class="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-pale text-sm font-bold text-brand-dark"
+                class="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-pale text-sm font-medium text-brand-dark"
                 aria-hidden="true"
               >
                 {{ memberInitials(member.displayName, member.email) }}
               </span>
-              <span class="min-w-0">
+              <span class="mt-0.5 min-w-0">
                 <span
-                  class="block font-semibold break-words"
+                  class="block text-base font-medium [overflow-wrap:anywhere]"
                   :class="member.status === 'ACTIVE' ? 'text-ink' : 'text-muted'"
                 >
                   {{ member.displayName
-                  }}<span v-if="member.userId === currentUserId" class="text-muted"> · вы</span>
+                  }}<span v-if="member.userId === currentUserId" class="font-normal text-muted">
+                    · вы</span
+                  >
                 </span>
-                <span class="block text-xs break-all text-muted">{{ member.email }}</span>
+                <span class="block text-sm text-muted [overflow-wrap:anywhere]"
+                  ><template v-for="(part, index) in emailParts(member.email)" :key="index"
+                    >{{ part }}<wbr /></template
+                ></span>
               </span>
             </div>
           </td>
-          <td class="py-3 pr-4">
-            <UiBadge :tone="member.role === 'OWNER' ? 'brand' : 'neutral'">
-              {{ roleLabel(member.role) }}
-            </UiBadge>
+          <td role="cell" class="@3xl:table-cell @3xl:py-4 @3xl:pr-4 @3xl:align-top">
+            <div class="flex items-center @3xl:min-h-11">
+              <UiBadge :tone="member.role === 'OWNER' ? 'brand' : 'neutral'">
+                {{ roleLabel(member.role) }}
+              </UiBadge>
+            </div>
           </td>
-          <td class="py-3 pr-4">
-            <div class="flex flex-col gap-1">
+          <td
+            role="cell"
+            class="flex flex-wrap items-center gap-x-2 gap-y-1 @3xl:table-cell @3xl:py-4 @3xl:pr-4 @3xl:align-top"
+          >
+            <div class="flex items-center @3xl:min-h-11">
               <UiBadge :tone="memberStatusTone(member.status)">
                 {{ memberStatusLabel(member.status) }}
               </UiBadge>
-              <span v-if="member.revokedAt" class="text-xs text-muted">
-                {{ formatDateTime(member.revokedAt, timeZone) }}
-              </span>
             </div>
+            <p v-if="member.revokedAt" class="text-xs text-muted">
+              {{ formatDateTime(member.revokedAt, timeZone) }}
+            </p>
           </td>
-          <td class="py-3">
+          <td
+            role="cell"
+            class="basis-full @3xl:table-cell @3xl:basis-auto @3xl:py-4 @3xl:align-top"
+          >
             <MemberActions
               :tenant-id="tenantId"
               :member="member"

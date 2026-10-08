@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 import {
   CONVERSATION_ID,
@@ -170,7 +170,7 @@ test.describe('владелец организации', () => {
     await expectNoAxeViolations(page)
 
     // Возврат в Radar сохраняет фильтры, с которыми открыли карточку.
-    await page.getByRole('link', { name: 'Radar', exact: true }).click()
+    await page.getByRole('main').getByRole('link', { name: 'Radar', exact: true }).click()
     await expect(page).toHaveURL(/\/radar\?severity=CRITICAL$/)
   })
 
@@ -648,6 +648,61 @@ test.describe('владелец организации', () => {
     await revokeInvite.getByRole('button', { name: 'Отозвать' }).click()
     await expect(invitations).toContainText('Отозвано')
     await expect(invitations.getByRole('button', { name: 'Отозвать' })).toHaveCount(0)
+    await expectNoAxeViolations(page)
+  })
+
+  test('команда: ряд выровнен по аватару, кнопки в линию, на телефоне без прокрутки', async ({
+    page,
+  }) => {
+    const centerY = async (target: Locator) => {
+      const box = await target.boundingBox()
+      if (!box) throw new Error('У элемента нет рамки: он не отрисован')
+      return box.y + box.height / 2
+    }
+    // Широкая карточка — таблица: бейджи и кнопки на одной линии с центром аватара.
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/settings/team')
+    const rows = page.getByRole('table', { name: 'Участники компании' }).locator('tbody tr')
+    await expect(rows).toHaveCount(3)
+    for (const name of ['Мария Владелец', 'Анна Смирнова']) {
+      const row = rows.filter({ hasText: name })
+      const axis = await centerY(row.locator('span.rounded-full').first())
+      const aligned = [
+        row.getByText(/^(Владелец|Менеджер)$/),
+        row.getByText('Активен', { exact: true }),
+        row.getByRole('button').first(),
+      ]
+      for (const target of aligned) {
+        expect(Math.abs((await centerY(target)) - axis)).toBeLessThanOrEqual(2)
+      }
+      // Две кнопки идут в одну строку, а не столбиком.
+      const buttons = row.getByRole('button')
+      expect(
+        Math.abs((await centerY(buttons.nth(0))) - (await centerY(buttons.nth(1)))),
+      ).toBeLessThan(1)
+    }
+    // Правый край действий совпадает с правым краем «Пригласить» над таблицей.
+    const right = async (target: Locator) => {
+      const box = await target.boundingBox()
+      return box ? box.x + box.width : Number.NaN
+    }
+    const invite = page.getByRole('button', { name: 'Пригласить' })
+    const lastAction = rows.filter({ hasText: 'Анна Смирнова' }).getByRole('button').last()
+    expect(Math.abs((await right(invite)) - (await right(lastAction)))).toBeLessThanOrEqual(1)
+    await expectNoAxeViolations(page)
+
+    // Телефон: блоки вместо таблицы, страница не прокручивается вбок, кнопки целиком на экране.
+    await page.setViewportSize({ width: 375, height: 800 })
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true)
+    const annaButtons = rows.filter({ hasText: 'Анна Смирнова' }).getByRole('button')
+    await expect(annaButtons).toHaveCount(2)
+    for (const button of await annaButtons.all()) {
+      const box = await button.boundingBox()
+      expect(box?.x).toBeGreaterThanOrEqual(0)
+      expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(375)
+    }
     await expectNoAxeViolations(page)
   })
 

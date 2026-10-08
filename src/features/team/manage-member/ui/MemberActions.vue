@@ -3,10 +3,15 @@
  * Действия владельца над участником с подтверждением: смена роли и отзыв
  * доступа. Единственный активный владелец защищён на клиенте пояснением, а
  * на сервере — `409 LAST_OWNER`; скрытые кнопки не заменяют проверку прав.
+ *
+ * Раскладку задаёт ширина карточки таблицы (container query): на телефоне
+ * кнопки делят строку поровну или встают друг под другом, в средней колонке
+ * они своей ширины слева, в широкой — одна линия по правому краю, а пояснение
+ * стоит под ними и не сдвигает кнопки.
  */
 import { computed, ref } from 'vue'
 import { describeError, isApiError } from '@/shared/api'
-import { UiAlert, UiButton, UiDialog } from '@/shared/ui'
+import { UiAlert, UiButton, UiDialog, UiIcon } from '@/shared/ui'
 import { roleLabel } from '@/entities/session'
 import { memberActionAvailability, otherRole, type Member, type TeamRole } from '@/entities/team'
 import { useMemberCommands } from '../model/use-member-commands'
@@ -82,11 +87,12 @@ async function confirmRevoke(): Promise<void> {
 </script>
 
 <template>
-  <div v-if="member.status === 'ACTIVE'" class="flex flex-col items-end gap-1">
-    <div class="flex flex-wrap items-center justify-end gap-2">
+  <div v-if="member.status === 'ACTIVE'" class="flex flex-col gap-2 @3xl:items-end">
+    <div class="flex flex-wrap items-center gap-2 @3xl:min-h-11 @3xl:flex-nowrap @3xl:justify-end">
       <UiButton
         variant="secondary"
         size="sm"
+        class="flex-1 @xl:flex-none"
         :disabled="!availability.changeRole"
         @click="openDialog('role')"
       >
@@ -95,14 +101,16 @@ async function confirmRevoke(): Promise<void> {
       <UiButton
         variant="secondary"
         size="sm"
+        class="flex-1 @xl:flex-none"
         :disabled="!availability.revoke"
         @click="openDialog('revoke')"
       >
         Отозвать доступ
       </UiButton>
     </div>
-    <p v-if="availability.reason" class="max-w-xs text-right text-xs text-muted">
-      {{ availability.reason }}
+    <p v-if="availability.reason" class="flex max-w-72 items-start gap-1.5 text-xs text-muted">
+      <UiIcon name="info" class="mt-px size-4" />
+      <span>{{ availability.reason }}</span>
     </p>
 
     <UiDialog

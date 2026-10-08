@@ -174,7 +174,7 @@ test.describe('владелец организации', () => {
     await expect(page).toHaveURL(/\/radar\?severity=CRITICAL$/)
   })
 
-  test('подтверждение оплаты: возвращённая выручка, затем повтор как обычная оплата', async ({
+  test('подтверждение оплаты: возвращённая выручка, конфликт при повторе и отдельная обычная оплата', async ({
     page,
   }) => {
     await page.goto(`/risks/${RISK_ID}`)
@@ -202,16 +202,35 @@ test.describe('владелец организации', () => {
     await expect(dialog).toBeHidden()
     await expect(page.getByRole('region', { name: 'Деньги' })).toContainText('31 000 ₽')
 
-    // Вторая оплата: сервер отвечает 409, интерфейс предлагает обычную оплату по решению пользователя.
+    // Вторая оплата по возвращённой выручке: сервер отвечает 409. Повторить тот же платёж
+    // нельзя: интерфейс просит сверить историю оплат и ничего не записывает.
     await page.getByRole('button', { name: 'Подтвердить оплату' }).click()
     await dialog.getByLabel('Сумма оплаты').fill('5 000')
     await dialog.getByLabel('Я подтверждаю, что оплата получена').check()
     await dialog.getByRole('button', { name: 'Подтвердить 5 000 ₽' }).click()
-    await expect(dialog.getByText('Возвращённая выручка уже учтена')).toBeVisible()
+    const conflict = dialog.getByRole('alert')
+    await expect(conflict).toContainText('Возвращённая выручка уже учтена')
+    await expect(conflict).toContainText('Сначала сверьте существующее подтверждение')
     await expect(dialog.getByRole('radio', { name: /Возвращённая выручка/ })).toBeChecked()
-    await dialog.getByRole('button', { name: 'Подтвердить как обычную оплату' }).click()
+    await expect(
+      dialog.getByRole('button', { name: 'Подтвердить как обычную оплату' }),
+    ).toHaveCount(0)
+    await expect(dialog.getByRole('button', { name: 'Подтвердить 5 000 ₽' })).toBeDisabled()
+    await expectNoAxeViolations(page)
+    await dialog.getByRole('button', { name: 'Отмена' }).click()
+    await expect(dialog).toBeHidden()
+    await expect(page.getByRole('region', { name: 'Деньги' })).toContainText('31 000 ₽')
+
+    // Отдельный дополнительный платёж подтверждается в новой форме и по явному выбору связи.
+    await page.getByRole('button', { name: 'Подтвердить оплату' }).click()
+    await dialog.getByLabel('Сумма оплаты').fill('5 000')
+    await dialog.getByRole('radio', { name: /Оплата без связи с риском/ }).check()
+    await dialog.getByLabel('Я подтверждаю, что оплата получена').check()
+    await dialog.getByRole('button', { name: 'Подтвердить 5 000 ₽' }).click()
+    await expect(dialog.getByText('Оплата подтверждена')).toBeVisible()
     await expect(dialog.getByText('5 000 ₽ · Оплата без связи с риском')).toBeVisible()
     await dialog.getByRole('button', { name: 'Готово' }).click()
+    await expect(dialog).toBeHidden()
     await expect(page.getByRole('region', { name: 'Деньги' })).toContainText('31 000 ₽')
   })
 

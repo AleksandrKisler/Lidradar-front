@@ -3,7 +3,9 @@
  * Карточка сводки: заголовок, концентрические кольца и легенда. Каждая строка
  * легенды сохраняет прежнее название и значение; цветной маркер связывает её
  * с кольцом. Если кольца построить нельзя, карточка остаётся обычным списком.
- * В узкой колонке кольца стоят над легендой, в широкой — слева от неё.
+ * В узкой колонке кольца стоят над легендой, в широкой — слева от неё и
+ * прижаты к верху: отступ от заголовка у всех карточек одинаковый, а не
+ * зависит от высоты легенды. Внутри колец только число.
  */
 import { computed } from 'vue'
 import { RING_TONES, UiCard, UiRingChart, type Ring, type RingTone } from '@/shared/ui'
@@ -19,9 +21,9 @@ export interface StatRow {
   tone?: RingTone | undefined
 }
 
+/** Число в центре колец: без подписей, смысл задаёт строка легенды. */
 export interface StatCenter {
   value: string
-  caption: string
   tone?: RingTone | undefined
 }
 
@@ -44,16 +46,10 @@ const toneOf = (row: StatRow): RingTone | undefined => (hasRings.value ? row.ton
 <template>
   <UiCard as="section" :aria-label="title" class="@container">
     <h3 class="text-base font-medium text-ink">{{ title }}</h3>
-    <div class="mt-4 flex flex-col items-center gap-5 @md:flex-row @md:gap-6">
+    <div class="mt-4 flex flex-col items-center gap-5 @md:flex-row @md:items-start @md:gap-6">
       <UiRingChart v-if="hasRings" :rings="rings">
         <template v-if="center" #default>
-          <span
-            class="text-2xl leading-none font-medium tabular-nums"
-            :style="{ color: accent(center.tone) }"
-          >
-            {{ center.value }}
-          </span>
-          <span class="mt-1 text-xs text-muted">{{ center.caption }}</span>
+          <span :style="{ color: accent(center.tone) }">{{ center.value }}</span>
         </template>
       </UiRingChart>
       <dl class="flex w-full min-w-0 flex-1 flex-col gap-2.5 text-sm">

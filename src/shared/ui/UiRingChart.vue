@@ -6,8 +6,10 @@
  * остаётся пустым фоном.
  *
  * Рисунок только дублирует легенду рядом, поэтому скрыт от скринридеров;
- * точные значения всплывают подсказкой при наведении. В центре — слот для
- * главного числа. При появлении кольца разворачиваются один раз (см. стили).
+ * точные значения всплывают подсказкой при наведении. В центре — слот только
+ * для числа без подписей: размер шрифта подбирается под отверстие, а смысл
+ * числа объясняет строка легенды рядом. При появлении кольца разворачиваются
+ * один раз (см. стили).
  */
 import { computed } from 'vue'
 import { layoutRing } from '@/shared/lib'
@@ -69,6 +71,13 @@ const layout = computed(() =>
   }),
 )
 
+/** Чем больше колец, тем меньше отверстие и тем мельче число в нём. */
+const centerSize = computed(
+  () =>
+    ['text-3xl', 'text-2xl', 'text-xl', 'text-lg'][Math.max(visible.value.length, 1) - 1] ??
+    'text-lg',
+)
+
 /** Отступ центрального слота: текст остаётся внутри отверстия самого малого кольца. */
 const inset = computed(() => {
   const inner = radiusOf(Math.max(visible.value.length, 1) - 1) - stroke.value / 2
@@ -121,7 +130,10 @@ const inset = computed(() => {
     </svg>
     <div
       v-if="$slots.default"
-      class="absolute inset-0 flex flex-col items-center justify-center text-center"
+      :class="[
+        'absolute inset-0 flex items-center justify-center text-center leading-none font-medium whitespace-nowrap tabular-nums',
+        centerSize,
+      ]"
       :style="{ padding: `${inset}px` }"
     >
       <slot />

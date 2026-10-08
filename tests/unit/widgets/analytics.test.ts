@@ -143,7 +143,12 @@ describe('виджеты аналитики', () => {
     expect(wrapper.get('svg').attributes('aria-hidden')).toBe('true')
     // 147 из 227 тыс. и 5 из 7 оплат; подпись идёт снаружи внутрь.
     expect(wrapper.find('dl').text()).toContain(`65\u00a0% суммы · 71\u00a0% оплат`)
-    expect(wrapper.find('svg + div').text()).toContain('7')
+    // В центре только число: доля возвращённого по деньгам, без подписей.
+    expect(wrapper.find('svg + div').text()).toBe('65\u00a0%')
+    // Кольца прижаты к верху, а не центрируются по высоте легенды.
+    expect(wrapper.get('svg').element.parentElement!.parentElement!.classList).toContain(
+      '@lg:items-start',
+    )
     const empty = mount(AttributionBreakdown, {
       props: {
         attribution: summary.attribution.map((row) => ({ ...row, amount: '0.00', count: 0 })),
@@ -169,6 +174,20 @@ describe('виджеты аналитики', () => {
     expect(legend(1)).toContain(`Записались3 · 38\u00a0%`)
     expect(legend(3)).toContain(`Из них возвращено147\u00a0000\u00a0₽ · 65\u00a0%`)
     expect(legend(3)).toContain(`67\u00a0% с известной суммой`)
+    // Исходы: число в центре названо строкой «Всего».
+    expect(legend(2)).toContain('Всего6')
+    wrapper.unmount()
+  })
+
+  it('внутри колец только числа, а кольца прижаты к верху карточки', () => {
+    const wrapper = mount(ActivityGrid, { props: { summary } })
+    const cards = wrapper.findAll('section')
+    const centers = cards.map((card) => card.find('svg + div').text())
+    expect(centers).toEqual(['40', '8', '6', '65\u00a0%'])
+    for (const text of centers) expect(text).toMatch(/^[\d\u00a0 %]+$/)
+    for (const card of cards) {
+      expect(card.get('h3 + div').classes()).toContain('@md:items-start')
+    }
     wrapper.unmount()
   })
 
@@ -233,7 +252,7 @@ describe('виджеты аналитики', () => {
     })
     const money = wrapper.findAll('section')[3]!
     expect(money.findAll('svg > g > g')).toHaveLength(1)
-    expect(money.find('svg + div').text()).toContain('с суммой')
+    expect(money.find('svg + div').text()).toBe('67\u00a0%')
     wrapper.unmount()
   })
 

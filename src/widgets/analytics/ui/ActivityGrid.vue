@@ -6,12 +6,14 @@
  * Где величины складываются в целое, рядом с легендой рисуются кольца:
  * сообщения и исходы — одно кольцо из сегментов, сделки — по кольцу на стадию
  * от открытых, деньги — доля возвращённого и доля сделок с известной суммой.
+ * В центре колец — только число; его пара в легенде: «Всего» у сообщений и
+ * исходов, «Открыто» у сделок, доля в строке «Из них возвращено» у денег.
  * Если целого нет (знаменатель нулевой) или значение в него не помещается
  * (например, сделок выиграно больше, чем открыто в окне), кольцо не рисуется,
  * а строка остаётся обычным числом: карточка выглядит как прежний список.
  */
 import { computed } from 'vue'
-import { formatMoney, plural } from '@/shared/lib'
+import { formatMoney } from '@/shared/lib'
 import type { Ring } from '@/shared/ui'
 import { formatPercent, ratio, type AnalyticsSummary } from '@/entities/report'
 import StatCard, { type StatCenter, type StatRow } from './StatCard.vue'
@@ -68,9 +70,7 @@ const messages = computed<Group>(() => {
           },
         ]
       : [],
-    center: ok
-      ? { value: String(total), caption: plural(total, 'сообщение', 'сообщения', 'сообщений') }
-      : undefined,
+    center: ok ? { value: String(total) } : undefined,
     rows: [
       { label: 'Всего', value: String(total) },
       {
@@ -112,7 +112,7 @@ const opportunities = computed<Group>(() => {
         },
       ],
     })),
-    center: drawn.length ? { value: String(created), caption: 'открыто' } : undefined,
+    center: drawn.length ? { value: String(created) } : undefined,
     rows: [
       { label: 'Открыто', value: String(created) },
       ...stages.map((stage) => ({
@@ -128,28 +128,27 @@ const opportunities = computed<Group>(() => {
 const outcomes = computed<Group>(() => {
   const { booked, paid, lost } = props.summary.outcomes
   const total = booked + paid + lost
+  const drawn = total > 0
   return {
     key: 'outcomes',
     title: 'Исходы',
-    rings:
-      total > 0
-        ? [
-            {
-              key: 'outcomes',
-              max: total,
-              segments: [
-                { value: booked, tone: 'brand', title: `Запись: ${booked} из ${total}` },
-                { value: paid, tone: 'success', title: `Оплата: ${paid} из ${total}` },
-                { value: lost, tone: 'danger', title: `Потеря: ${lost} из ${total}` },
-              ],
-            },
-          ]
-        : [],
-    center:
-      total > 0
-        ? { value: String(total), caption: plural(total, 'исход', 'исхода', 'исходов') }
-        : undefined,
+    rings: drawn
+      ? [
+          {
+            key: 'outcomes',
+            max: total,
+            segments: [
+              { value: booked, tone: 'brand', title: `Запись: ${booked} из ${total}` },
+              { value: paid, tone: 'success', title: `Оплата: ${paid} из ${total}` },
+              { value: lost, tone: 'danger', title: `Потеря: ${lost} из ${total}` },
+            ],
+          },
+        ]
+      : [],
+    center: drawn ? { value: String(total) } : undefined,
     rows: [
+      // Число в центре кольца нужно назвать: сумма трёх исходов — строка «Всего».
+      ...(drawn ? [{ label: 'Всего', value: String(total) }] : []),
       { label: 'Запись', value: String(booked), share: shareOf(booked, total), tone: 'brand' },
       { label: 'Оплата', value: String(paid), share: shareOf(paid, total), tone: 'success' },
       { label: 'Потеря', value: String(lost), share: shareOf(lost, total), tone: 'danger' },
@@ -195,9 +194,9 @@ const revenue = computed<Group>(() => {
   }
   // В центре — главная доля первого из построенных колец.
   const center: StatCenter | undefined = recoveredShare
-    ? { value: recoveredShare, caption: 'возвращено', tone: 'success' }
+    ? { value: recoveredShare, tone: 'success' }
     : knownShare
-      ? { value: knownShare, caption: 'с суммой', tone: 'info' }
+      ? { value: knownShare, tone: 'info' }
       : undefined
   return {
     key: 'revenue',

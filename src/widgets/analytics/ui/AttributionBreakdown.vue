@@ -3,7 +3,9 @@
  * Разделение подтверждённых оплат по атрибуции в порядке сервера:
  * RECOVERED, ORGANIC, UNKNOWN. Суммы из ответа показываются как есть и не
  * суммируются в итог; числовое сложение нужно только для долей колец.
- * Внешнее кольцо — доли по деньгам, внутреннее — по числу оплат.
+ * Внешнее кольцо — доли по деньгам, внутреннее — по числу оплат. В центре —
+ * только число: доля возвращённой выручки, та же, что в подписи первой строки.
+ * Кольца прижаты к верху, а не центрируются по высоте легенды.
  */
 import { computed } from 'vue'
 import { formatMoney, plural } from '@/shared/lib'
@@ -59,6 +61,14 @@ const allRings = computed<Ring[]>(() => [
 /** Кольцо без целого (нет оплат или сумм) не рисуется; без колец остаётся легенда. */
 const rings = computed(() => allRings.value.filter((ring) => ring.max > 0))
 
+/** Доля RECOVERED по деньгам для центра колец; без денежного кольца числа нет. */
+const recoveredShare = computed(() => {
+  const index = props.attribution.findIndex((row) => row.type === 'RECOVERED')
+  if (index < 0 || !rings.value.some((ring) => ring.key === 'amount')) return null
+  const part = ratio(amounts.value[index] ?? 0, totalAmount.value)
+  return part === null ? null : formatPercent(part)
+})
+
 /** «66 % суммы · 71 % оплат»: порядок совпадает с кольцами, снаружи внутрь. */
 const shares = computed(() =>
   props.attribution.map((row, index) => {
@@ -73,14 +83,11 @@ const shares = computed(() =>
 
 <template>
   <div class="@container">
-    <div class="flex flex-col items-center gap-6 @lg:flex-row">
+    <div class="flex flex-col items-center gap-6 @lg:flex-row @lg:items-start">
       <UiRingChart v-if="rings.length" :rings="rings">
-        <span class="text-2xl leading-none font-medium text-ink tabular-nums">{{
-          totalCount
-        }}</span>
-        <span class="mt-1 text-xs text-muted">{{
-          plural(totalCount, 'оплата', 'оплаты', 'оплат')
-        }}</span>
+        <template v-if="recoveredShare" #default>
+          <span :style="{ color: RING_TONES.success.accent }">{{ recoveredShare }}</span>
+        </template>
       </UiRingChart>
       <dl class="flex w-full min-w-0 flex-1 flex-col gap-4">
         <div v-for="(row, index) in attribution" :key="row.type">

@@ -2,6 +2,8 @@
 /**
  * Шаги начала работы с признаком выполнения из серверного статуса.
  * Текущий шаг определяется маршрутом, выполненность — данными организации.
+ * Нумеруются только обязательные шаги, чтобы число кружков совпадало с
+ * «Шаг n из 4» в заголовках страниц; необязательный шаг помечен колокольчиком.
  */
 import { UiIcon } from '@/shared/ui'
 import { computed } from 'vue'
@@ -15,16 +17,24 @@ import {
 
 const props = defineProps<{ status: OnboardingStatus | null; current: OnboardingStepKey | null }>()
 
-const steps = computed(() =>
-  ONBOARDING_STEP_ORDER.map((key, index) => ({
-    key,
-    index: index + 1,
-    label: onboardingStepLabel(key),
-    done: key === 'ORGANIZATION' ? props.status !== null : isOnboardingStepDone(props.status, key),
-    current: key === props.current,
-    optional: props.status?.steps.find((step) => step.key === key)?.required === false,
-  })),
-)
+const steps = computed(() => {
+  let number = 0
+  return ONBOARDING_STEP_ORDER.map((key) => {
+    // До загрузки статуса необязательным считается привязка уведомлений.
+    const optional = props.status
+      ? props.status.steps.find((step) => step.key === key)?.required === false
+      : key === 'TELEGRAM_LINK'
+    return {
+      key,
+      index: optional ? null : ++number,
+      label: onboardingStepLabel(key),
+      done:
+        key === 'ORGANIZATION' ? props.status !== null : isOnboardingStepDone(props.status, key),
+      current: key === props.current,
+      optional,
+    }
+  })
+})
 </script>
 
 <template>
@@ -43,6 +53,7 @@ const steps = computed(() =>
           aria-hidden="true"
         >
           <UiIcon v-if="step.done" name="check" class="size-5" />
+          <UiIcon v-else-if="step.optional" name="notifications" class="size-4.5" />
           <template v-else>{{ step.index }}</template>
         </span>
         <span class="flex flex-col">

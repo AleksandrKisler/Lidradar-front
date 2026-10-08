@@ -53,21 +53,44 @@ describe('инструкция webhook', () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal('navigator', { clipboard: { writeText } })
     const wrapper = mount(WebhookInstructions, { props: { tenantId: 't', connectionId: 'c' } })
-    await wrapper.findAll('button')[0]!.trigger('click')
+    const buttonNamed = (name: string) =>
+      wrapper.findAll('button').find((button) => button.text() === name)!
+    await buttonNamed('Скопировать адрес').trigger('click')
     expect(writeText).toHaveBeenLastCalledWith(wrapper.get('[data-testid="webhook-url"]').text())
     expect(wrapper.text()).toContain('Адрес скопирован')
-    await wrapper.findAll('button')[1]!.trigger('click')
+    await buttonNamed('Скопировать пример').trigger('click')
     expect(writeText).toHaveBeenLastCalledWith(
       wrapper.get('[data-testid="webhook-example"]').text(),
     )
     expect(wrapper.text()).toContain('Пример скопирован')
     writeText.mockRejectedValueOnce(new Error('denied'))
-    await wrapper.findAll('button')[0]!.trigger('click')
+    await buttonNamed('Скопировать адрес').trigger('click')
     expect(wrapper.get('[role="alert"]').text()).toContain('скопируйте текст вручную')
     expect(wrapper.find('[role="status"]').exists()).toBe(false)
     await wrapper.setProps({ connectionId: 'new', disconnected: true })
     expect(wrapper.get('[data-testid="webhook-url"]').text()).toContain('/t/new')
     expect(wrapper.text()).toContain('больше не принимает события')
+    wrapper.unmount()
+  })
+
+  it('адресована разработчику и копируется целиком без секрета', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+    const wrapper = mount(WebhookInstructions, { props: { tenantId: 't', connectionId: 'c' } })
+    expect(wrapper.text()).toContain('Эту часть настраивает разработчик')
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Скопировать для разработчика')!
+      .trigger('click')
+    const brief = writeText.mock.calls.at(-1)![0] as string
+    expect(brief).toContain(wrapper.get('[data-testid="webhook-url"]').text())
+    expect(brief).toContain('X-LidRadar-Webhook-Secret')
+    expect(brief).toContain('POST')
+    expect(brief).toContain(wrapper.get('[data-testid="webhook-example"]').text())
+    // Секрет подключения в письмо не попадает: он передаётся отдельно.
+    expect(brief).toContain('$LIDRADAR_WEBHOOK_SECRET')
+    expect(brief).not.toMatch(/issued-secret|[0-9a-f]{32}/)
+    expect(wrapper.text()).toContain('Инструкция скопирована')
     wrapper.unmount()
   })
 })

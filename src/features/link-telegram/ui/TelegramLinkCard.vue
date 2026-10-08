@@ -3,6 +3,9 @@
  * Личная привязка Telegram текущего пользователя (макет 05): статус,
  * одноразовая ссылка на бота, проверка привязки и отключение с
  * подтверждением. Не путать с подключением источника переписки.
+ *
+ * `quiet` ставит рядом со страничным главным действием: кнопка вторичная,
+ * чтобы необязательные уведомления не спорили с обязательным подключением.
  */
 import { computed, ref, toRef } from 'vue'
 import { describeError, isApiError } from '@/shared/api'
@@ -11,7 +14,7 @@ import { UiAlert, UiBadge, UiButton, UiDialog, UiSkeleton } from '@/shared/ui'
 import { isSafeStartUrl, useTelegramLinkQuery } from '@/entities/notification'
 import { useTelegramLink } from '../model/use-telegram-link'
 
-const props = defineProps<{ tenantId: string; timeZone: string }>()
+const props = defineProps<{ tenantId: string; timeZone: string; quiet?: boolean | undefined }>()
 
 const status = useTelegramLinkQuery(toRef(props, 'tenantId'))
 const link = useTelegramLink(() => props.tenantId)
@@ -120,8 +123,12 @@ async function disable(): Promise<void> {
             Срок ссылки истёк. Выпустите новую — прежняя больше не сработает.
           </p>
           <div>
-            <UiButton :loading="link.issue.isPending.value" @click="link.issue.mutate()">
-              {{ link.expired.value ? 'Выпустить новую ссылку' : 'Подключить Telegram' }}
+            <UiButton
+              :variant="quiet ? 'secondary' : 'primary'"
+              :loading="link.issue.isPending.value"
+              @click="link.issue.mutate()"
+            >
+              {{ link.expired.value ? 'Выпустить новую ссылку' : 'Подключить уведомления' }}
             </UiButton>
           </div>
         </template>

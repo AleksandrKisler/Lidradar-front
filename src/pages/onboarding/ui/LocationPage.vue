@@ -2,12 +2,13 @@
 /**
  * Шаг 2: первая точка и её недельный график. Если точка уже есть (например,
  * после перезагрузки), дубликат не создаётся — сразу показывается редактор
- * графика выбранной точки.
+ * графика выбранной точки. Кнопка шага сама сохраняет неделю и идёт дальше,
+ * только если сохранение удалось: отдельной «Сохранить» и блокировки
+ * «Продолжить» нет.
  */
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import {
-  UiAlert,
   UiButton,
   UiCard,
   UiErrorState,
@@ -42,19 +43,23 @@ const selected = computed<Location | null>(
 const locationOptions = computed<UiSelectOption[]>(() =>
   activeLocations.value.map((item) => ({ value: item.id, label: item.name })),
 )
-const hoursSaved = ref(false)
-const hoursDirty = ref(false)
-/** Шаг про рабочее время: дальше — только с сохранённой полной неделей. */
-const scheduleMissing = computed(
-  () => hoursDirty.value || (selected.value !== null && selected.value.businessHours.length === 0),
-)
+const editor = ref<InstanceType<typeof BusinessHoursEditor> | null>(null)
+const saving = ref(false)
 
 function onLocationCreated(location: Location): void {
   selectedId.value = location.id
 }
 
-function continueToServices(): void {
-  void router.push({ name: 'onboarding-services' })
+/** Сохраняет неделю и переходит к услугам; при ошибке остаётся на шаге с сообщением. */
+async function continueToServices(): Promise<void> {
+  if (saving.value) return
+  saving.value = true
+  try {
+    const saved = (await editor.value?.save()) ?? true
+    if (saved) await router.push({ name: 'onboarding-services' })
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
@@ -113,30 +118,26 @@ function continueToServices(): void {
         <div class="mt-5">
           <BusinessHoursEditor
             :key="selected.id"
+            ref="editor"
             :tenant-id="tenantId"
             :location="selected"
-            @saved="hoursSaved = true"
-            @update:dirty="hoursDirty = $event"
+            hide-submit
           />
         </div>
       </UiCard>
 
-      <UiAlert v-if="selected && scheduleMissing" tone="warning">
-        График ещё не сохранён: нажмите «Сохранить график» перед тем, как продолжить.
-      </UiAlert>
-
       <div class="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
         <p class="text-sm text-muted">Настройки можно изменить позже в разделе «Настройки».</p>
-        <div class="flex gap-3">
+        <div class="ml-auto flex gap-3">
           <RouterLink
             :to="{ name: 'onboarding-company' }"
             class="inline-flex h-11 items-center rounded-control border border-line px-5 text-sm font-semibold text-ink hover:bg-canvas"
           >
             Назад
           </RouterLink>
-          <UiButton :disabled="!selected || scheduleMissing" @click="continueToServices"
-            >Продолжить</UiButton
-          >
+          <UiButton :disabled="!selected" :loading="saving" @click="continueToServices">
+            Сохранить и продолжить
+          </UiButton>
         </div>
       </div>
     </template>

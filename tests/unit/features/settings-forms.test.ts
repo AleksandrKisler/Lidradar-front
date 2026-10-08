@@ -241,6 +241,92 @@ describe('формы настроек', () => {
     wrapper.unmount()
   })
 
+  it('график: у времени видимые подписи «с» и «до», доступные имена прежние', () => {
+    const wrapper = mountWith(BusinessHoursEditor, { tenantId: 'tenant-a', location })
+    const monday = wrapper.findAll('li')[0]!
+    // Видимые подписи скрыты от скринридеров: имя поля остаётся «Понедельник, открытие».
+    expect(monday.findAll('[aria-hidden="true"]').map((item) => item.text())).toEqual(['с', 'до'])
+    expect(monday.findAll('.sr-only').map((item) => item.text())).toEqual([
+      'Понедельник, открытие',
+      'Понедельник, закрытие',
+    ])
+    wrapper.unmount()
+  })
+
+  it('график: «Применить время» копирует образец на рабочие дни и исчезает, когда всё одинаково', async () => {
+    const wrapper = mountWith(BusinessHoursEditor, { tenantId: 'tenant-a', location })
+    const apply = () =>
+      wrapper.findAll('button').find((button) => button.text().startsWith('Применить время'))
+    // В стартовой неделе суббота короче будней: выравнивать есть что, образец — понедельник.
+    expect(apply()?.text()).toBe('Применить время понедельника ко всем рабочим дням')
+    await wrapper.get('input[name="opens-1"]').setValue('08:00')
+    await wrapper.get('input[name="closes-1"]').setValue('19:00')
+    await apply()!.trigger('click')
+    for (const weekday of [2, 3, 4, 5, 6]) {
+      const opens = wrapper.get(`input[name="opens-${weekday}"]`).element as HTMLInputElement
+      const closes = wrapper.get(`input[name="closes-${weekday}"]`).element as HTMLInputElement
+      expect([opens.value, closes.value]).toEqual(['08:00', '19:00'])
+    }
+    // Выходной остаётся выходным, а кнопка не нужна, раз время везде одно.
+    expect(wrapper.find('input[name="opens-7"]').exists()).toBe(false)
+    expect(apply()).toBeUndefined()
+    // Если понедельник выходной, образцом служит первый рабочий день.
+    await wrapper.get('input[name="day-1"]').setValue(false)
+    await wrapper.get('input[name="opens-3"]').setValue('10:00')
+    expect(apply()?.text()).toBe('Применить время вторника ко всем рабочим дням')
+    wrapper.unmount()
+  })
+
+  it('график в мастере: своей кнопки нет, save() сохраняет неделю и сообщает исход', async () => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(jsonResponse({ ...location, businessHours: [] })),
+    )
+    const wrapper = mountWith(BusinessHoursEditor, {
+      tenantId: 'tenant-a',
+      location,
+      hideSubmit: true,
+    })
+    expect(wrapper.find('button[type="submit"]').exists()).toBe(false)
+    const save = () => (wrapper.vm as unknown as { save: () => Promise<boolean> }).save()
+    // Ошибка проверки: запрос не уходит, шаг остаётся на месте, причина видна.
+    await wrapper.get('input[name="opens-1"]').setValue('21:00')
+    expect(await save()).toBe(false)
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Открытие должно быть раньше закрытия')
+    // Исправили: неделя уходит одним PUT, результат true.
+    await wrapper.get('input[name="opens-1"]').setValue('09:00')
+    expect(await save()).toBe(true)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0]![0].method).toBe('PUT')
+    wrapper.unmount()
+  })
+
+  it('save(): уже сохранённая и неизменённая неделя не уходит повторно, сбой сервера даёт false', async () => {
+    const week = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
+      weekday,
+      closed: weekday === 7,
+      ...(weekday === 7 ? {} : { opensAt: '09:00', closesAt: '20:00' }),
+    }))
+    const wrapper = mountWith(BusinessHoursEditor, {
+      tenantId: 'tenant-a',
+      location: { ...location, businessHours: week },
+      hideSubmit: true,
+    })
+    const save = () => (wrapper.vm as unknown as { save: () => Promise<boolean> }).save()
+    expect(await save()).toBe(true)
+    expect(fetchMock).not.toHaveBeenCalled()
+    // Правка и отказ сервера: неделя не сохранена, значит и переходить нельзя.
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        jsonResponse({ error: { code: 'INTERNAL', message: 'x', traceId: 't-1' } }, 500),
+      ),
+    )
+    await wrapper.get('input[name="closes-1"]').setValue('21:00')
+    expect(await save()).toBe(false)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
   it('услуга: пустая цена уходит null, нижняя граница не выше верхней', async () => {
     fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ id: 'svc-1' }, 201)))
     const wrapper = mountWith(ServiceForm, {

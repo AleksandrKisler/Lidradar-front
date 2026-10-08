@@ -8,7 +8,11 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { UiPageHeader } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
-import { useOrganizationQuery } from '@/entities/organization'
+import {
+  isOnboardingStepDone,
+  useOnboardingQuery,
+  useOrganizationQuery,
+} from '@/entities/organization'
 import { useLocationsQuery } from '@/entities/location'
 import { useRadarSummaryQuery, type RiskFilters as Filters } from '@/entities/risk'
 import { RadarSummary } from '@/widgets/radar-summary'
@@ -26,6 +30,16 @@ const filters = computed<Filters>(() => parseRiskFilters(route.query))
 const organization = useOrganizationQuery(tenantId)
 const locations = useLocationsQuery(tenantId)
 const summary = useRadarSummaryQuery(tenantId, filters)
+
+// Статус настройки читают только те, кто её ведёт: остальным подключение недоступно.
+const onboarding = useOnboardingQuery(() =>
+  session.can('location.manage') ? session.tenantId : null,
+)
+/** `true`, только когда сервер ответил и источник не подключён; пока неизвестно — `false`. */
+const sourceMissing = computed(
+  () =>
+    onboarding.data.value !== undefined && !isOnboardingStepDone(onboarding.data.value, 'CHANNEL'),
+)
 
 const currency = computed(() => organization.data.value?.defaultCurrency ?? null)
 const timeZone = computed(() => organization.data.value?.defaultTimezone ?? 'UTC')
@@ -51,6 +65,13 @@ function setFilters(next: Filters): void {
       :error="summary.error.value"
       @retry="summary.refetch()"
     />
-    <RiskFeed v-if="tenantId" :tenant-id="tenantId" :filters="filters" :time-zone="timeZone" />
+    <RiskFeed
+      v-if="tenantId"
+      :tenant-id="tenantId"
+      :filters="filters"
+      :time-zone="timeZone"
+      :source-missing="sourceMissing"
+      :can-connect-source="session.can('integration.manage')"
+    />
   </div>
 </template>

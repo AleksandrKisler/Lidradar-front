@@ -1,5 +1,9 @@
 <script setup lang="ts">
-/** Инструкция сохраняется в карточке; пример никогда не содержит настоящий секрет. */
+/**
+ * Инструкция сохраняется в карточке; пример никогда не содержит настоящий секрет.
+ * Она написана для разработчика, поэтому в начале сказано, кому её адресовать,
+ * а одна кнопка копирует всё нужное для пересылки.
+ */
 import { computed, ref } from 'vue'
 import { env } from '@/shared/config'
 import { createUuid } from '@/shared/lib'
@@ -16,6 +20,18 @@ const localAddress = computed(() =>
 const eventId = createUuid()
 const occurredAt = new Date().toISOString()
 const example = computed(() => webhookRequestExample(url.value, eventId, occurredAt))
+/** Короткое письмо разработчику: адрес, метод, заголовок и пример. Секрета здесь нет. */
+const developerBrief = computed(() =>
+  [
+    'Нужно настроить отправку сообщений клиентов в LidRadar по HTTP.',
+    `Адрес: ${url.value}`,
+    'Метод: POST, тип содержимого: application/json.',
+    'Секрет подключения передавайте в заголовке X-LidRadar-Webhook-Secret. Секрет выдан отдельно, в адрес его добавлять нельзя.',
+    '',
+    'Пример запроса:',
+    example.value,
+  ].join('\n'),
+)
 const copied = ref('')
 const copyError = ref(false)
 
@@ -36,6 +52,20 @@ async function copy(value: string, label: string): Promise<void> {
     <p v-if="disconnected" class="font-semibold text-muted">
       Источник отключён: этот адрес больше не принимает события.
     </p>
+    <div class="flex flex-col gap-2 rounded-control bg-canvas p-3">
+      <p class="text-ink">
+        Эту часть настраивает разработчик или подрядчик, который отвечает за вашу систему. Перешлите
+        ему инструкцию: секрет в неё не попадает, его передайте отдельно.
+      </p>
+      <UiButton
+        class="self-start"
+        size="sm"
+        variant="secondary"
+        @click="copy(developerBrief, 'Инструкция скопирована')"
+      >
+        Скопировать для разработчика
+      </UiButton>
+    </div>
     <p>Настройте отправляющую систему: отправляйте JSON методом POST на адрес:</p>
     <code
       class="block select-all rounded-field bg-canvas p-3 break-all text-ink"

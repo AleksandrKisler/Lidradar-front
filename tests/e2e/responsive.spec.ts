@@ -42,6 +42,16 @@ const screens: Screen[] = [
     action: (page) => page.getByRole('button', { name: 'Взять в работу' }),
   },
   {
+    name: 'начало работы: график',
+    path: '/onboarding/location',
+    action: (page) => page.getByRole('button', { name: 'Сохранить и продолжить' }),
+  },
+  {
+    name: 'начало работы: источник сообщений',
+    path: '/onboarding/channel',
+    action: (page) => page.getByRole('button', { name: 'Подключить источник' }),
+  },
+  {
     name: 'список диалогов',
     path: '/conversations',
     action: (page) => page.getByRole('list', { name: 'Список диалогов' }),

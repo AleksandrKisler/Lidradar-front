@@ -8,6 +8,10 @@
  * первого события означает только готовность к приёму. `ERROR` — удалённая
  * настройка не завершилась (код объясняется безопасной подписью). При `503`
  * черновик без секретов остаётся в форме, пока диалог открыт.
+ *
+ * Подсказки для тех, кто делает это впервые: у поля токена раскрывается
+ * инструкция «где взять токен», после подключения Telegram названо последнее
+ * действие в самом Telegram, а webhook помечен как вариант для разработчика.
  */
 import { computed, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
@@ -200,6 +204,14 @@ watch(open, (isOpen) => {
           >. Подключение сохранено — проверьте связь позже или подключите заново.
         </span>
       </UiAlert>
+      <UiAlert
+        v-if="result.provider === 'CONNECTED_BUSINESS_BOT'"
+        tone="info"
+        title="Последний шаг в Telegram"
+      >
+        Добавьте этого бота в бизнес-аккаунт: «Настройки», «Telegram Business», «Чат-боты». Пока бот
+        не подключён, сообщения не придут. Первое сообщение клиента появится в «Диалогах».
+      </UiAlert>
       <div
         v-if="result.webhookSecret"
         class="rounded-control border border-warning/40 bg-warning-pale p-4"
@@ -278,7 +290,7 @@ watch(open, (isOpen) => {
         v-if="isTelegram"
         v-slot="{ id, describedBy, invalid }"
         label="Токен бота"
-        description="Передаётся один раз по защищённому соединению, шифруется и не показывается снова."
+        description="Токен выдаёт бот @BotFather. Передаётся один раз по защищённому соединению, шифруется и не показывается снова."
         :error="errors.botToken"
       >
         <UiPasswordInput
@@ -291,6 +303,33 @@ watch(open, (isOpen) => {
           :disabled="connect.isPending.value"
         />
       </UiField>
+      <details
+        v-if="isTelegram"
+        class="rounded-control border border-line bg-canvas p-4 text-sm"
+        data-testid="telegram-token-help"
+      >
+        <summary class="cursor-pointer font-medium text-brand-dark">Где взять токен бота</summary>
+        <ol class="mt-3 flex list-decimal flex-col gap-2 pl-5 text-ink">
+          <li>
+            В Telegram найдите бота <span class="font-medium">@BotFather</span> и отправьте ему
+            команду <code>/newbot</code>.
+          </li>
+          <li>
+            Придумайте имя и адрес нового бота. BotFather пришлёт токен: длинную строку вида
+            <code>123456789:AAH…</code>
+          </li>
+          <li>В BotFather откройте настройки этого бота и включите режим Business Mode.</li>
+          <li>Вставьте токен в поле выше и нажмите «Подключить».</li>
+          <li>
+            Затем подключите бота к бизнес-аккаунту: в Telegram откройте «Настройки», «Telegram
+            Business», «Чат-боты».
+          </li>
+        </ol>
+        <p class="mt-3 text-xs text-muted">
+          Названия пунктов зависят от версии Telegram. Токен никому не передавайте: он даёт полный
+          доступ к боту.
+        </p>
+      </details>
       <UiField
         v-else
         v-slot="{ id, describedBy, invalid }"

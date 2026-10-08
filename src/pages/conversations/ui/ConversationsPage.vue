@@ -6,7 +6,7 @@
  */
 import { computed } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { UiCard, UiEmptyState, UiPageHeader } from '@/shared/ui'
+import { UiCard, UiEmptyState, UiIcon, UiPageHeader } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
 import { useOrganizationQuery } from '@/entities/organization'
 import type { ConversationFilters } from '@/entities/conversation'
@@ -64,9 +64,9 @@ function setFilters(next: ConversationFilters): void {
         <RouterLink
           v-if="detailOpen"
           :to="{ name: 'conversations', query: route.query }"
-          class="text-sm font-semibold text-brand-dark hover:underline lg:hidden"
+          class="inline-flex items-center gap-1 text-sm font-medium text-brand-dark hover:underline lg:hidden"
         >
-          ← К списку
+          <UiIcon name="arrow-back" class="size-5" />К списку
         </RouterLink>
         <ConversationThread
           v-if="tenantId && conversationId"

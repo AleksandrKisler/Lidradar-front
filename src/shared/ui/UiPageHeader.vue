@@ -12,7 +12,7 @@ withDefaults(
 <template>
   <header class="flex flex-wrap items-end justify-between gap-4">
     <div>
-      <p v-if="eyebrow" class="text-xs font-semibold tracking-wide text-muted uppercase">
+      <p v-if="eyebrow" class="text-xs font-semibold tracking-wide text-muted">
         {{ eyebrow }}
       </p>
       <h1 class="text-2xl font-bold text-ink md:text-3xl">{{ title }}</h1>

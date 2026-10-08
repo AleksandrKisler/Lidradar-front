@@ -11,6 +11,7 @@ import { describeError, isApiError } from '@/shared/api'
 import { UiAlert, UiButton, UiField, UiInput, UiSelect } from '@/shared/ui'
 import { timeZoneOptions } from '@/entities/organization'
 import {
+  AGREEMENT_THRESHOLD_DEFAULT,
   RESPONSE_THRESHOLD_DEFAULT,
   type Location,
   type UpdateLocationRequest,
@@ -37,12 +38,16 @@ const { defineField, handleSubmit, errors } = useForm({
     responseThresholdMinutes: String(
       props.location?.responseThresholdMinutes ?? RESPONSE_THRESHOLD_DEFAULT,
     ),
+    agreementThresholdMinutes: String(
+      props.location?.agreementThresholdMinutes ?? AGREEMENT_THRESHOLD_DEFAULT,
+    ),
     active: props.location?.active ?? true,
   },
 })
 const [name] = defineField('name')
 const [timezone] = defineField('timezone')
 const [responseThresholdMinutes] = defineField('responseThresholdMinutes')
+const [agreementThresholdMinutes] = defineField('agreementThresholdMinutes')
 const [active] = defineField('active')
 
 const errorView = computed(() => (save.error.value ? describeError(save.error.value) : null))
@@ -51,12 +56,15 @@ const traceId = computed(() => (isApiError(save.error.value) ? save.error.value.
 const isSubmitting = ref(false)
 const submit = handleSubmit(async (values) => {
   const minutes = Number(values.responseThresholdMinutes)
+  const agreementMinutes = Number(values.agreementThresholdMinutes)
   let result: Location | null
   if (props.location) {
     const body: UpdateLocationRequest = {}
     if (values.name !== props.location.name) body.name = values.name
     if (values.timezone !== props.location.timezone) body.timezone = values.timezone
     if (minutes !== props.location.responseThresholdMinutes) body.responseThresholdMinutes = minutes
+    if (agreementMinutes !== props.location.agreementThresholdMinutes)
+      body.agreementThresholdMinutes = agreementMinutes
     if (values.active !== props.location.active) body.active = values.active
     if (Object.keys(body).length === 0) {
       emit('saved', props.location)
@@ -69,7 +77,12 @@ const submit = handleSubmit(async (values) => {
     result = await save
       .mutateAsync({
         kind: 'create',
-        body: { name: values.name, timezone: values.timezone, responseThresholdMinutes: minutes },
+        body: {
+          name: values.name,
+          timezone: values.timezone,
+          responseThresholdMinutes: minutes,
+          agreementThresholdMinutes: agreementMinutes,
+        },
       })
       .catch(() => null)
   }
@@ -135,6 +148,23 @@ async function onSubmit(event: Event) {
         />
       </UiField>
     </div>
+    <UiField
+      v-slot="{ id, describedBy, invalid }"
+      label="Ожидание следующего шага, рабочих минут"
+      description="Через сколько рабочего времени напомнить о договорённости, если следующий шаг ещё не сделан. Например, клиент не подтвердил время или точка не ответила на просьбу о переносе."
+      :error="errors.agreementThresholdMinutes"
+    >
+      <UiInput
+        :id="id"
+        v-model="agreementThresholdMinutes"
+        name="agreementThresholdMinutes"
+        inputmode="numeric"
+        :maxlength="4"
+        :described-by="describedBy"
+        :invalid="invalid"
+        :disabled="isSubmitting"
+      />
+    </UiField>
     <label v-if="location" class="flex items-center gap-2 text-sm text-ink">
       <input
         v-model="active"

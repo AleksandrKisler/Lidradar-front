@@ -1,6 +1,11 @@
 /** Схема формы точки: название, пояс и порог ответа в минутах (1..1440). */
 import * as v from 'valibot'
-import { RESPONSE_THRESHOLD_MAX, RESPONSE_THRESHOLD_MIN } from '@/entities/location'
+import {
+  AGREEMENT_THRESHOLD_MAX,
+  AGREEMENT_THRESHOLD_MIN,
+  RESPONSE_THRESHOLD_MAX,
+  RESPONSE_THRESHOLD_MIN,
+} from '@/entities/location'
 
 export const locationSchema = v.object({
   name: v.pipe(
@@ -18,6 +23,15 @@ export const locationSchema = v.object({
       const minutes = Number(value)
       return minutes >= RESPONSE_THRESHOLD_MIN && minutes <= RESPONSE_THRESHOLD_MAX
     }, `От ${RESPONSE_THRESHOLD_MIN} до ${RESPONSE_THRESHOLD_MAX} минут`),
+  ),
+  agreementThresholdMinutes: v.pipe(
+    v.string(),
+    v.trim(),
+    v.regex(/^\d{1,4}$/, 'Введите целое число минут'),
+    v.check((value) => {
+      const minutes = Number(value)
+      return minutes >= AGREEMENT_THRESHOLD_MIN && minutes <= AGREEMENT_THRESHOLD_MAX
+    }, `От ${AGREEMENT_THRESHOLD_MIN} до ${AGREEMENT_THRESHOLD_MAX} минут`),
   ),
   active: v.boolean(),
 })

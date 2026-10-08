@@ -33,9 +33,19 @@ const severityTones: Record<RiskSeverity, Tone> = {
 const typeLabels: Record<RiskType, string> = {
   NO_RESPONSE: 'Нет ответа клиенту',
   BOOKING_NOT_CONFIRMED: 'Запись не подтверждена',
+  UNFINISHED_AGREEMENT: 'Договорённость требует внимания',
   PROMISE_NOT_FULFILLED: 'Обещание не выполнено',
   CUSTOMER_SILENT_AFTER_PRICE: 'Клиент молчит после цены',
   FOLLOW_UP_CANDIDATE: 'Стоит напомнить о себе',
+}
+
+const typeTones: Record<RiskType, Tone> = {
+  NO_RESPONSE: 'warning',
+  BOOKING_NOT_CONFIRMED: 'warning',
+  UNFINISHED_AGREEMENT: 'info',
+  PROMISE_NOT_FULFILLED: 'danger',
+  CUSTOMER_SILENT_AFTER_PRICE: 'info',
+  FOLLOW_UP_CANDIDATE: 'neutral',
 }
 
 const statusLabels: Record<RiskStatus, string> = {
@@ -125,6 +135,10 @@ export function severityTone(value: RiskSeverity | string): Tone {
 
 export function riskTypeLabel(value: RiskType | string): string {
   return typeLabels[value as RiskType] ?? value
+}
+
+export function riskTypeTone(value: RiskType | string): Tone {
+  return typeTones[value as RiskType] ?? 'neutral'
 }
 
 export function riskStatusLabel(value: RiskStatus | string): string {

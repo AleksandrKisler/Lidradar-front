@@ -219,7 +219,7 @@ const summaryNotFound = computed(
             Прогоны
           </caption>
           <thead>
-            <tr class="text-xs font-semibold tracking-wide text-muted uppercase">
+            <tr class="text-xs font-semibold tracking-wide text-muted">
               <th scope="col" class="pb-2">Прогон</th>
               <th scope="col" class="pb-2">Организация · переписка</th>
               <th scope="col" class="pb-2">Статус</th>

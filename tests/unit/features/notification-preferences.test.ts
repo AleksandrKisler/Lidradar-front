@@ -73,6 +73,21 @@ describe('PreferenceEditor', () => {
     wrapper.unmount()
   })
 
+  it('даёт настроить уведомления о незавершённой договорённости', async () => {
+    fetchMock.mockImplementation(async () =>
+      jsonResponse({ ...preference, riskType: 'UNFINISHED_AGREEMENT', deliveryMode: 'DIGEST' }),
+    )
+    const wrapper = mountEditor({ riskType: 'UNFINISHED_AGREEMENT' })
+    await wrapper.get('select[name="mode-UNFINISHED_AGREEMENT"]').setValue('DIGEST')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    const request = fetchMock.mock.calls.find(([item]) => item.method === 'PUT')![0]
+    expect(new URL(request.url).pathname).toBe(
+      '/api/v1/notifications/preferences/UNFINISHED_AGREEMENT',
+    )
+    wrapper.unmount()
+  })
+
   it('проверяет тихие часы локально: одинаковые границы не уходят на сервер', async () => {
     const wrapper = mountEditor()
     await wrapper.get('input[name="quiet-PROMISE_NOT_FULFILLED"]').setValue(true)

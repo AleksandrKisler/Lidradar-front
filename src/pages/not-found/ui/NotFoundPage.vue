@@ -5,7 +5,7 @@
 <template>
   <main id="main" class="flex min-h-dvh items-center justify-center p-6">
     <div class="max-w-md text-center">
-      <p class="text-xs font-semibold tracking-wide text-muted uppercase">Ошибка 404</p>
+      <p class="text-xs font-semibold tracking-wide text-muted">Ошибка 404</p>
       <h1 class="mt-2 text-3xl font-bold text-ink">Страница не найдена</h1>
       <p class="mt-3 text-sm text-muted">Проверьте адрес или вернитесь к рабочему пространству.</p>
       <RouterLink

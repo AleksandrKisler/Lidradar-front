@@ -45,10 +45,14 @@ function update(patch: Partial<RiskFilters>): void {
 </script>
 
 <template>
-  <div class="flex flex-wrap items-end gap-3" role="group" aria-label="Фильтры">
+  <div
+    class="grid grid-cols-2 items-end gap-3 sm:flex sm:flex-wrap"
+    role="group"
+    aria-label="Фильтры"
+  >
     <label
       v-if="locations.length > 1"
-      class="flex min-w-44 flex-col gap-1.5 text-sm font-medium text-ink"
+      class="col-span-2 flex min-w-0 flex-col gap-1.5 text-sm font-medium text-ink sm:min-w-44"
     >
       Точка
       <UiSelect
@@ -58,7 +62,7 @@ function update(patch: Partial<RiskFilters>): void {
         @update:model-value="(value) => update({ locationId: value || undefined })"
       />
     </label>
-    <label class="flex min-w-40 flex-col gap-1.5 text-sm font-medium text-ink">
+    <label class="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-ink sm:min-w-40">
       Важность
       <UiSelect
         :model-value="modelValue.severity ?? ''"
@@ -69,7 +73,7 @@ function update(patch: Partial<RiskFilters>): void {
         "
       />
     </label>
-    <label class="flex min-w-56 flex-col gap-1.5 text-sm font-medium text-ink">
+    <label class="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-ink sm:min-w-56">
       Тип риска
       <UiSelect
         :model-value="modelValue.riskType ?? ''"
@@ -80,7 +84,11 @@ function update(patch: Partial<RiskFilters>): void {
         "
       />
     </label>
-    <UiButton v-if="hasFilters" variant="ghost" @click="emit('update:modelValue', {})"
+    <UiButton
+      v-if="hasFilters"
+      variant="ghost"
+      class="col-span-2 sm:col-auto"
+      @click="emit('update:modelValue', {})"
       >Сбросить фильтры</UiButton
     >
   </div>

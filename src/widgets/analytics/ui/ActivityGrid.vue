@@ -11,6 +11,16 @@ import { activityRates, formatPercent, type AnalyticsSummary } from '@/entities/
 const props = defineProps<{ summary: AnalyticsSummary }>()
 const rates = computed(() => activityRates(props.summary))
 const money = (amount: string) => formatMoney(amount, props.summary.revenue.currency) ?? '—'
+const atRiskPotential = computed(() => {
+  const { atRiskPotential, atRiskOpportunities, atRiskUnknownAmountOpportunities } =
+    props.summary.revenue
+  const known = atRiskOpportunities - atRiskUnknownAmountOpportunities
+  const amount =
+    known > 0 || atRiskOpportunities === 0 ? money(atRiskPotential) : 'Сумма не определена'
+  return atRiskUnknownAmountOpportunities > 0
+    ? `${amount} · ${atRiskUnknownAmountOpportunities} без суммы`
+    : amount
+})
 
 const groups = computed(() => [
   {
@@ -50,7 +60,9 @@ const groups = computed(() => [
       ['Подтверждено всего', money(props.summary.revenue.confirmed)],
       ['Из них возвращено', money(props.summary.revenue.confirmedRecovered)],
       ['Подтверждённых оплат', String(props.summary.revenue.confirmedPayments)],
-      ['Оценка открытых сделок, не выручка', money(props.summary.revenue.potential)],
+      ['Известная оценка открытых сделок, не выручка', money(props.summary.revenue.potential)],
+      ['Сделок с риском', String(props.summary.revenue.atRiskOpportunities)],
+      ['Оценка сделок с риском, не выручка', atRiskPotential.value],
     ],
   },
 ])

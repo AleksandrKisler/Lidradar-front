@@ -1,12 +1,13 @@
 <script setup lang="ts">
 /**
  * Оболочка рабочего пространства: тёмное боковое меню (232 px на десктопе),
- * шапка с названием раздела и область содержимого. На узких экранах меню
- * открывается модально с ловушкой фокуса.
+ * шапка с названием раздела и область содержимого. Меню и шапка «приклеены»
+ * к окну: при длинной прокрутке они остаются в зоне видимости. На узких
+ * экранах меню открывается на весь экран с ловушкой фокуса.
  */
 import { computed, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { UiDialog } from '@/shared/ui'
+import { UiDialog, UiIcon } from '@/shared/ui'
 import { roleLabel, useSessionStore } from '@/entities/session'
 import { useAdminMeQuery } from '@/entities/admin'
 import { LogoutButton } from '@/features/auth-session'
@@ -38,8 +39,12 @@ const organizationName = computed(() => session.membership?.organizationName ?? 
     К основному содержимому
   </a>
   <div class="min-h-dvh md:grid md:grid-cols-[var(--spacing-sidebar)_minmax(0,1fr)]">
-    <aside class="hidden bg-nav text-white md:flex md:flex-col md:gap-8 md:p-6">
-      <p class="text-xl font-bold tracking-tight">◉ LidRadar</p>
+    <aside
+      class="hidden bg-nav text-white md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:gap-8 md:self-start md:overflow-y-auto md:p-6"
+    >
+      <p class="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <UiIcon name="radar" class="size-7" />LidRadar
+      </p>
       <WorkspaceSwitcher @switched="(id) => emit('workspaceSwitched', id)" />
       <SidebarNav />
       <div class="mt-auto border-t border-nav-active pt-5">
@@ -64,10 +69,10 @@ const organizationName = computed(() => session.membership?.organizationName ?? 
 
     <div class="flex min-w-0 flex-col">
       <header
-        class="flex items-center justify-between gap-4 border-b border-line bg-paper px-5 py-3 md:px-12"
+        class="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-line bg-paper px-5 py-3 md:px-12"
       >
         <div class="min-w-0">
-          <p class="truncate text-xs font-semibold tracking-wide text-muted uppercase">
+          <p class="truncate text-xs font-semibold tracking-wide text-muted">
             {{ organizationName }}
           </p>
           <p class="truncate text-lg font-bold text-ink">{{ title }}</p>
@@ -79,11 +84,12 @@ const organizationName = computed(() => session.membership?.organizationName ?? 
           </div>
           <button
             type="button"
-            class="rounded-control border border-line px-3 py-2 text-sm font-semibold md:hidden"
+            class="-mr-2 flex size-10 items-center justify-center rounded-full text-ink hover:bg-canvas md:hidden"
+            aria-label="Меню"
             aria-haspopup="dialog"
             @click="menuOpen = true"
           >
-            Меню
+            <UiIcon name="menu" class="size-6" />
           </button>
         </div>
       </header>
@@ -93,9 +99,9 @@ const organizationName = computed(() => session.membership?.organizationName ?? 
     </div>
   </div>
 
-  <UiDialog v-model:open="menuOpen" title="Меню">
+  <UiDialog v-model:open="menuOpen" title="Меню" size="full" tone="dark">
     <div class="mb-4"><RealtimeBadge /></div>
-    <div class="flex flex-col gap-6 rounded-control bg-nav p-5 text-white">
+    <div class="flex flex-col gap-6">
       <WorkspaceSwitcher
         @switched="
           (id) => {

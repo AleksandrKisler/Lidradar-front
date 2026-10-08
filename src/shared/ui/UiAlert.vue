@@ -4,6 +4,8 @@
  * остальные тона — как `status`, чтобы вспомогательные технологии не
  * прерывали пользователя без необходимости.
  */
+import UiIcon from './UiIcon.vue'
+
 withDefaults(
   defineProps<{
     tone?: 'info' | 'success' | 'warning' | 'danger' | undefined
@@ -21,6 +23,13 @@ const tones = {
   danger: 'border-danger/30 bg-danger-pale text-ink',
 } as const
 
+const icons = {
+  info: 'info',
+  success: 'check-circle',
+  warning: 'warning',
+  danger: 'error',
+} as const
+
 const titles = {
   info: 'text-info',
   success: 'text-success',
@@ -34,10 +43,15 @@ const titles = {
     :role="tone === 'danger' || tone === 'warning' ? 'alert' : 'status'"
     :class="['rounded-control border px-4 py-3 text-sm', tones[tone]]"
   >
-    <p v-if="title" :class="['font-semibold', titles[tone]]">{{ title }}</p>
-    <div :class="title ? 'mt-1' : ''"><slot /></div>
-    <p v-if="traceId" class="mt-2 text-xs text-muted">
-      Идентификатор запроса: <code class="select-all">{{ traceId }}</code>
-    </p>
+    <div class="flex gap-3">
+      <UiIcon :name="icons[tone]" :class="['mt-0.5 size-5', titles[tone]]" />
+      <div class="min-w-0">
+        <p v-if="title" :class="['font-medium', titles[tone]]">{{ title }}</p>
+        <div :class="title ? 'mt-1' : ''"><slot /></div>
+        <p v-if="traceId" class="mt-2 text-xs text-muted">
+          Идентификатор запроса: <code class="select-all">{{ traceId }}</code>
+        </p>
+      </div>
+    </div>
   </div>
 </template>

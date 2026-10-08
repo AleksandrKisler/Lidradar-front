@@ -713,6 +713,7 @@ export async function mockOwner(page: Page, options: OwnerMockOptions = {}): Pro
         name: 'Студия на Тверской',
         timezone: 'Europe/Moscow',
         responseThresholdMinutes: 45,
+        agreementThresholdMinutes: 120,
         active: true,
         businessHours: [] as {
           weekday: number
@@ -811,12 +812,14 @@ export async function mockOwner(page: Page, options: OwnerMockOptions = {}): Pro
         name: string
         timezone: string
         responseThresholdMinutes?: number
+        agreementThresholdMinutes?: number
       }
       const created = {
         id: nextId(),
         name: body.name,
         timezone: body.timezone,
         responseThresholdMinutes: body.responseThresholdMinutes ?? 45,
+        agreementThresholdMinutes: body.agreementThresholdMinutes ?? 120,
         active: true,
         businessHours: [],
         createdAt: new Date().toISOString(),
@@ -1271,6 +1274,9 @@ export async function mockOwner(page: Page, options: OwnerMockOptions = {}): Pro
       revenue: {
         currency: 'RUB',
         potential: '47000.00',
+        atRiskPotential: '0.00',
+        atRiskOpportunities: 0,
+        atRiskUnknownAmountOpportunities: 0,
         confirmed: '59000.00',
         confirmedRecovered: '43000.00',
         confirmedPayments: 3,

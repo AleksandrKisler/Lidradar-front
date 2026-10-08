@@ -4,6 +4,8 @@
  */
 export { default as UiButton } from './UiButton.vue'
 export { default as UiSpinner } from './UiSpinner.vue'
+export { default as UiIcon } from './UiIcon.vue'
+export type { IconName } from './icons'
 export { default as UiField } from './UiField.vue'
 export { default as UiInput } from './UiInput.vue'
 export { default as UiTextarea } from './UiTextarea.vue'

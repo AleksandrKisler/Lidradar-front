@@ -34,6 +34,7 @@ const location: Location = {
   name: 'Студия на Пресне',
   timezone: 'Europe/Moscow',
   responseThresholdMinutes: 45,
+  agreementThresholdMinutes: 120,
   active: true,
   businessHours: [],
   createdAt: '2026-09-01T00:00:00Z',
@@ -137,12 +138,22 @@ describe('формы настроек', () => {
     expect(create.text()).toContain('От 1 до 1440 минут')
     expect(fetchMock).not.toHaveBeenCalled()
     await create.get('input[name="responseThresholdMinutes"]').setValue('60')
+    expect(
+      (create.get('input[name="agreementThresholdMinutes"]').element as HTMLInputElement).value,
+    ).toBe('120')
+    await create.get('input[name="agreementThresholdMinutes"]').setValue('1441')
+    await create.get('form').trigger('submit')
+    await settle()
+    expect(create.text()).toContain('От 1 до 1440 минут')
+    expect(fetchMock).not.toHaveBeenCalled()
+    await create.get('input[name="agreementThresholdMinutes"]').setValue('120')
     await create.get('form').trigger('submit')
     await settle()
     expect(await fetchMock.mock.calls[0]![0].json()).toEqual({
       name: 'Новая точка',
       timezone: 'Europe/Moscow',
       responseThresholdMinutes: 60,
+      agreementThresholdMinutes: 120,
     })
     expect(create.emitted('saved')).toHaveLength(1)
     create.unmount()
@@ -153,6 +164,12 @@ describe('формы настроек', () => {
       location,
       defaultTimezone: 'Europe/Moscow',
     })
+    await edit.get('input[name="agreementThresholdMinutes"]').setValue('240')
+    await edit.get('form').trigger('submit')
+    await settle()
+    expect(await fetchMock.mock.calls[0]![0].json()).toEqual({ agreementThresholdMinutes: 240 })
+    fetchMock.mockClear()
+    await edit.get('input[name="agreementThresholdMinutes"]').setValue('120')
     await edit.get('input[name="locationActive"]').setValue(false)
     await edit.get('form').trigger('submit')
     await settle()

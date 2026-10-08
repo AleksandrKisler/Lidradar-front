@@ -155,6 +155,31 @@ describe('RiskWorkspace', () => {
     wrapper.unmount()
   })
 
+  it('показывает конкретную причину и неизвестные услугу и сумму при известном канале', async () => {
+    stubApi(() => ({
+      ...riskDetailFixture,
+      risk: {
+        ...riskDetailFixture.risk,
+        type: 'UNFINISHED_AGREEMENT',
+        severity: 'MEDIUM',
+        reason: 'Клиент пока не подтвердил предложенное время записи',
+      },
+      opportunity: { ...riskDetailFixture.opportunity, serviceId: null, potentialRevenue: null },
+      service: null,
+      revenue: { currency: 'RUB', potential: '0.00', confirmedRecovered: '0.00' },
+    }))
+    const wrapper = await mountWorkspace()
+    const text = wrapper.text()
+    expect(text).toContain('Договорённость требует внимания')
+    expect(text).toContain('Клиент пока не подтвердил предложенное время записи')
+    expect(text).toMatch(/Услуга не уточнена\s*· Telegram/)
+    expect(text).toContain('Сумма не определена')
+    expect(wrapper.get('[aria-labelledby="risk-money-title"]').text()).toContain(
+      'ПотенциальнаяСумма не определена',
+    )
+    wrapper.unmount()
+  })
+
   it('терминальный риск — только чтение, без форм и команд', async () => {
     stubApi(() => ({
       ...riskDetailFixture,

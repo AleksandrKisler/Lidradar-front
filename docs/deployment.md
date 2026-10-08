@@ -21,7 +21,7 @@ Multi-stage build, непривилегированный Nginx на 8080, read-
 
 Для работы сессии `/api` должен обслуживаться с того же origin, что и приложение: cookie `lidradar_session` HttpOnly, и клиент отправляет её с `credentials: 'include'`. Если backend вынесен на другой origin, задайте `VITE_API_ORIGIN` при сборке, добавьте origin в CSP `connect-src` и включите на backend CORS с credentials для точного origin приложения.
 
-TLS и HSTS настраиваются на ingress. Для CDN, шрифтов или аналитики явно обновляйте CSP; не расширяйте `script-src` до `unsafe-inline`. Шрифт Inter поставляется из `public/fonts`, внешних источников у приложения нет.
+TLS и HSTS настраиваются на ingress. Для CDN, шрифтов или аналитики явно обновляйте CSP; не расширяйте `script-src` до `unsafe-inline`. Шрифт Roboto Flex (основной шрифт Material Design 3) поставляется из `public/fonts`, внешних источников у приложения нет.
 
 ## Dev → pre-prod → prod
 

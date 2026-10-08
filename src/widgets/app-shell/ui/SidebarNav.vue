@@ -19,7 +19,7 @@ const items = computed(() => visibleNavItems((permission) => session.can(permiss
             :href="href"
             :aria-current="isActive ? 'page' : undefined"
             :class="[
-              'block rounded-control px-4 py-2.5 text-sm font-semibold transition-colors',
+              'block rounded-full px-4 py-3 text-sm font-medium transition-colors',
               isActive
                 ? 'bg-nav-active text-white'
                 : 'text-nav-text hover:bg-nav-active/60 hover:text-white',

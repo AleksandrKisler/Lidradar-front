@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { UiIcon } from '@/shared/ui'
 /**
  * Гостевой layout по макету «Вход»: слева тёмная панель с ценностью
  * продукта, справа карточка формы. На узких экранах панель скрыта.
@@ -8,9 +9,11 @@
 <template>
   <div class="min-h-dvh lg:grid lg:grid-cols-2">
     <aside class="hidden bg-nav text-white lg:flex lg:flex-col lg:justify-between lg:p-12">
-      <p class="text-xl font-bold tracking-tight">◉ LidRadar</p>
+      <p class="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <UiIcon name="radar" class="size-7" />LidRadar
+      </p>
       <div class="max-w-md">
-        <p class="text-xs font-semibold tracking-widest text-nav-text uppercase">
+        <p class="text-xs font-semibold tracking-widest text-nav-text">
           Контроль потерянных возможностей
         </p>
         <p class="mt-4 text-4xl leading-tight font-bold">Замечайте риски. Возвращайте клиентов.</p>
@@ -34,7 +37,9 @@
     </aside>
     <main id="main" class="flex items-center justify-center px-5 py-10 md:px-12">
       <div class="w-full max-w-md">
-        <p class="mb-8 text-xl font-bold tracking-tight text-ink lg:hidden">◉ LidRadar</p>
+        <p class="flex items-center gap-2 mb-8 text-xl font-bold tracking-tight text-ink lg:hidden">
+          <UiIcon name="radar" class="size-7" />LidRadar
+        </p>
         <RouterView />
       </div>
     </main>

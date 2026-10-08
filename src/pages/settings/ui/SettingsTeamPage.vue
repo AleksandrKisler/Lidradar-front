@@ -15,6 +15,7 @@ import {
   UiCard,
   UiEmptyState,
   UiErrorState,
+  UiIcon,
   UiPageHeader,
   UiSkeleton,
 } from '@/shared/ui'
@@ -150,7 +151,7 @@ async function onRevoked(_member: Member, self: boolean): Promise<void> {
         <h2 :id="`role-${role}`" class="text-lg font-bold text-ink">{{ roleLabel(role) }}</h2>
         <ul class="mt-4 flex flex-col gap-3 text-sm text-ink">
           <li v-for="item in ROLE_CAPABILITIES[role].can" :key="item" class="flex gap-3">
-            <span class="text-success" aria-hidden="true">✓</span>
+            <UiIcon name="check" class="size-5 text-success" />
             <span>{{ item }}</span>
           </li>
           <li
@@ -158,7 +159,7 @@ async function onRevoked(_member: Member, self: boolean): Promise<void> {
             :key="item"
             class="flex gap-3 text-muted"
           >
-            <span aria-hidden="true">🔒</span>
+            <UiIcon name="lock" class="size-5" />
             <span>{{ item }}</span>
           </li>
         </ul>

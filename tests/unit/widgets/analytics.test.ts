@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import type { AnalyticsSummary, Payment, RiskPrecisionReport } from '@/entities/report'
 import {
+  ActivityGrid,
   AttributionBreakdown,
   MetricCards,
   PaymentsTable,
@@ -32,6 +33,9 @@ const summary: AnalyticsSummary = {
   revenue: {
     currency: 'RUB',
     potential: '47000.00',
+    atRiskPotential: '31000.00',
+    atRiskOpportunities: 3,
+    atRiskUnknownAmountOpportunities: 1,
     confirmed: '227000.00',
     confirmedRecovered: '147000.00',
     confirmedPayments: 7,
@@ -64,6 +68,28 @@ const summary: AnalyticsSummary = {
 }
 
 describe('виджеты аналитики', () => {
+  it('показывает число сделок с риском и отделяет неизвестные суммы от известной оценки', () => {
+    const wrapper = mount(ActivityGrid, { props: { summary } })
+    expect(wrapper.text()).toContain('Сделок с риском3')
+    expect(wrapper.text()).toContain('31 000 ₽ · 1 без суммы')
+    const unknownOnly = mount(ActivityGrid, {
+      props: {
+        summary: {
+          ...summary,
+          revenue: {
+            ...summary.revenue,
+            atRiskPotential: '0.00',
+            atRiskOpportunities: 2,
+            atRiskUnknownAmountOpportunities: 2,
+          },
+        },
+      },
+    })
+    expect(unknownOnly.text()).toContain('Сумма не определена · 2 без суммы')
+    wrapper.unmount()
+    unknownOnly.unmount()
+  })
+
   it('заглавные карточки: деньги в валюте ответа, доли без нулевого знаменателя', () => {
     const wrapper = mount(MetricCards, { props: { summary } })
     const text = wrapper.text()
@@ -191,6 +217,7 @@ describe('виджеты аналитики', () => {
     expect(rows[0]!.text()).toContain('31 000 ₽')
     expect(rows[0]!.get('a').attributes('href')).toBe('/risks/01990000-0000-7000-8000-000000000301')
     expect(rows[1]!.text()).toContain('Без имени')
+    expect(rows[1]!.text()).toContain('Услуга не уточнена')
     expect(rows[1]!.text()).toContain('100 €')
     expect(rows[1]!.find('a').exists()).toBe(false)
     await wrapper.get('button').trigger('click')

@@ -34,7 +34,7 @@ const emit = defineEmits<{ more: [] }>()
           Подтверждённые оплаты
         </caption>
         <thead>
-          <tr class="text-xs font-semibold tracking-wide text-muted uppercase">
+          <tr class="text-xs font-semibold tracking-wide text-muted">
             <th scope="col" class="pb-2">Клиент / услуга</th>
             <th scope="col" class="pb-2">Связь с риском</th>
             <th scope="col" class="pb-2">Подтверждено</th>
@@ -48,7 +48,7 @@ const emit = defineEmits<{ more: [] }>()
                 {{ payment.contactDisplayName ?? 'Без имени' }}
               </span>
               <span class="block text-xs text-muted">
-                {{ payment.serviceName ?? 'Услуга не указана' }}
+                {{ payment.serviceName ?? 'Услуга не уточнена' }}
               </span>
             </td>
             <td class="py-3 pr-4 text-muted">

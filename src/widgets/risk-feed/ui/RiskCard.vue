@@ -42,7 +42,7 @@ const messageAuthor = computed(() => {
     <article :aria-labelledby="`risk-${card.id}-title`">
       <div class="flex flex-wrap items-center gap-2">
         <RiskSeverityBadge :severity="card.severity" />
-        <span class="text-sm font-semibold text-ink">{{ card.typeLabel }}</span>
+        <UiBadge :tone="card.typeTone">{{ card.typeLabel }}</UiBadge>
         <UiBadge tone="neutral">{{ card.statusLabel }}</UiBadge>
       </div>
 
@@ -57,15 +57,14 @@ const messageAuthor = computed(() => {
             </RouterLink>
           </h3>
           <p class="mt-0.5 text-sm text-muted">
-            <span v-if="card.serviceName">{{ card.serviceName }}</span>
-            <span v-if="card.serviceName && card.channelName" aria-hidden="true"> · </span>
+            <span>{{ card.serviceName ?? 'Услуга не уточнена' }}</span>
+            <span v-if="card.channelName" aria-hidden="true"> · </span>
             <span v-if="card.channelName">{{ card.channelName }}</span>
-            <span v-if="!card.serviceName && !card.channelName">Услуга не определена</span>
           </p>
         </div>
         <p class="text-2xl font-bold text-ink tabular-nums">
           <template v-if="card.potential">{{ card.potential }}</template>
-          <span v-else class="text-base font-medium text-muted">Сумма не указана</span>
+          <span v-else class="text-base font-medium text-muted">Сумма не определена</span>
         </p>
       </div>
 

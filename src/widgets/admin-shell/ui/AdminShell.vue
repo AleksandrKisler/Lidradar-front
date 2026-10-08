@@ -4,6 +4,7 @@
  * раздел визуально не смешивался с рабочим пространством. Данных
  * организации здесь нет — только сеанс.
  */
+import { UiIcon } from '@/shared/ui'
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { useSessionStore } from '@/entities/session'
@@ -26,8 +27,10 @@ const title = computed(() => route.meta.title ?? 'Администрирован
   <div class="min-h-dvh md:grid md:grid-cols-[var(--spacing-sidebar)_minmax(0,1fr)]">
     <aside class="flex flex-col gap-6 bg-nav p-5 text-white md:p-6">
       <div>
-        <p class="text-xl font-bold tracking-tight">◉ LidRadar</p>
-        <p class="mt-1 text-xs font-semibold tracking-wide text-brand-pale uppercase">
+        <p class="flex items-center gap-2 text-xl font-bold tracking-tight">
+          <UiIcon name="radar" class="size-7" />LidRadar
+        </p>
+        <p class="mt-1 text-xs font-semibold tracking-wide text-brand-pale">
           Администрирование платформы
         </p>
       </div>
@@ -58,9 +61,9 @@ const title = computed(() => route.meta.title ?? 'Администрирован
         <p class="truncate text-sm font-semibold text-white">{{ session.user?.displayName }}</p>
         <RouterLink
           :to="{ name: 'radar' }"
-          class="mt-2 block text-sm font-semibold text-nav-text hover:text-white"
+          class="mt-2 flex items-center gap-1 text-sm font-medium text-nav-text hover:text-white"
         >
-          ← В рабочее пространство
+          <UiIcon name="arrow-back" class="size-5" />В рабочее пространство
         </RouterLink>
         <div class="mt-3">
           <LogoutButton
@@ -73,7 +76,7 @@ const title = computed(() => route.meta.title ?? 'Администрирован
     </aside>
     <div class="flex min-w-0 flex-col">
       <header class="border-b border-line bg-paper px-5 py-3 md:px-12">
-        <p class="text-xs font-semibold tracking-wide text-muted uppercase">Только метаданные</p>
+        <p class="text-xs font-semibold tracking-wide text-muted">Только метаданные</p>
         <p class="truncate text-lg font-bold text-ink">{{ title }}</p>
       </header>
       <main id="main" class="flex-1 px-5 py-6 md:px-12 md:py-10">

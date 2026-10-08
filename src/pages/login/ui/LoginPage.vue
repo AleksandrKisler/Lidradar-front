@@ -25,7 +25,7 @@ function onSuccess(): void {
 <template>
   <div>
     <UiCard class="shadow-sm">
-      <p class="text-xs font-semibold tracking-wide text-muted uppercase">С возвращением</p>
+      <p class="text-xs font-semibold tracking-wide text-muted">С возвращением</p>
       <h1 class="mt-2 text-2xl font-bold text-ink">Войдите в своё рабочее пространство</h1>
       <div class="mt-6 flex flex-col gap-4">
         <UiAlert v-if="expired" tone="info" title="Сессия завершена">

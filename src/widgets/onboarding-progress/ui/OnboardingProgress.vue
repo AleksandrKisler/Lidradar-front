@@ -3,6 +3,7 @@
  * Шаги начала работы с признаком выполнения из серверного статуса.
  * Текущий шаг определяется маршрутом, выполненность — данными организации.
  */
+import { UiIcon } from '@/shared/ui'
 import { computed } from 'vue'
 import {
   ONBOARDING_STEP_ORDER,
@@ -41,7 +42,7 @@ const steps = computed(() =>
           ]"
           aria-hidden="true"
         >
-          <template v-if="step.done">✓</template>
+          <UiIcon v-if="step.done" name="check" class="size-5" />
           <template v-else>{{ step.index }}</template>
         </span>
         <span class="flex flex-col">

@@ -24,9 +24,7 @@ async function onChange(event: Event): Promise<void> {
 
 <template>
   <div>
-    <p class="text-xs font-semibold tracking-wide text-nav-text/70 uppercase">
-      Рабочее пространство
-    </p>
+    <p class="text-xs font-semibold tracking-wide text-nav-text/70">Рабочее пространство</p>
     <template v-if="multiple">
       <select
         class="mt-2 h-10 w-full rounded-field border border-nav-active bg-nav-active px-3 text-sm font-semibold text-white"

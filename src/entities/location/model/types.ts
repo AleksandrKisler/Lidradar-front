@@ -10,3 +10,6 @@ export type BusinessHoursRequest = Schema<'BusinessHoursRequest'>
 export const RESPONSE_THRESHOLD_DEFAULT = 45
 export const RESPONSE_THRESHOLD_MIN = 1
 export const RESPONSE_THRESHOLD_MAX = 1440
+export const AGREEMENT_THRESHOLD_DEFAULT = 120
+export const AGREEMENT_THRESHOLD_MIN = 1
+export const AGREEMENT_THRESHOLD_MAX = 1440

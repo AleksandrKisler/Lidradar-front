@@ -38,7 +38,7 @@ const connections = useAdminConnectionsQuery()
             Подключения
           </caption>
           <thead>
-            <tr class="text-xs font-semibold tracking-wide text-muted uppercase">
+            <tr class="text-xs font-semibold tracking-wide text-muted">
               <th scope="col" class="pb-2">Подключение</th>
               <th scope="col" class="pb-2">Организация</th>
               <th scope="col" class="pb-2">Провайдер</th>

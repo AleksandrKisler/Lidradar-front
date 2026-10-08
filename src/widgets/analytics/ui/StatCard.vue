@@ -46,7 +46,7 @@ const toneOf = (row: StatRow): RingTone | undefined => (hasRings.value ? row.ton
 <template>
   <UiCard as="section" :aria-label="title" class="@container">
     <h3 class="text-base font-medium text-ink">{{ title }}</h3>
-    <div class="mt-4 flex flex-col items-center gap-5 @md:flex-row @md:items-start @md:gap-6">
+    <div class="mt-4 flex flex-col items-start gap-5 @md:flex-row @md:gap-6">
       <UiRingChart v-if="hasRings" :rings="rings">
         <template v-if="center" #default>
           <span :style="{ color: accent(center.tone) }">{{ center.value }}</span>

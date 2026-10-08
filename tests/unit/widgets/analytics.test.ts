@@ -145,10 +145,10 @@ describe('виджеты аналитики', () => {
     expect(wrapper.find('dl').text()).toContain(`65\u00a0% суммы · 71\u00a0% оплат`)
     // В центре только число: доля возвращённого по деньгам, без подписей.
     expect(wrapper.find('svg + div').text()).toBe('65\u00a0%')
-    // Кольца прижаты к верху, а не центрируются по высоте легенды.
-    expect(wrapper.get('svg').element.parentElement!.parentElement!.classList).toContain(
-      '@lg:items-start',
-    )
+    // Кольца прижаты к верху и к левому краю, а не центрируются по легенде.
+    const layout = wrapper.get('svg').element.parentElement!.parentElement!.classList
+    expect(layout).toContain('items-start')
+    expect(layout).not.toContain('items-center')
     const empty = mount(AttributionBreakdown, {
       props: {
         attribution: summary.attribution.map((row) => ({ ...row, amount: '0.00', count: 0 })),
@@ -186,7 +186,9 @@ describe('виджеты аналитики', () => {
     expect(centers).toEqual(['40', '8', '6', '65\u00a0%'])
     for (const text of centers) expect(text).toMatch(/^[\d\u00a0 %]+$/)
     for (const card of cards) {
-      expect(card.get('h3 + div').classes()).toContain('@md:items-start')
+      const layout = card.get('h3 + div').classes()
+      expect(layout).toContain('items-start')
+      expect(layout).not.toContain('items-center')
     }
     wrapper.unmount()
   })

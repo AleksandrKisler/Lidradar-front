@@ -83,7 +83,7 @@ const shares = computed(() =>
 
 <template>
   <div class="@container">
-    <div class="flex flex-col items-center gap-6 @lg:flex-row @lg:items-start">
+    <div class="flex flex-col items-start gap-6 @lg:flex-row">
       <UiRingChart v-if="rings.length" :rings="rings">
         <template v-if="recoveredShare" #default>
           <span :style="{ color: RING_TONES.success.accent }">{{ recoveredShare }}</span>

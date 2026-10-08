@@ -86,7 +86,11 @@ function setRange(next: DateRange): void {
         :error="rangeError"
         @update:range="setRange"
       />
-      <p v-if="summary.data.value" class="mt-3 text-sm text-ink" data-testid="analytics-period">
+      <p
+        v-if="summary.data.value"
+        class="mt-4 border-t border-line pt-4 text-sm text-ink"
+        data-testid="analytics-period"
+      >
         Период: {{ periodCaption(summary.data.value.period) }}
         <span class="block text-xs text-muted">{{ periodBounds(summary.data.value.period) }}</span>
       </p>

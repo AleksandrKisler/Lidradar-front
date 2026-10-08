@@ -15,17 +15,24 @@ const props = defineProps<{ series: AnalyticsDailyPoint[]; currency: string }>()
 const chart = computed(() => buildChart(props.series, (point) => point.confirmedRecovered))
 
 const container = ref<HTMLElement | null>(null)
-/** Ширина карточки; до измерения — разумное значение для SSR и тестов. */
+/** Размеры области; до измерения — разумные значения для SSR и тестов. */
 const width = ref(720)
+const minHeight = 208
+const height = ref(minHeight)
 let observer: ResizeObserver | null = null
+
+function measure(nextWidth: number | undefined, nextHeight: number | undefined): void {
+  if (nextWidth && nextWidth > 0) width.value = nextWidth
+  if (nextHeight && nextHeight > 0) height.value = Math.max(nextHeight, minHeight)
+}
 
 onMounted(() => {
   if (!container.value) return
-  width.value = container.value.clientWidth || width.value
+  measure(container.value.clientWidth, container.value.clientHeight)
   if (typeof ResizeObserver === 'undefined') return
   observer = new ResizeObserver((entries) => {
-    const next = entries[0]?.contentRect.width
-    if (next && next > 0) width.value = next
+    const rect = entries[0]?.contentRect
+    measure(rect?.width, rect?.height)
   })
   observer.observe(container.value)
 })
@@ -34,9 +41,8 @@ onBeforeUnmount(() => observer?.disconnect())
 const paddingLeft = 56
 const paddingRight = 8
 const paddingTop = 20
-const plotHeight = 160
 const paddingBottom = 28
-const height = paddingTop + plotHeight + paddingBottom
+const plotHeight = computed(() => height.value - paddingTop - paddingBottom)
 
 const slot = computed(() => {
   const count = Math.max(chart.value.bars.length, 1)
@@ -44,16 +50,25 @@ const slot = computed(() => {
 })
 const barWidth = computed(() => Math.max(Math.min(slot.value * 0.62, 28), 1))
 const showValues = computed(() => slot.value >= 34)
+/** Подпись даты занимает около 52 px: на узком графике показываем каждую n-ю. */
+const labelEvery = computed(() => Math.max(chart.value.labelStep, Math.ceil(52 / slot.value)))
 
 const x = (index: number) => paddingLeft + index * slot.value + (slot.value - barWidth.value) / 2
-const y = (ratio: number) => paddingTop + plotHeight - ratio * plotHeight
+const y = (ratio: number) => paddingTop + plotHeight.value - ratio * plotHeight.value
 const tickY = (tick: number) => y(chart.value.top > 0 ? tick / chart.value.top : 0)
 </script>
 
 <template>
-  <figure ref="container" :aria-label="`Возвращённая выручка по дням, ${currency}`">
+  <figure
+    ref="container"
+    class="relative min-h-52 flex-1"
+    :aria-label="`Возвращённая выручка по дням, ${currency}`"
+  >
     <figcaption class="sr-only">Возвращённая выручка по дням, {{ currency }}</figcaption>
-    <p v-if="chart.empty" class="py-10 text-center text-sm text-muted">
+    <p
+      v-if="chart.empty"
+      class="absolute inset-0 flex items-center justify-center px-4 text-center text-sm text-muted"
+    >
       За период подтверждённой возвращённой выручки нет.
     </p>
     <svg
@@ -61,7 +76,7 @@ const tickY = (tick: number) => y(chart.value.top > 0 ? tick / chart.value.top :
       :viewBox="`0 0 ${width} ${height}`"
       :width="width"
       :height="height"
-      class="block max-w-full"
+      class="absolute inset-0 block max-w-full"
       aria-hidden="true"
     >
       <g v-for="tick in chart.ticks" :key="tick">
@@ -101,7 +116,7 @@ const tickY = (tick: number) => y(chart.value.top > 0 ? tick / chart.value.top :
           {{ formatAmount(bar.amount) }}
         </text>
         <text
-          v-if="index % chart.labelStep === 0"
+          v-if="index % labelEvery === 0"
           :x="x(index) + barWidth / 2"
           :y="height - 8"
           text-anchor="middle"

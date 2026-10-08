@@ -119,7 +119,7 @@ Read-экраны (`entities/admin`, `pages/admin`) показывают тол�
 
 ## Интерфейс
 
-`shared/ui` — примитивы без бизнес-правил: `UiButton`, `UiField`/`UiInput`/`UiPasswordInput`/`UiSelect` (связка подписи, описания и ошибки через `aria-describedby`), `UiAlert`, `UiErrorState` (подпись по коду + технические детали), `UiDialog` (Reka UI), `UiEmptyState`, `UiSkeleton`, `UiAccessDenied`. Дизайн-токены объявлены в `src/app/styles/main.css` через `@theme`; динамические строки классов вида `bg-${color}` не используются. Формы — vee-validate с valibot-схемами, локально проверяются только очевидные ограничения контракта, окончательное решение принимает сервер.
+`shared/ui` — примитивы без бизнес-правил: `UiButton`, `UiField`/`UiInput`/`UiPasswordInput`/`UiSelect` (связка подписи, описания и ошибки через `aria-describedby`), `UiAlert`, `UiErrorState` (подпись по коду + технические детали), `UiDialog` (Reka UI), `UiEmptyState`, `UiSkeleton`, `UiAccessDenied`, `UiIcon` (контуры Material Symbols в `icons.ts`), `UiRingChart` (концентрические кольца; геометрия — `shared/lib/rings.ts`, цвета колец — `RING_TONES`, выведены из токенов палитры). Дизайн-токены объявлены в `src/app/styles/main.css` через `@theme`; динамические строки классов вида `bg-${color}` не используются. Формы — vee-validate с valibot-схемами, локально проверяются только очевидные ограничения контракта, окончательное решение принимает сервер.
 
 ## Как добавлять блок
 

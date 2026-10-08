@@ -127,9 +127,134 @@ describe('виджеты аналитики', () => {
     const wrapper = mount(AttributionBreakdown, {
       props: { attribution: summary.attribution, currency: 'RUB' },
     })
-    const rows = wrapper.findAll('dd').map((item) => item.text())
-    expect(rows).toEqual(['147 000 ₽', '62 000 ₽', '18 000 ₽'])
+    const rows = wrapper.findAll('[data-testid="attribution-amount"]').map((item) => item.text())
+    expect(rows).toEqual([`147\u00a0000\u00a0₽`, `62\u00a0000\u00a0₽`, `18\u00a0000\u00a0₽`])
     expect(wrapper.text()).toContain('Связь пока не определена · 1 оплата')
+    wrapper.unmount()
+  })
+
+  it('разделение оплат: два кольца, доли по деньгам и по числу оплат', () => {
+    const wrapper = mount(AttributionBreakdown, {
+      props: { attribution: summary.attribution, currency: 'RUB' },
+    })
+    // Два кольца по три сегмента: сегмент рисуется дугой, а фон — окружностью.
+    expect(wrapper.findAll('svg circle')).toHaveLength(2)
+    expect(wrapper.findAll('svg path')).toHaveLength(6)
+    expect(wrapper.get('svg').attributes('aria-hidden')).toBe('true')
+    // 147 из 227 тыс. и 5 из 7 оплат; подпись идёт снаружи внутрь.
+    expect(wrapper.find('dl').text()).toContain(`65\u00a0% суммы · 71\u00a0% оплат`)
+    // В центре только число: доля возвращённого по деньгам, без подписей.
+    expect(wrapper.find('svg + div').text()).toBe('65\u00a0%')
+    // Кольца прижаты к верху и к левому краю, а не центрируются по легенде.
+    const layout = wrapper.get('svg').element.parentElement!.parentElement!.classList
+    expect(layout).toContain('items-start')
+    expect(layout).not.toContain('items-center')
+    const empty = mount(AttributionBreakdown, {
+      props: {
+        attribution: summary.attribution.map((row) => ({ ...row, amount: '0.00', count: 0 })),
+        currency: 'RUB',
+      },
+    })
+    // Без оплат остаются пустые кольца и нет процентов.
+    expect(empty.findAll('svg path')).toHaveLength(0)
+    expect(empty.find('dl').text()).not.toContain('%')
+    wrapper.unmount()
+    empty.unmount()
+  })
+
+  it('кольца сводки: по одному на сообщения и исходы, три на сделки, два на деньги', () => {
+    const wrapper = mount(ActivityGrid, { props: { summary } })
+    const cards = wrapper.findAll('section')
+    const circles = (index: number) => cards[index]!.findAll('svg > g > g').length
+    expect(cards).toHaveLength(4)
+    expect([0, 1, 2, 3].map(circles)).toEqual([1, 3, 1, 2])
+    // Легенда сохраняет значения и добавляет доли.
+    const legend = (index: number) => cards[index]!.find('dl').text()
+    expect(legend(0)).toContain(`Входящие25 · 63\u00a0%`)
+    expect(legend(1)).toContain(`Записались3 · 38\u00a0%`)
+    expect(legend(3)).toContain(`Из них возвращено147\u00a0000\u00a0₽ · 65\u00a0%`)
+    expect(legend(3)).toContain(`67\u00a0% с известной суммой`)
+    // Исходы: число в центре названо строкой «Всего».
+    expect(legend(2)).toContain('Всего6')
+    wrapper.unmount()
+  })
+
+  it('внутри колец только числа, а кольца прижаты к верху карточки', () => {
+    const wrapper = mount(ActivityGrid, { props: { summary } })
+    const cards = wrapper.findAll('section')
+    const centers = cards.map((card) => card.find('svg + div').text())
+    expect(centers).toEqual(['40', '8', '6', '65\u00a0%'])
+    for (const text of centers) expect(text).toMatch(/^[\d\u00a0 %]+$/)
+    for (const card of cards) {
+      const layout = card.get('h3 + div').classes()
+      expect(layout).toContain('items-start')
+      expect(layout).not.toContain('items-center')
+    }
+    wrapper.unmount()
+  })
+
+  it('если значение не помещается в целое, кольцо не рисуется, а число остаётся', () => {
+    const wrapper = mount(ActivityGrid, {
+      props: {
+        summary: {
+          ...summary,
+          messages: { total: 10, incoming: 8, outgoing: 8, conversations: 2 },
+          opportunities: { created: 2, booked: 1, won: 3, lost: 0 },
+          revenue: { ...summary.revenue, confirmed: '1000.00', confirmedRecovered: '5000.00' },
+        },
+      },
+    })
+    const cards = wrapper.findAll('section')
+    // Сообщения: 8 + 8 больше 10 — колец нет, строки как раньше.
+    expect(cards[0]!.find('svg').exists()).toBe(false)
+    expect(cards[0]!.find('dl').text()).toContain('Входящие8')
+    // Сделки: «Выиграно» 3 из 2 не рисуется, остальные стадии — рисуются.
+    expect(cards[1]!.findAll('svg > g > g')).toHaveLength(2)
+    expect(cards[1]!.find('dl').text()).toContain('Выиграно3')
+    expect(cards[1]!.find('dl').text()).not.toMatch(/Выиграно3 · /)
+    // Деньги: возвращено больше подтверждённого — остаётся кольцо сделок с известной суммой.
+    expect(cards[3]!.findAll('svg > g > g')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('без целого кольца нет: пустой период остаётся обычным списком', () => {
+    const wrapper = mount(ActivityGrid, {
+      props: {
+        summary: {
+          ...summary,
+          messages: { total: 0, incoming: 0, outgoing: 0, conversations: 0 },
+          opportunities: { created: 0, booked: 0, won: 0, lost: 0 },
+          outcomes: { booked: 0, paid: 0, lost: 0 },
+          revenue: {
+            ...summary.revenue,
+            confirmed: '0.00',
+            confirmedRecovered: '0.00',
+            confirmedPayments: 0,
+            atRiskOpportunities: 0,
+            atRiskUnknownAmountOpportunities: 0,
+          },
+        },
+      },
+    })
+    expect(wrapper.find('svg').exists()).toBe(false)
+    // Все строки на месте, без цветных маркеров и процентов.
+    expect(wrapper.findAll('dt')).toHaveLength(4 + 4 + 3 + 6)
+    expect(wrapper.find('dl').text()).not.toContain('%')
+    wrapper.unmount()
+  })
+
+  it('кольцо денег без возвращённого берёт в центр долю сделок с известной суммой', () => {
+    const wrapper = mount(ActivityGrid, {
+      props: {
+        summary: {
+          ...summary,
+          revenue: { ...summary.revenue, confirmed: '0.00', confirmedRecovered: '0.00' },
+        },
+      },
+    })
+    const money = wrapper.findAll('section')[3]!
+    expect(money.findAll('svg > g > g')).toHaveLength(1)
+    expect(money.find('svg + div').text()).toBe('67\u00a0%')
     wrapper.unmount()
   })
 

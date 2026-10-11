@@ -9,15 +9,9 @@ export type {
   ConnectionStatus,
   ConnectorCapability,
 } from './model/types'
-export {
-  CONNECTABLE_PROVIDERS,
-  BOT_TOKEN_PATTERN,
-  WEBHOOK_SECRET_MIN_LENGTH,
-  WEBHOOK_SECRET_MAX_LENGTH,
-} from './model/types'
+export { BOT_TOKEN_PATTERN } from './model/types'
 export {
   providerLabel,
-  providerDescription,
   connectionStatusLabel,
   connectionStatusTone,
   connectionStatusView,
@@ -36,5 +30,3 @@ export {
   useConnectionsQuery,
   useConnectionHealthQuery,
 } from './api/integration-api'
-export { webhookUrl, webhookRequestExample } from './model/webhook'
-export { default as WebhookInstructions } from './ui/WebhookInstructions.vue'

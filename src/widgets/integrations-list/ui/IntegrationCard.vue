@@ -11,7 +11,6 @@ import {
   capabilityLabel,
   connectionErrorLabel,
   connectionStatusView,
-  WebhookInstructions,
   providerLabel,
   useConnectionHealthQuery,
   type ChannelConnection,
@@ -90,19 +89,6 @@ function when(value: string | null): string {
         {{ capabilityLabel(capability) }}
       </li>
     </ul>
-
-    <details
-      v-if="connection.provider === 'GENERIC_WEBHOOK'"
-      class="min-w-0 rounded-control border border-line p-4"
-    >
-      <summary class="cursor-pointer font-semibold text-brand-dark">Инструкция webhook</summary>
-      <WebhookInstructions
-        class="mt-4"
-        :tenant-id="tenantId"
-        :connection-id="connection.id"
-        :disconnected="snapshot.status === 'DISCONNECTED'"
-      />
-    </details>
 
     <div class="flex flex-wrap items-start justify-between gap-3 border-t border-line pt-4">
       <p class="text-xs text-muted">

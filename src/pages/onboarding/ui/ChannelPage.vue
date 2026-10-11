@@ -84,23 +84,17 @@ function toRadar(): void {
 
     <UiCard v-else-if="!channelDone" as="section" aria-labelledby="source-title">
       <h2 id="source-title" ref="sourceTitle" tabindex="-1" class="text-lg font-bold text-ink">
-        Подключите источник
+        Подключите Telegram
       </h2>
       <p class="mt-1 text-sm text-muted">
         Radar ищет риски в переписке с клиентами. Пока источника нет, лента рисков остаётся пустой.
       </p>
-      <ul class="mt-4 flex flex-col gap-2 text-sm text-ink">
-        <li>
-          <span class="font-medium">Telegram</span> подходит для бизнес-аккаунта. Понадобится бот и
-          его токен, подсказка есть прямо в окне подключения.
-        </li>
-        <li>
-          <span class="font-medium">Webhook</span> подходит для вашей CRM или сайта. Его настраивает
-          разработчик, ему пригодится готовая инструкция.
-        </li>
-      </ul>
+      <p class="mt-4 text-sm text-ink">
+        Подключите переписку бизнес-аккаунта Telegram. Понадобится бот и его токен — инструкция есть
+        в окне подключения.
+      </p>
       <div v-if="canConnect" class="mt-5">
-        <UiButton @click="connectOpen = true">Подключить источник</UiButton>
+        <UiButton @click="connectOpen = true">Подключить Telegram</UiButton>
       </div>
       <p v-else class="mt-5 text-sm text-muted">
         Источник подключает владелец организации в разделе «Интеграции».
@@ -169,8 +163,7 @@ function toRadar(): void {
     </UiCard>
 
     <UiAlert v-if="complete" tone="success" title="Настройка завершена">
-      Обязательные шаги выполнены. Для webhook завершите настройку отправителя по инструкции в
-      «Интеграциях». Radar начнёт анализ после получения сообщений.
+      Обязательные шаги выполнены. Radar начнёт анализ после получения сообщений из Telegram.
     </UiAlert>
     <UiAlert v-else-if="channelDone" tone="info" title="Источник подключён">
       Настройка ещё не завершена: посмотрите, какие шаги не выполнены, в списке выше. Первый приём

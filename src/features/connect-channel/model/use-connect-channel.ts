@@ -5,12 +5,7 @@
  */
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { organizationKeys } from '@/entities/organization'
-import {
-  connectChannel,
-  integrationKeys,
-  type ConnectChannelRequest,
-  type ConnectorProvider,
-} from '@/entities/integration'
+import { connectChannel, integrationKeys, type ConnectChannelRequest } from '@/entities/integration'
 
 export function useConnectChannel(tenantId: () => string) {
   const queryClient = useQueryClient()
@@ -21,8 +16,8 @@ export function useConnectChannel(tenantId: () => string) {
     ])
   }
   return useMutation({
-    mutationFn: (input: { provider: ConnectorProvider; body: ConnectChannelRequest }) =>
-      connectChannel(tenantId(), input.provider, input.body),
+    mutationFn: (body: ConnectChannelRequest) =>
+      connectChannel(tenantId(), 'CONNECTED_BUSINESS_BOT', body),
     onSuccess: refresh,
   })
 }

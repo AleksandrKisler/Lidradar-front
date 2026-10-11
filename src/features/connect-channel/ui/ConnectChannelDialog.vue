@@ -1,18 +1,5 @@
 <script setup lang="ts">
-/**
- * Диалог подключения источника (макеты 05 и 08).
- *
- * Секреты — write-only: после любой отправки поля токена и секрета
- * очищаются, а выпущенный сервером секрет webhook показывается один раз с
- * кнопкой копирования и нигде не сохраняется. Для webhook `ACTIVE` до
- * первого события означает только готовность к приёму. `ERROR` — удалённая
- * настройка не завершилась (код объясняется безопасной подписью). При `503`
- * черновик без секретов остаётся в форме, пока диалог открыт.
- *
- * Подсказки для тех, кто делает это впервые: у поля токена раскрывается
- * инструкция «где взять токен», после подключения Telegram названо последнее
- * действие в самом Telegram, а webhook помечен как вариант для разработчика.
- */
+/** Подключение Telegram. Токен очищается после отправки и закрытия диалога. */
 import { computed, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
@@ -30,15 +17,11 @@ import {
 } from '@/shared/ui'
 import type { Location } from '@/entities/location'
 import {
-  CONNECTABLE_PROVIDERS,
   connectionErrorLabel,
   connectionStatusView,
-  WebhookInstructions,
-  providerDescription,
   providerLabel,
   type ConnectChannelRequest,
   type ConnectedChannel,
-  type ConnectorProvider,
 } from '@/entities/integration'
 import { connectChannelSchema, type ConnectChannelValues } from '../model/schema'
 import { useConnectChannel } from '../model/use-connect-channel'
@@ -49,10 +32,6 @@ const open = defineModel<boolean>('open', { default: false })
 
 const connect = useConnectChannel(() => props.tenantId)
 
-const providerOptions: UiSelectOption[] = CONNECTABLE_PROVIDERS.map((value) => ({
-  value,
-  label: providerLabel(value),
-}))
 const locationOptions = computed<UiSelectOption[]>(() => [
   { value: '', label: 'Вся организация' },
   ...props.locations
@@ -63,43 +42,30 @@ const locationOptions = computed<UiSelectOption[]>(() => [
     })),
 ])
 
-const { defineField, handleSubmit, errors, resetForm, setFieldValue, values, isSubmitting } =
-  useForm({
-    validationSchema: toTypedSchema(connectChannelSchema),
-    initialValues: {
-      provider: 'CONNECTED_BUSINESS_BOT',
-      name: '',
-      locationId: '',
-      botToken: '',
-      webhookSecret: '',
-    },
-  })
-const [provider] = defineField('provider')
+const { defineField, handleSubmit, errors, resetForm, setFieldValue, isSubmitting } = useForm({
+  validationSchema: toTypedSchema(connectChannelSchema),
+  initialValues: {
+    name: '',
+    locationId: '',
+    botToken: '',
+  },
+})
 const [name] = defineField('name')
 const [locationId] = defineField('locationId')
 const [botToken] = defineField('botToken')
-const [webhookSecret] = defineField('webhookSecret')
-
-const isTelegram = computed(() => values.provider === 'CONNECTED_BUSINESS_BOT')
-const description = computed(() =>
-  values.provider ? providerDescription(values.provider as ConnectorProvider) : '',
-)
-
 const result = ref<ConnectedChannel | null>(null)
 const resultStatus = computed(() =>
   result.value ? connectionStatusView(result.value.provider, result.value) : null,
 )
-const copied = ref(false)
 const errorView = computed(() => (connect.error.value ? describeError(connect.error.value) : null))
 const traceId = computed(() => (isApiError(connect.error.value) ? connect.error.value.traceId : ''))
 const unavailable = computed(
   () => isApiError(connect.error.value) && connect.error.value.httpStatus === 503,
 )
 
-/** Секреты не переживают отправку — ни успешную, ни неудачную. */
-function clearSecrets(): void {
+/** Токен не переживает отправку — ни успешную, ни неудачную. */
+function clearToken(): void {
   setFieldValue('botToken', '')
-  setFieldValue('webhookSecret', '')
 }
 
 /**
@@ -121,33 +87,16 @@ const onSubmit = handleSubmit(async (formValues) => {
 
 async function submitValues(formValues: ConnectChannelValues): Promise<void> {
   connect.reset()
-  copied.value = false
   const body: ConnectChannelRequest = {
     name: formValues.name,
     locationId: formValues.locationId || null,
+    botToken: formValues.botToken,
   }
-  if (formValues.provider === 'CONNECTED_BUSINESS_BOT') body.botToken = formValues.botToken
-  if (formValues.provider === 'GENERIC_WEBHOOK' && formValues.webhookSecret) {
-    body.webhookSecret = formValues.webhookSecret
-  }
-  const created = await connect
-    .mutateAsync({ provider: formValues.provider as ConnectorProvider, body })
-    .catch(() => null)
-  clearSecrets()
+  const created = await connect.mutateAsync(body).catch(() => null)
+  clearToken()
   if (created) {
     result.value = created
     emit('connected', created)
-  }
-}
-
-async function copySecret(): Promise<void> {
-  const secret = result.value?.webhookSecret
-  if (!secret) return
-  try {
-    await navigator.clipboard.writeText(secret)
-    copied.value = true
-  } catch {
-    copied.value = false
   }
 }
 
@@ -155,19 +104,16 @@ function finish(): void {
   open.value = false
 }
 
-// Закрытие уничтожает и черновик, и показанный один раз секрет.
+// Закрытие уничтожает черновик и токен.
 watch(open, (isOpen) => {
   if (isOpen) return
   connect.reset()
   result.value = null
-  copied.value = false
   resetForm({
     values: {
-      provider: 'CONNECTED_BUSINESS_BOT',
       name: '',
       locationId: '',
       botToken: '',
-      webhookSecret: '',
     },
   })
 })
@@ -176,20 +122,14 @@ watch(open, (isOpen) => {
 <template>
   <UiDialog
     v-model:open="open"
-    title="Подключить источник"
-    description="После подключения настройте отправку сообщений и проверьте первый приём."
+    title="Подключить Telegram"
+    description="Подключите переписку бизнес-аккаунта Telegram через вашего бота."
     size="lg"
     :dismissible="!connect.isPending.value"
   >
     <div v-if="result" class="flex flex-col gap-4">
       <UiAlert
-        :tone="
-          result.status !== 'ACTIVE'
-            ? 'warning'
-            : result.provider === 'GENERIC_WEBHOOK'
-              ? 'info'
-              : 'success'
-        "
+        :tone="result.status !== 'ACTIVE' ? 'warning' : 'success'"
         title="Подключение создано"
       >
         <span class="flex flex-wrap items-center gap-2">
@@ -204,61 +144,16 @@ watch(open, (isOpen) => {
           >. Подключение сохранено — проверьте связь позже или подключите заново.
         </span>
       </UiAlert>
-      <UiAlert
-        v-if="result.provider === 'CONNECTED_BUSINESS_BOT'"
-        tone="info"
-        title="Последний шаг в Telegram"
-      >
-        Добавьте этого бота в бизнес-аккаунт: «Настройки», «Telegram Business», «Чат-боты». Пока бот
-        не подключён, сообщения не придут. Первое сообщение клиента появится в «Диалогах».
+      <UiAlert tone="info" title="Последний шаг в Telegram">
+        Подключите этого бота к аккаунту Telegram: «Настройки» → «Изм.» → «Автоматизация чатов».
+        Пока бот не подключён, сообщения не придут. Первое сообщение клиента появится в «Диалогах».
       </UiAlert>
-      <div
-        v-if="result.webhookSecret"
-        class="rounded-control border border-warning/40 bg-warning-pale p-4"
-      >
-        <p class="text-sm font-semibold text-ink">Секрет webhook — показывается один раз</p>
-        <p class="mt-1 text-xs text-ink/70">
-          Скопируйте его в настройки отправляющей системы. После закрытия окна секрет получить
-          нельзя — только подключить источник заново.
-        </p>
-        <div class="mt-3 flex flex-wrap items-center gap-2">
-          <code
-            class="rounded-field bg-paper px-3 py-2 text-sm break-all text-ink"
-            data-testid="webhook-secret"
-          >
-            {{ result.webhookSecret }}
-          </code>
-          <UiButton size="sm" variant="secondary" @click="copySecret">Скопировать секрет</UiButton>
-          <span v-if="copied" class="text-xs text-success" role="status">Скопировано</span>
-        </div>
-      </div>
-      <WebhookInstructions
-        v-if="result.provider === 'GENERIC_WEBHOOK'"
-        :tenant-id="tenantId"
-        :connection-id="result.id"
-      />
       <div class="flex justify-end">
         <UiButton @click="finish">Готово</UiButton>
       </div>
     </div>
 
     <form v-else class="flex flex-col gap-5" novalidate @submit.prevent="onSubmit">
-      <UiField
-        v-slot="{ id, describedBy, invalid }"
-        label="Источник"
-        :description="description"
-        :error="errors.provider"
-      >
-        <UiSelect
-          :id="id"
-          v-model="provider"
-          name="provider"
-          :options="providerOptions"
-          :described-by="describedBy"
-          :invalid="invalid"
-          :disabled="connect.isPending.value"
-        />
-      </UiField>
       <UiField
         v-slot="{ id, describedBy, invalid }"
         label="Название подключения"
@@ -287,7 +182,6 @@ watch(open, (isOpen) => {
         />
       </UiField>
       <UiField
-        v-if="isTelegram"
         v-slot="{ id, describedBy, invalid }"
         label="Токен бота"
         description="Токен выдаёт бот @BotFather. Передаётся один раз по защищённому соединению, шифруется и не показывается снова."
@@ -304,7 +198,6 @@ watch(open, (isOpen) => {
         />
       </UiField>
       <details
-        v-if="isTelegram"
         class="rounded-control border border-line bg-canvas p-4 text-sm"
         data-testid="telegram-token-help"
       >
@@ -321,8 +214,8 @@ watch(open, (isOpen) => {
           <li>В BotFather откройте настройки этого бота и включите режим Business Mode.</li>
           <li>Вставьте токен в поле выше и нажмите «Подключить».</li>
           <li>
-            Затем подключите бота к бизнес-аккаунту: в Telegram откройте «Настройки», «Telegram
-            Business», «Чат-боты».
+            Затем подключите бота к аккаунту: в Telegram откройте «Настройки» → «Изм.» →
+            «Автоматизация чатов».
           </li>
         </ol>
         <p class="mt-3 text-xs text-muted">
@@ -330,27 +223,9 @@ watch(open, (isOpen) => {
           доступ к боту.
         </p>
       </details>
-      <UiField
-        v-else
-        v-slot="{ id, describedBy, invalid }"
-        label="Секрет webhook (необязательно)"
-        description="Оставьте пустым — сервер выпустит секрет и покажет его один раз."
-        :error="errors.webhookSecret"
-      >
-        <UiPasswordInput
-          :id="id"
-          v-model="webhookSecret"
-          name="webhookSecret"
-          autocomplete="new-password"
-          :described-by="describedBy"
-          :invalid="invalid"
-          :disabled="connect.isPending.value"
-        />
-      </UiField>
-
       <UiAlert v-if="unavailable" tone="warning" title="Подключение временно недоступно">
-        Провайдер не ответил. Черновик без секретов сохранён, пока окно открыто: введите секрет
-        заново и повторите попытку.
+        Не удалось подключить Telegram. Черновик без токена сохранён, пока окно открыто: введите
+        токен заново и повторите попытку.
       </UiAlert>
       <UiAlert v-else-if="errorView" tone="danger" :title="errorView.title" :trace-id="traceId">
         {{ errorView.description }}

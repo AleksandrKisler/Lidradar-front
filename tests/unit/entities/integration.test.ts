@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   BOT_TOKEN_PATTERN,
-  CONNECTABLE_PROVIDERS,
   capabilityLabel,
   checkConnectionHealth,
   connectChannel,
@@ -27,7 +26,6 @@ afterEach(() => vi.unstubAllGlobals())
 
 describe('подписи интеграций', () => {
   it('провайдеры, статусы, возможности, коды и проверки', () => {
-    expect(CONNECTABLE_PROVIDERS).toEqual(['CONNECTED_BUSINESS_BOT', 'GENERIC_WEBHOOK'])
     expect(providerLabel('CONNECTED_BUSINESS_BOT')).toBe('Telegram · бизнес-бот')
     expect(providerLabel('NEW')).toBe('NEW')
     expect(connectionStatusLabel('DEGRADED')).toBe('С перебоями')

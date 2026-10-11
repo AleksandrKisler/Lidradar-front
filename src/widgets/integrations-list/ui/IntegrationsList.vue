@@ -37,7 +37,7 @@ onScopeDispose(() => clearInterval(timer))
   <section aria-labelledby="integrations-title" class="flex flex-col gap-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h2 id="integrations-title" class="text-lg font-bold text-ink">Источники сообщений</h2>
-      <UiButton @click="dialogOpen = true">Подключить источник</UiButton>
+      <UiButton @click="dialogOpen = true">Подключить Telegram</UiButton>
     </div>
 
     <div v-if="connections.isPending.value" role="status" aria-label="Загрузка подключений">
@@ -52,10 +52,10 @@ onScopeDispose(() => clearInterval(timer))
     <UiCard v-else-if="!items.length" :padded="false">
       <UiEmptyState
         title="Источников пока нет"
-        description="Подключите Telegram или webhook: переписка начнёт поступать, и Radar сможет замечать риски."
+        description="Подключите Telegram: переписка начнёт поступать, и Radar сможет замечать риски."
       >
         <template #actions>
-          <UiButton @click="dialogOpen = true">Подключить источник</UiButton>
+          <UiButton @click="dialogOpen = true">Подключить Telegram</UiButton>
         </template>
       </UiEmptyState>
     </UiCard>

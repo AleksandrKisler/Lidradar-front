@@ -105,7 +105,7 @@ onScopeDispose(() => clearInterval(timer))
         title="Источник сообщений не подключён"
         :description="
           canConnectSource
-            ? 'Radar пока не получает переписку, поэтому рисков нет. Подключите Telegram или webhook: первые риски появятся вместе с сообщениями.'
+            ? 'Radar пока не получает переписку, поэтому рисков нет. Подключите Telegram: первые риски появятся вместе с сообщениями.'
             : 'Radar пока не получает переписку, поэтому рисков нет. Источник подключает владелец организации в разделе «Интеграции».'
         "
       >
@@ -117,7 +117,7 @@ onScopeDispose(() => clearInterval(timer))
             :to="{ name: 'integrations' }"
             class="inline-flex h-11 items-center justify-center rounded-control bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-dark"
           >
-            Подключить источник
+            Подключить Telegram
           </RouterLink>
         </template>
       </UiEmptyState>

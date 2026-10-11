@@ -90,6 +90,10 @@ describe('интеграции', () => {
       attachTo: document.body,
     })
     await flushPromises()
+    expect(dialog().text()).toContain('Подключить Telegram')
+    expect(dialog().find('select[name="provider"]').exists()).toBe(false)
+    expect(dialog().find('input[name="webhookSecret"]').exists()).toBe(false)
+    expect(dialog().text()).not.toMatch(/webhook|CRM|Для разработчика/i)
     await dialog().get('input[name="connectionName"]').setValue('Telegram · переписка')
     await dialog().get('input[name="botToken"]').setValue('bad-token')
     await dialog().get('form').trigger('submit')
@@ -146,25 +150,9 @@ describe('интеграции', () => {
     await settle()
     // Подключение создано, но сообщения придут, только когда бот добавлен в Telegram.
     expect(dialog().text()).toContain('Последний шаг в Telegram')
-    expect(dialog().text()).toContain('Telegram Business')
+    expect(dialog().text()).toContain('«Настройки» → «Изм.» → «Автоматизация чатов»')
     expect(dialog().text()).toContain('Пока бот не подключён, сообщения не придут')
     expect(dialog().find('[data-testid="telegram-token-help"]').exists()).toBe(false)
-    wrapper.unmount()
-  })
-
-  it('Webhook: назван вариантом для разработчика, подсказки про токен нет', async () => {
-    const wrapper = mount(ConnectChannelDialog, {
-      props: { tenantId: 'tenant-a', locations: [], open: true },
-      global: { plugins: plugins() },
-      attachTo: document.body,
-    })
-    await flushPromises()
-    await dialog().get('select[name="provider"]').setValue('GENERIC_WEBHOOK')
-    await flushPromises()
-    expect(dialog().text()).toContain('Для разработчика')
-    expect(dialog().text()).toContain('Если разработчика нет, выберите Telegram')
-    expect(dialog().find('[data-testid="telegram-token-help"]').exists()).toBe(false)
-    expect(dialog().find('input[name="botToken"]').exists()).toBe(false)
     wrapper.unmount()
   })
 
@@ -189,54 +177,46 @@ describe('интеграции', () => {
     wrapper.unmount()
   })
 
-  it('Webhook: выпущенный сервером секрет показывается один раз, черновик при 503 остаётся без секрета', async () => {
+  it('Telegram: после 503 сохраняется название, токен очищается и нужен для повтора', async () => {
+    const token = '123456789:AAHf1234567890abcdefghijklmnop'
     fetchMock
       .mockResolvedValueOnce(errorResponse(503, 'CONNECTOR_UNAVAILABLE'))
-      .mockResolvedValueOnce(
-        jsonResponse(
-          {
-            ...connection,
-            provider: 'GENERIC_WEBHOOK',
-            status: 'ACTIVE',
-            lastSuccessAt: null,
-            webhookSecret: 'issued-secret-0123456789',
-          },
-          201,
-        ),
-      )
+      .mockResolvedValueOnce(jsonResponse({ ...connection, webhookSecret: null }, 201))
     const wrapper = mount(ConnectChannelDialog, {
       props: { tenantId: 'tenant-a', locations: [], open: true },
       global: { plugins: plugins() },
       attachTo: document.body,
     })
     await flushPromises()
-    await dialog().get('select[name="provider"]').setValue('GENERIC_WEBHOOK')
-    await dialog().get('input[name="connectionName"]').setValue('CRM')
-    await dialog().get('input[name="webhookSecret"]').setValue('my-own-secret-value-16')
+    await dialog().get('input[name="connectionName"]').setValue('Telegram · переписка')
+    await dialog().get('input[name="botToken"]').setValue(token)
     await dialog().get('form').trigger('submit')
     await settle()
     expect(dialog().text()).toContain('Подключение временно недоступно')
-    expect((dialog().get('input[name="connectionName"]').element as HTMLInputElement).value).toBe(
-      'CRM',
+    expect(dialog().get<HTMLInputElement>('input[name="connectionName"]').element.value).toBe(
+      'Telegram · переписка',
     )
-    expect((dialog().get('input[name="webhookSecret"]').element as HTMLInputElement).value).toBe('')
+    expect(dialog().get<HTMLInputElement>('input[name="botToken"]').element.value).toBe('')
     expect(await fetchMock.mock.calls[0]![0].json()).toEqual({
-      name: 'CRM',
+      name: 'Telegram · переписка',
       locationId: null,
-      webhookSecret: 'my-own-secret-value-16',
+      botToken: token,
     })
 
     await dialog().get('form').trigger('submit')
     await settle()
-    expect(await fetchMock.mock.calls[1]![0].json()).toEqual({ name: 'CRM', locationId: null })
-    expect(dialog().get('[data-testid="webhook-secret"]').text()).toBe('issued-secret-0123456789')
-    expect(dialog().text()).toContain('показывается один раз')
-    expect(dialog().text()).toContain('Ожидает первое событие')
-    expect(dialog().text()).not.toContain('Работает')
-    expect(dialog().get('[data-testid="webhook-url"]').text()).toContain(
-      '/api/v1/webhooks/GENERIC_WEBHOOK/tenant-a/conn-1',
-    )
-    expect(dialog().text()).toContain('X-LidRadar-Webhook-Secret')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await dialog().get('input[name="botToken"]').setValue(token)
+    await dialog().get('form').trigger('submit')
+    await settle()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(dialog().text()).toContain('Подключение создано')
+    await wrapper.setProps({ open: false })
+    await settle()
+    await wrapper.setProps({ open: true })
+    await settle()
+    expect(dialog().get<HTMLInputElement>('input[name="connectionName"]').element.value).toBe('')
+    expect(dialog().get<HTMLInputElement>('input[name="botToken"]').element.value).toBe('')
     wrapper.unmount()
   })
 
@@ -258,53 +238,6 @@ describe('интеграции', () => {
     expect(fetchMock.mock.calls[0]![0].method).toBe('DELETE')
     expect(wrapper.text()).toContain('Отключено локально')
     expect(wrapper.emitted('done')?.[0]).toEqual([true])
-    wrapper.unmount()
-  })
-
-  it('свой секрет: инструкция доступна без повторного показа секрета, повторное подключение меняет адрес', async () => {
-    fetchMock
-      .mockResolvedValueOnce(
-        jsonResponse(
-          { ...connection, provider: 'GENERIC_WEBHOOK', lastSuccessAt: null, webhookSecret: null },
-          201,
-        ),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse(
-          {
-            ...connection,
-            id: 'conn-2',
-            provider: 'GENERIC_WEBHOOK',
-            lastSuccessAt: null,
-            webhookSecret: null,
-          },
-          201,
-        ),
-      )
-    const wrapper = mount(ConnectChannelDialog, {
-      props: { tenantId: 'tenant-a', locations: [], open: true },
-      global: { plugins: plugins() },
-      attachTo: document.body,
-    })
-    for (const id of ['conn-1', 'conn-2']) {
-      await flushPromises()
-      await dialog().get('select[name="provider"]').setValue('GENERIC_WEBHOOK')
-      await dialog().get('input[name="connectionName"]').setValue('CRM')
-      await dialog().get('input[name="webhookSecret"]').setValue('my-own-secret-value-16')
-      await dialog().get('form').trigger('submit')
-      await settle()
-      expect(dialog().get('[data-testid="webhook-url"]').text()).toContain(`/tenant-a/${id}`)
-      expect(dialog().text()).not.toContain('my-own-secret-value-16')
-      expect(dialog().find('[data-testid="webhook-secret"]').exists()).toBe(false)
-      expect(dialog().text()).toContain('новый адрес и секрет')
-      await wrapper.setProps({ open: false })
-      await settle()
-      await wrapper.setProps({ open: true })
-      await settle()
-      expect(dialog().find('[data-testid="webhook-instructions"]').exists()).toBe(false)
-      await dialog().get('select[name="provider"]').setValue('GENERIC_WEBHOOK')
-      expect(dialog().get<HTMLInputElement>('input[name="webhookSecret"]').element.value).toBe('')
-    }
     wrapper.unmount()
   })
 

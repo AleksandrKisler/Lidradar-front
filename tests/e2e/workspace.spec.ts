@@ -399,7 +399,7 @@ test.describe('владелец организации', () => {
     await expect(page.getByRole('heading', { name: 'Источник сообщений' })).toBeVisible()
     await expect(page.getByRole('list', { name: 'Шаги настройки' })).toContainText('Точка и график')
     // Обязательное подключение — главное действие страницы, а не ссылка в плашке.
-    await expect(page.getByRole('button', { name: 'Подключить источник' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Подключить Telegram' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Перейти к подключению' })).toHaveCount(0)
     // Шаги слева видны на широком экране; на телефоне колонка скрыта, содержимое остаётся.
     if ((page.viewportSize()?.width ?? 0) >= 768) {
@@ -453,9 +453,9 @@ test.describe('владелец организации', () => {
     page,
   }) => {
     await page.goto('/onboarding/channel')
-    await expect(page.getByRole('heading', { name: 'Подключите источник' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Подключите Telegram' })).toBeVisible()
     // Иерархия: подключение — главное, уведомления тихие, выход без источника не главный.
-    const connect = page.getByRole('button', { name: 'Подключить источник' })
+    const connect = page.getByRole('button', { name: 'Подключить Telegram' })
     await expect(connect).toBeVisible()
     await expect(page.getByRole('button', { name: 'Подключить уведомления' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Перейти в Radar' })).toHaveCount(0)
@@ -465,7 +465,7 @@ test.describe('владелец организации', () => {
 
     // Подключение прямо на шаге: подсказка про токен рядом с полем.
     await connect.click()
-    const dialog = page.getByRole('dialog', { name: 'Подключить источник' })
+    const dialog = page.getByRole('dialog', { name: 'Подключить Telegram' })
     await dialog.getByText('Где взять токен бота').click()
     await expect(dialog.getByText('@BotFather').first()).toBeVisible()
     await dialog.getByLabel('Название подключения').fill('Telegram · переписка клиентов')
@@ -501,21 +501,22 @@ test.describe('владелец организации', () => {
       page.getByRole('heading', { name: 'Источник сообщений не подключён' }),
     ).toBeVisible()
     await expect(page.getByText('Сейчас всё под контролем')).toHaveCount(0)
-    await expect(page.getByRole('link', { name: 'Подключить источник' })).toHaveAttribute(
+    await expect(page.getByRole('link', { name: 'Подключить Telegram' })).toHaveAttribute(
       'href',
       '/integrations',
     )
     await expectNoAxeViolations(page)
 
-    // Webhook называет себя вариантом для разработчика и даёт письмо ему одной кнопкой.
-    await page.getByRole('link', { name: 'Подключить источник' }).click()
-    await page.getByRole('button', { name: 'Подключить источник' }).first().click()
-    const dialog = page.getByRole('dialog', { name: 'Подключить источник' })
-    await dialog.getByLabel('Источник').selectOption('GENERIC_WEBHOOK')
-    await expect(dialog.getByText('Для разработчика')).toBeVisible()
-    await dialog.getByLabel('Название подключения').fill('CRM')
+    // Из пустого радара сразу подключается Telegram, без выбора провайдера.
+    await page.getByRole('link', { name: 'Подключить Telegram' }).click()
+    await page.getByRole('button', { name: 'Подключить Telegram' }).first().click()
+    const dialog = page.getByRole('dialog', { name: 'Подключить Telegram' })
+    await expect(dialog.getByLabel('Источник', { exact: true })).toHaveCount(0)
+    await expect(dialog).not.toContainText(/webhook|CRM|Для разработчика/i)
+    await dialog.getByLabel('Название подключения').fill('Telegram · переписка клиентов')
+    await dialog.getByLabel('Токен бота').fill('123456789:AAHf1234567890abcdefghijklmnop')
     await page.keyboard.press('Enter')
-    await expect(dialog.getByRole('button', { name: 'Скопировать для разработчика' })).toBeVisible()
+    await expect(dialog.getByText('Последний шаг в Telegram')).toBeVisible()
     await dialog.getByRole('button', { name: 'Готово' }).click()
 
     // С подключённым источником пустая лента снова говорит «всё под контролем».
@@ -524,17 +525,15 @@ test.describe('владелец организации', () => {
     await expect(page.getByText('Источник сообщений не подключён')).toHaveCount(0)
   })
 
-  test('интеграции: подключение Telegram и webhook, проверка связи, отключение', async ({
-    page,
-  }) => {
+  test('интеграции: только Telegram, проверка связи и отключение', async ({ page }) => {
     await page.goto('/integrations')
     await expect(page.getByRole('heading', { name: 'Интеграции' })).toBeVisible()
     await expect(page.getByText('Источников пока нет')).toBeVisible()
     await expectNoAxeViolations(page)
 
     // Telegram: токен проверяется по формату и уходит один раз.
-    await page.getByRole('button', { name: 'Подключить источник' }).first().click()
-    const dialog = page.getByRole('dialog', { name: 'Подключить источник' })
+    await page.getByRole('button', { name: 'Подключить Telegram' }).first().click()
+    const dialog = page.getByRole('dialog', { name: 'Подключить Telegram' })
     await dialog.getByLabel('Название подключения').fill('Telegram · переписка клиентов')
     await dialog.getByLabel('Токен бота').fill('not-a-token')
     await dialog.getByRole('button', { name: 'Подключить' }).click()
@@ -554,56 +553,40 @@ test.describe('владелец организации', () => {
     await expect(list).toContainText('Telegram · переписка клиентов')
     await expect(list).toContainText('Работает')
 
-    // Webhook без своего секрета: секрет выпускает сервер и показывает один раз.
-    await page.getByRole('button', { name: 'Подключить источник' }).click()
-    await dialog.getByLabel('Источник').selectOption('GENERIC_WEBHOOK')
-    await dialog.getByLabel('Название подключения').fill('CRM')
-    await page.keyboard.press('Enter')
-    await expect(dialog.getByTestId('webhook-secret')).toHaveText(
-      'e2e-issued-secret-0123456789abcdef',
-    )
-    await expect(dialog).toContainText('Ожидает первое событие')
-    const webhookUrl = await dialog.getByTestId('webhook-url').innerText()
-    expect(webhookUrl).toContain(`/api/v1/webhooks/GENERIC_WEBHOOK/${TENANT_ID}/`)
-    await dialog.getByText('Пример запроса', { exact: true }).click()
-    await expect(dialog.getByTestId('webhook-example')).toContainText(
-      'X-LidRadar-Webhook-Secret: $LIDRADAR_WEBHOOK_SECRET',
-    )
-    await expect(dialog.getByTestId('webhook-example')).not.toContainText('e2e-issued-secret')
-    expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(
-      true,
-    )
+    // Повторное открытие даёт чистую форму Telegram без других способов подключения.
+    await page.getByRole('button', { name: 'Подключить Telegram' }).click()
+    await expect(dialog.getByLabel('Токен бота')).toHaveValue('')
+    await expect(dialog.getByLabel('Источник', { exact: true })).toHaveCount(0)
+    await expect(dialog).not.toContainText(/webhook|CRM|Для разработчика/i)
+    await dialog.getByLabel('Название подключения').fill('Telegram · вторая точка')
+    await dialog.getByLabel('Токен бота').fill('987654321:AAHf1234567890abcdefghijklmnop')
     await expectNoAxeViolations(page)
+    await page.keyboard.press('Enter')
+    await expect(dialog.getByText('Подключение создано')).toBeVisible()
     await dialog.getByRole('button', { name: 'Готово' }).click()
     await expect(cards).toHaveCount(2)
 
-    // Проверка связи различает REMOTE и LOCAL.
+    // Проверка связи опрашивает Telegram.
     const telegramCard = list
       .getByRole('listitem')
       .filter({ hasText: 'Telegram · переписка клиентов' })
     await telegramCard.getByRole('button', { name: 'Проверить связь' }).click()
     await expect(telegramCard.getByRole('status')).toContainText('провайдер опрошен')
-    const webhookCard = cards.filter({ hasText: 'CRM' })
-    await webhookCard.getByRole('button', { name: 'Обновить статус' }).click()
-    await expect(webhookCard.getByRole('status')).toContainText('сохранённое состояние')
-    await expect(webhookCard.getByRole('status')).toContainText('Ожидает первое событие')
     await page.reload()
-    await webhookCard.getByText('Инструкция webhook', { exact: true }).click()
-    await expect(webhookCard.getByTestId('webhook-url')).toHaveText(webhookUrl)
-    await expect(webhookCard.getByTestId('webhook-secret')).toHaveCount(0)
-    await expect(page.getByText('e2e-issued-secret-0123456789abcdef')).toHaveCount(0)
+    await expect(list).not.toContainText(/webhook|CRM|Для разработчика/i)
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true)
     await expectNoAxeViolations(page)
 
     // Отключение с подтверждением: карточка остаётся как отключённая.
-    await webhookCard.getByRole('button', { name: 'Отключить' }).click()
+    const secondCard = cards.filter({ hasText: 'Telegram · вторая точка' })
+    await secondCard.getByRole('button', { name: 'Отключить' }).click()
     const confirm = page.getByRole('dialog', { name: 'Отключить источник?' })
-    await expect(confirm).toContainText('CRM · Webhook')
+    await expect(confirm).toContainText('Telegram · вторая точка · Telegram · бизнес-бот')
     await confirm.getByRole('button', { name: 'Отключить' }).click()
-    await expect(webhookCard).toContainText('Отключён')
-    await expect(webhookCard.getByRole('button', { name: 'Отключить' })).toHaveCount(0)
+    await expect(secondCard).toContainText('Отключён')
+    await expect(secondCard.getByRole('button', { name: 'Отключить' })).toHaveCount(0)
 
     // Шаг онбординга «Источник сообщений» закрыт подключением.
     await page.goto('/onboarding/channel')

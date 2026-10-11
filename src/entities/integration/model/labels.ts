@@ -20,15 +20,6 @@ const providerLabels: Record<ConnectorProvider, string> = {
   TEST: 'Тестовый источник',
 }
 
-const providerDescriptions: Record<ConnectorProvider, string> = {
-  CONNECTED_BUSINESS_BOT:
-    'Переписка бизнес-аккаунта Telegram через вашего бота. Понадобится токен бота, ниже подсказка, где его взять.',
-  GENERIC_WEBHOOK:
-    'Для разработчика: ваша система отправляет сообщения в LidRadar запросами POST. После подключения вы получите адрес, секрет и пример запроса, их можно переслать тому, кто настраивает отправку. Если разработчика нет, выберите Telegram.',
-  IMPORT: 'Разовый импорт истории переписок.',
-  TEST: 'Учебный источник для стенда.',
-}
-
 const statusLabels: Record<ConnectionStatus, string> = {
   ACTIVE: 'Работает',
   DEGRADED: 'С перебоями',
@@ -66,10 +57,6 @@ const verificationLabels: Record<HealthVerification, string> = {
 
 export function providerLabel(value: ConnectorProvider | string): string {
   return providerLabels[value as ConnectorProvider] ?? value
-}
-
-export function providerDescription(value: ConnectorProvider): string {
-  return providerDescriptions[value]
 }
 
 export function connectionStatusLabel(value: ConnectionStatus | string): string {

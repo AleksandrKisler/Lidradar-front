@@ -49,7 +49,7 @@ const screens: Screen[] = [
   {
     name: 'начало работы: источник сообщений',
     path: '/onboarding/channel',
-    action: (page) => page.getByRole('button', { name: 'Подключить источник' }),
+    action: (page) => page.getByRole('button', { name: 'Подключить Telegram' }),
   },
   {
     name: 'список диалогов',

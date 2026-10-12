@@ -78,10 +78,12 @@ describe('лента Radar: пустое состояние', () => {
   it('источник не подключён: честное сообщение и путь к подключению вместо успокоения', async () => {
     const wrapper = await mountFeed([], { sourceMissing: true, canConnectSource: true })
     expect(wrapper.get('h2:not(#risk-feed-title)').text()).toBe('Источник сообщений не подключён')
-    expect(wrapper.text()).toContain('Подключите Telegram или webhook')
+    expect(wrapper.text()).toContain(
+      'Подключите Telegram: первые риски появятся вместе с сообщениями',
+    )
     expect(wrapper.text()).not.toContain('под контролем')
     const link = wrapper.get('a')
-    expect(link.text()).toBe('Подключить источник')
+    expect(link.text()).toBe('Подключить Telegram')
     expect(JSON.parse(link.attributes('data-to')!)).toEqual({ name: 'integrations' })
     wrapper.unmount()
   })

@@ -5,12 +5,18 @@
  * и график. Сервер сам определит, что уже выполнено (`/organization/onboarding`).
  */
 import { RouterLink, useRouter } from 'vue-router'
-import { UiCard } from '@/shared/ui'
+import { UiAlert, UiCard } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
 import { CreateOrganizationForm } from '@/features/create-organization'
 
 const router = useRouter()
 const session = useSessionStore()
+/**
+ * Право создать организацию читается один раз при открытии страницы (ADR 0057). Создание тратит право,
+ * и после перечитывания сессии `canCreateOrganization` становится ложным: форма, привязанная к живому
+ * значению, размонтировалась бы раньше, чем сообщит об успехе, и переход к следующему шагу потерялся бы.
+ */
+const mayCreate = session.canCreateOrganization
 
 function onCreated(): void {
   void router.replace({ name: 'onboarding-location' })
@@ -26,7 +32,12 @@ function onCreated(): void {
       точку и график настроим следующим шагом.
     </p>
     <div class="mt-6">
-      <CreateOrganizationForm @created="onCreated" />
+      <CreateOrganizationForm v-if="mayCreate" @created="onCreated" />
+      <UiAlert v-else tone="info" title="Организацию создают по приглашению платформы">
+        У вашей учётной записи нет права создать организацию. Если вас пригласили в компанию,
+        примите приглашение сотрудника; новую организацию можно создать с кодом приглашения
+        платформы.
+      </UiAlert>
     </div>
     <p v-if="session.memberships.length" class="mt-6 text-sm text-muted">
       <RouterLink

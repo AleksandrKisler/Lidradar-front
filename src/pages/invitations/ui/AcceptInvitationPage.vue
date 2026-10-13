@@ -60,12 +60,16 @@ async function openWorkspace(): Promise<void> {
           Вернуться к рабочим пространствам
         </RouterLink>
         <RouterLink
-          v-else
+          v-else-if="session.canCreateOrganization"
           :to="{ name: 'onboarding-company' }"
           class="font-semibold text-brand-dark hover:underline"
         >
           Создать свою организацию
         </RouterLink>
+        <template v-else>
+          Своя организация создаётся по приглашению платформы. Если оно у вас есть,
+          зарегистрируйтесь с ним заново.
+        </template>
       </p>
     </template>
   </UiCard>

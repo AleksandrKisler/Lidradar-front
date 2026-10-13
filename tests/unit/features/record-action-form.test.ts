@@ -42,6 +42,7 @@ describe('RecordActionForm', () => {
     setActivePinia(createPinia())
     vi.mocked(createAction).mockReset()
     vi.mocked(fetchMe).mockResolvedValue({
+      canCreateOrganization: false,
       user: {
         id: 'user-1',
         email: 'a@b.c',

@@ -2,13 +2,35 @@
 /**
  * Регистрация. Утверждённого макета нет (GAP-DESIGN-014): страница собрана
  * из тех же примитивов, что и вход. После успеха — общий boot-поток, который
- * для нового пользователя приведёт к созданию организации.
+ * приведёт нового пользователя к созданию организации (если код платформы дал
+ * такое право), в рабочее пространство (код сотрудника) или к вводу кода.
+ *
+ * Регистрация по приглашениям (ADR 0057): код из ссылки `/register?code=…`
+ * читается один раз и сразу убирается из адреса, чтобы история браузера его не хранила.
  */
-import { useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { UiCard } from '@/shared/ui'
+import { useRegistrationModeQuery } from '@/entities/session'
 import { RegisterForm } from '@/features/auth-session'
 
 const router = useRouter()
+const route = useRoute()
+const registration = useRegistrationModeQuery()
+
+const linkedCode = route.query.code
+const initialCode = typeof linkedCode === 'string' ? linkedCode : undefined
+if (linkedCode !== undefined) {
+  const rest = Object.fromEntries(Object.entries(route.query).filter(([key]) => key !== 'code'))
+  void router.replace({ name: 'register', query: rest })
+}
+
+/** Пока режим неизвестен, текст описывает закрытую регистрацию: она безопаснее для ожиданий. */
+const subtitle = computed(() =>
+  registration.data.value?.mode === 'open'
+    ? 'Первую организацию вы создадите сразу после регистрации.'
+    : 'Регистрация по приглашению: введите код, который вам передали.',
+)
 
 function onSuccess(): void {
   void router.replace({ name: 'radar' })
@@ -20,11 +42,9 @@ function onSuccess(): void {
     <UiCard class="shadow-sm">
       <p class="text-xs font-semibold tracking-wide text-muted">Новый аккаунт</p>
       <h1 class="mt-2 text-2xl font-bold text-ink">Создайте аккаунт</h1>
-      <p class="mt-2 text-sm text-muted">
-        Первую организацию вы создадите сразу после регистрации.
-      </p>
+      <p class="mt-2 text-sm text-muted">{{ subtitle }}</p>
       <div class="mt-6">
-        <RegisterForm @success="onSuccess" />
+        <RegisterForm :initial-code="initialCode" @success="onSuccess" />
       </div>
       <p class="mt-6 text-center text-sm text-muted">
         Уже есть аккаунт?

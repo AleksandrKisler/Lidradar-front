@@ -68,6 +68,7 @@ function stubApi(detail: () => unknown | Error) {
 async function mountWorkspace(role: AuthMeResponse['memberships'][number]['role'] = 'OWNER') {
   setActivePinia(createPinia())
   vi.mocked(fetchMe).mockResolvedValue({
+    canCreateOrganization: false,
     user: {
       id: 'u',
       email: 'a@b.c',

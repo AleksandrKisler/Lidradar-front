@@ -15,6 +15,7 @@ vi.mock('@/entities/session/api/auth-api', () => ({
 
 async function signIn(role: Role) {
   vi.mocked(fetchMe).mockResolvedValue({
+    canCreateOrganization: false,
     user: {
       id: 'u',
       email: 'a@b.c',

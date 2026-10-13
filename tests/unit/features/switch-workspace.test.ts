@@ -21,6 +21,7 @@ describe('смена рабочего пространства', () => {
 
   it('отменяет и удаляет запросы прежней организации, затем выбирает новую', async () => {
     vi.mocked(fetchMe).mockResolvedValue({
+      canCreateOrganization: false,
       user: {
         id: 'u',
         email: 'a@b.c',

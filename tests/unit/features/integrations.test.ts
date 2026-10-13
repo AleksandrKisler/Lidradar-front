@@ -63,6 +63,7 @@ describe('интеграции', () => {
   beforeEach(async () => {
     setActivePinia(createPinia())
     vi.mocked(fetchMe).mockResolvedValue({
+      canCreateOrganization: false,
       user: {
         id: 'u',
         email: 'a@b.c',

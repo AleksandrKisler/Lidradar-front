@@ -21,6 +21,7 @@ const user = {
 const one: AuthMeResponse = {
   user,
   memberships: [{ tenantId: 'tenant-a', organizationName: 'A', role: 'OWNER' }],
+  canCreateOrganization: false,
 }
 const many: AuthMeResponse = {
   user,
@@ -28,6 +29,7 @@ const many: AuthMeResponse = {
     { tenantId: 'tenant-a', organizationName: 'A', role: 'OWNER' },
     { tenantId: 'tenant-b', organizationName: 'B', role: 'MANAGER' },
   ],
+  canCreateOrganization: false,
 }
 const unauthenticated = () => new ApiError({ httpStatus: 401, code: 'UNAUTHENTICATED' })
 
@@ -36,6 +38,38 @@ beforeEach(() => {
   localStorage.clear()
   vi.mocked(fetchMe).mockReset()
   vi.mocked(logout).mockReset()
+})
+
+describe('право создать организацию (ADR 0057)', () => {
+  it('берётся из /auth/me и сбрасывается, когда сессии больше нет', async () => {
+    vi.mocked(fetchMe).mockResolvedValue({ user, memberships: [], canCreateOrganization: true })
+    const session = useSessionStore()
+    await session.bootstrap()
+    expect(session.canCreateOrganization).toBe(true)
+    vi.mocked(fetchMe).mockRejectedValue(unauthenticated())
+    await session.refresh()
+    expect(session.status).toBe('guest')
+    expect(session.canCreateOrganization).toBe(false)
+  })
+
+  it('по умолчанию отсутствует, а отсутствующее поле не считается правом', async () => {
+    const session = useSessionStore()
+    expect(session.canCreateOrganization).toBe(false)
+    vi.mocked(fetchMe).mockResolvedValue({ user, memberships: [] } as never)
+    await session.bootstrap()
+    expect(session.canCreateOrganization).toBe(false)
+  })
+
+  it('обновляется при перечитывании: право тратится созданием организации', async () => {
+    vi.mocked(fetchMe).mockResolvedValueOnce({ user, memberships: [], canCreateOrganization: true })
+    const session = useSessionStore()
+    await session.bootstrap()
+    expect(session.canCreateOrganization).toBe(true)
+    vi.mocked(fetchMe).mockResolvedValueOnce(one)
+    await session.refresh()
+    expect(session.canCreateOrganization).toBe(false)
+    expect(session.memberships).toHaveLength(1)
+  })
 })
 
 describe('загрузка сессии', () => {

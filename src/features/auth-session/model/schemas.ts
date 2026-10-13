@@ -6,6 +6,7 @@
  * корректно показать его ответ, а не предугадывать его.
  */
 import * as v from 'valibot'
+import { INVITATION_CODE_PATTERN, normalizeInvitationCode } from '@/entities/team'
 
 const email = v.pipe(
   v.string(),
@@ -41,6 +42,19 @@ export const registerSchema = v.object({
     v.string(),
     v.minLength(PASSWORD_MIN_LENGTH, `Не меньше ${PASSWORD_MIN_LENGTH} символов`),
     v.maxLength(1024, 'Слишком длинный пароль'),
+  ),
+  /**
+   * Код платформы или код сотрудника (ADR 0057). Формат проверяется здесь, чтобы опечатка не расходовала
+   * попытку: на сервере регистрации с адреса ограничены пятью в час. Обязательность зависит от режима
+   * сервера и проверяется формой.
+   */
+  inviteCode: v.pipe(
+    v.string(),
+    v.transform(normalizeInvitationCode),
+    v.check(
+      (value) => value === '' || INVITATION_CODE_PATTERN.test(value),
+      'Код состоит из 43 символов: латиница, цифры, «-» и «_»',
+    ),
   ),
 })
 

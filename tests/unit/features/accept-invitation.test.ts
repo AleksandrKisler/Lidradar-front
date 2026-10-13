@@ -37,6 +37,7 @@ describe('AcceptInvitationForm', () => {
     setActivePinia(createPinia())
     localStorage.clear()
     vi.mocked(fetchMe).mockResolvedValue({
+      canCreateOrganization: false,
       user: {
         id: 'u',
         email: 'new@b.c',
@@ -89,6 +90,7 @@ describe('AcceptInvitationForm', () => {
       }),
     )
     vi.mocked(fetchMe).mockResolvedValue({
+      canCreateOrganization: false,
       user: {
         id: 'u',
         email: 'new@b.c',

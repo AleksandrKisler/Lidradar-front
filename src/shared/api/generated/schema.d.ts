@@ -122,6 +122,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/registration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the registration mode
+         * @description Без сессии. Режим задаёт LIDRADAR_REGISTRATION_MODE (ADR 0057): в open код приглашения не обязателен, в invite_only регистрация требует код платформы или код сотрудника. Нужен странице регистрации, чтобы показать поле кода.
+         */
+        get: operations["getRegistrationMode"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/register": {
         parameters: {
             query?: never;
@@ -131,7 +151,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Register a LidRadar user */
+        /**
+         * Register a LidRadar user
+         * @description В режиме invite_only обязателен inviteCode: код платформы (выпускает оператор, даёт право создать одну организацию) или код сотрудника (ADR 0045, пользователь сразу получает членство). В open код необязателен, но указанный обрабатывается так же. Код, который нельзя принять по любой причине (неизвестен, просрочен, использован, отозван), получает один и тот же ответ INVITATION_INVALID; занятая почта код не расходует. Все попытки расходуют предел по адресу.
+         */
         post: operations["registerUser"];
         delete?: never;
         options?: never;
@@ -216,7 +239,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create an Organization tenant and OWNER membership */
+        /**
+         * Create an Organization tenant and OWNER membership
+         * @description В режиме invite_only создание тратит право пользователя (ADR 0057): его даёт код платформы или команда оператора allow-organization. Транзакция создания уменьшает право на единицу, поэтому одно право создаёт ровно одну организацию. В open право не проверяется.
+         */
         post: operations["createOrganization"];
         delete?: never;
         options?: never;
@@ -1683,6 +1709,8 @@ export interface components {
             email: string;
             password: string;
             displayName: string;
+            /** @description Код платформы или код сотрудника (ADR 0057); обязателен в режиме invite_only. */
+            inviteCode?: string;
         };
         LoginRequest: {
             /** Format: email */
@@ -1702,6 +1730,12 @@ export interface components {
         AuthMeResponse: {
             user: components["schemas"]["User"];
             memberships: components["schemas"]["MembershipSummary"][];
+            /** @description true в режиме open и в invite_only при действующем праве создать организацию (ADR 0057); по нему интерфейс выбирает между созданием организации и вводом кода сотрудника. */
+            canCreateOrganization: boolean;
+        };
+        RegistrationInfo: {
+            /** @enum {string} */
+            mode: "open" | "invite_only";
         };
         Membership: {
             /** Format: uuid */
@@ -3350,6 +3384,27 @@ export interface operations {
             409: components["responses"]["AILeaseLost"];
         };
     };
+    getRegistrationMode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current registration mode. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationInfo"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+        };
+    };
     registerUser: {
         parameters: {
             query?: never;
@@ -3374,7 +3429,15 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
-            403: components["responses"]["Forbidden"];
+            /** @description INVITATION_REQUIRED — в режиме invite_only нужен код приглашения; INVITATION_INVALID — код нельзя принять. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             409: components["responses"]["Conflict"];
             429: components["responses"]["RateLimited"];
         };
@@ -3497,7 +3560,15 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
+            /** @description ORGANIZATION_CREATION_NOT_ALLOWED — в режиме invite_only у пользователя нет права создать организацию. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getOrganization: {

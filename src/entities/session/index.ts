@@ -12,3 +12,9 @@ export type {
 } from './model/types'
 export { login, register, fetchMe, logout } from './api/auth-api'
 export type { LoginRequest, RegisterRequest, AuthResponse } from './api/auth-api'
+export {
+  fetchRegistrationMode,
+  registrationKeys,
+  useRegistrationModeQuery,
+} from './api/registration-api'
+export type { RegistrationInfo, RegistrationMode } from './api/registration-api'

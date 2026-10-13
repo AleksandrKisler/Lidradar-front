@@ -92,6 +92,7 @@ describe('команда', () => {
   beforeEach(async () => {
     setActivePinia(createPinia())
     vi.mocked(fetchMe).mockResolvedValue({
+      canCreateOrganization: false,
       user: {
         id: 'u',
         email: 'owner@example.test',

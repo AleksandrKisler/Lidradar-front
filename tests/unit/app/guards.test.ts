@@ -33,12 +33,14 @@ describe('resolveAccess', () => {
     isAuthenticated: false,
     memberships: [],
     hasTenant: false,
+    canCreateOrganization: false,
   }
   const member: SessionView = {
     status: 'authenticated',
     isAuthenticated: true,
     memberships: [{ tenantId: 't', organizationName: 'T', role: 'OWNER' }],
     hasTenant: true,
+    canCreateOrganization: false,
   }
 
   it('гость уходит на вход с путём возврата, кроме адресов по умолчанию', () => {
@@ -69,6 +71,7 @@ describe('resolveAccess', () => {
         ...member,
         memberships: [],
         hasTenant: false,
+        canCreateOrganization: true,
       }),
     ).toEqual({
       name: 'onboarding-company',
@@ -79,6 +82,28 @@ describe('resolveAccess', () => {
       name: 'workspaces',
       query: { redirect: '/radar?x=1' },
     })
+  })
+
+  // Закрытая регистрация (ADR 0057): без членства и без права создать организацию остаётся один путь —
+  // принять код сотрудника; страница создания организации ничего бы не сделала, сервер ответил бы 403.
+  it('без членств и без права создать организацию — ввод кода приглашения', () => {
+    expect(
+      resolveAccess(route('/radar', { access: 'tenant' }), {
+        ...member,
+        memberships: [],
+        hasTenant: false,
+        canCreateOrganization: false,
+      }),
+    ).toEqual({ name: 'invitations-accept' })
+  })
+
+  it('право создать организацию не мешает пользователю с членством', () => {
+    expect(
+      resolveAccess(route('/radar', { access: 'tenant' }), {
+        ...member,
+        canCreateOrganization: true,
+      }),
+    ).toBe(true)
   })
 
   it('ошибка загрузки блокирует любую навигацию', () => {
@@ -118,6 +143,7 @@ describe('guard-ы маршрутизатора', () => {
         { tenantId: 'tenant-a', organizationName: 'A', role: 'OWNER' },
         { tenantId: 'tenant-b', organizationName: 'B', role: 'MANAGER' },
       ],
+      canCreateOrganization: false,
     }
     vi.mocked(fetchMe).mockResolvedValue(many)
     const router = makeRouter()
@@ -132,10 +158,17 @@ describe('guard-ы маршрутизатора', () => {
   })
 
   it('пользователь без членств направляется к созданию организации', async () => {
-    vi.mocked(fetchMe).mockResolvedValue({ user, memberships: [] })
+    vi.mocked(fetchMe).mockResolvedValue({ user, memberships: [], canCreateOrganization: true })
     const router = makeRouter()
     await router.push('/')
     expect(router.currentRoute.value.name).toBe('onboarding-company')
+  })
+
+  it('без членств и без права создать организацию — к вводу кода приглашения', async () => {
+    vi.mocked(fetchMe).mockResolvedValue({ user, memberships: [], canCreateOrganization: false })
+    const router = makeRouter()
+    await router.push('/')
+    expect(router.currentRoute.value.name).toBe('invitations-accept')
   })
 })
 

@@ -46,6 +46,7 @@ describe('installRealtime', () => {
   it('без сигналов SSE получает новый REST snapshot и восстанавливается после ошибки', async () => {
     vi.useFakeTimers()
     vi.mocked(fetchMe).mockResolvedValue({
+      canCreateOrganization: false,
       user: {
         id: 'u',
         email: 'a@b.c',
@@ -121,6 +122,7 @@ describe('installRealtime', () => {
 
   it('открывает поток после выбора организации и закрывает при выходе', async () => {
     vi.mocked(fetchMe).mockResolvedValue({
+      canCreateOrganization: false,
       user: {
         id: 'u',
         email: 'a@b.c',
@@ -191,6 +193,7 @@ describe('installRealtime', () => {
     vi.useFakeTimers()
     const session = useSessionStore()
     vi.mocked(fetchMe).mockResolvedValue({
+      canCreateOrganization: false,
       user: {
         id: 'u',
         email: 'a@b.c',

@@ -7,10 +7,12 @@
 import { useRoute, useRouter } from 'vue-router'
 import { sanitizeReturnPath } from '@/shared/lib'
 import { UiCard } from '@/shared/ui'
+import { useSessionStore } from '@/entities/session'
 import { WorkspaceList } from '@/features/select-workspace'
 
 const route = useRoute()
 const router = useRouter()
+const session = useSessionStore()
 
 function onSelected(): void {
   void router.replace(sanitizeReturnPath(route.query.redirect) ?? { name: 'radar' })
@@ -27,7 +29,7 @@ function onSelected(): void {
     <div class="mt-6">
       <WorkspaceList @selected="onSelected" />
     </div>
-    <p class="mt-6 text-sm text-muted">
+    <p v-if="session.canCreateOrganization" class="mt-6 text-sm text-muted">
       Нужно новое пространство?
       <RouterLink
         :to="{ name: 'onboarding-company' }"

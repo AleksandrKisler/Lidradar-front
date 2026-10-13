@@ -29,6 +29,7 @@ describe('команды риска', () => {
     vi.mocked(acknowledgeRisk).mockReset()
     vi.mocked(ensureRecommendation).mockReset()
     vi.mocked(fetchMe).mockResolvedValue({
+      canCreateOrganization: false,
       user: {
         id: 'u',
         email: 'a@b.c',

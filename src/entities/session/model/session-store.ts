@@ -24,6 +24,11 @@ export const useSessionStore = defineStore('session', () => {
   const booted = ref(false)
   const user = ref<User | null>(null)
   const memberships = ref<MembershipSummary[]>([])
+  /**
+   * Вправе ли пользователь создать организацию (ADR 0057). В закрытой регистрации
+   * это право даёт код платформы; без членства и без права путь один — принять код сотрудника.
+   */
+  const canCreateOrganization = ref(false)
   const tenantId = ref<string | null>(null)
   /** Ошибка загрузки `/auth/me`, если это не отсутствие сессии. */
   const bootError = ref<unknown>(null)
@@ -54,6 +59,7 @@ export const useSessionStore = defineStore('session', () => {
   function applyIdentity(me: AuthMeResponse): void {
     user.value = me.user
     memberships.value = me.memberships
+    canCreateOrganization.value = me.canCreateOrganization === true
     const isValid = (id: string | null): id is string =>
       id !== null && me.memberships.some((item) => item.tenantId === id)
     const stored = readPreferredTenant(me.user.id)
@@ -72,6 +78,7 @@ export const useSessionStore = defineStore('session', () => {
   function becomeGuest(reason: SignOutReason | null): void {
     user.value = null
     memberships.value = []
+    canCreateOrganization.value = false
     tenantId.value = null
     status.value = 'guest'
     bootError.value = null
@@ -166,6 +173,7 @@ export const useSessionStore = defineStore('session', () => {
     booted,
     user,
     memberships,
+    canCreateOrganization,
     tenantId,
     bootError,
     signOutReason,

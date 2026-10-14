@@ -23,6 +23,7 @@ export const PERMISSIONS = [
   'service.manage',
   'notification.manage',
   'member.manage',
+  'organization.export',
 ] as const
 
 export type Permission = (typeof PERMISSIONS)[number]

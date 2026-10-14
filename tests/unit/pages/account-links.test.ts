@@ -55,6 +55,7 @@ async function signIn(emailVerifiedAt: string | null) {
       createdAt: '2026-10-13T00:00:00Z',
       updatedAt: '2026-10-13T00:00:00Z',
       emailVerifiedAt,
+      deletionDueAt: null,
     },
     memberships: [{ tenantId: 'tenant-a', organizationName: 'Студия', role: 'OWNER' }],
     canCreateOrganization: false,

@@ -4,6 +4,8 @@
  * портал обеспечены библиотекой. Заголовок обязателен для доступного имени.
  * `dismissible: false` запрещает закрытие Escape, кликом снаружи и крестиком —
  * на время неделимой отправки, чтобы черновик с ключом не потерялся.
+ * `initialFocus` — CSS-селектор элемента внутри окна, который получает фокус при открытии вместо
+ * первого доступного (кнопки «Закрыть»): окну с единственным полем ввода удобнее начинать с него.
  */
 import {
   DialogClose,
@@ -25,12 +27,14 @@ const props = withDefaults(
     /** Тёмная поверхность для окон, продолжающих тёмное боковое меню. */
     tone?: 'light' | 'dark' | undefined
     dismissible?: boolean | undefined
+    initialFocus?: string | undefined
   }>(),
   {
     description: '',
     size: 'md',
     tone: 'light',
     dismissible: true,
+    initialFocus: undefined,
   },
 )
 
@@ -53,6 +57,16 @@ const toneClasses = {
   },
 } as const
 
+/** Переносит начальный фокус на запрошенный элемент; без совпадения остаётся поведение библиотеки. */
+function focusInitial(event: Event): void {
+  if (!props.initialFocus) return
+  const container = event.target instanceof Element ? event.target : null
+  const target = container?.querySelector<HTMLElement>(props.initialFocus)
+  if (!target) return
+  event.preventDefault()
+  target.focus()
+}
+
 /** Блокирует закрытие, пока диалог нельзя отпускать. */
 function guard(event: Event): void {
   if (!props.dismissible) event.preventDefault()
@@ -69,6 +83,7 @@ const open = defineModel<boolean>('open', { default: false })
         :class="['fixed z-50 overflow-y-auto', contentClasses[size], toneClasses[tone].surface]"
         @escape-key-down="guard"
         @interact-outside="guard"
+        @open-auto-focus="focusInitial"
       >
         <div
           :class="[

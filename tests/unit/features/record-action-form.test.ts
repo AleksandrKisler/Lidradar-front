@@ -45,6 +45,7 @@ describe('RecordActionForm', () => {
       canCreateOrganization: false,
       user: {
         emailVerifiedAt: null,
+        deletionDueAt: null,
         id: 'user-1',
         email: 'a@b.c',
         displayName: 'A',

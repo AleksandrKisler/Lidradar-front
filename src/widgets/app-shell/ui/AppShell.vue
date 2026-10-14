@@ -10,7 +10,11 @@ import { RouterLink, useRoute } from 'vue-router'
 import { UiDialog, UiIcon } from '@/shared/ui'
 import { roleLabel, useSessionStore } from '@/entities/session'
 import { useAdminMeQuery } from '@/entities/admin'
-import { EmailVerificationBanner, LogoutButton } from '@/features/auth-session'
+import {
+  AccountDeletionBanner,
+  EmailVerificationBanner,
+  LogoutButton,
+} from '@/features/auth-session'
 import { WorkspaceSwitcher } from '@/features/select-workspace'
 import RealtimeBadge from './RealtimeBadge.vue'
 import SidebarNav from './SidebarNav.vue'
@@ -94,6 +98,7 @@ const organizationName = computed(() => session.membership?.organizationName ?? 
         </div>
       </header>
       <EmailVerificationBanner />
+      <AccountDeletionBanner />
       <main id="main" class="flex-1 px-5 py-6 md:px-12 md:py-10">
         <slot />
       </main>

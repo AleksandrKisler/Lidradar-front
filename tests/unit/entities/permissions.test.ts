@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { PERMISSIONS, permissionsForRole, roleLabel } from '@/entities/session'
 
 describe('права ролей', () => {
-  it('владелец имеет все 15 прав, менеджер — 7 рабочих', () => {
-    expect(PERMISSIONS).toHaveLength(15)
-    expect(permissionsForRole('OWNER').size).toBe(15)
+  it('владелец имеет все 16 прав, менеджер — 7 рабочих', () => {
+    expect(PERMISSIONS).toHaveLength(16)
+    expect(permissionsForRole('OWNER').size).toBe(16)
     const manager = permissionsForRole('MANAGER')
     expect([...manager].sort()).toEqual(
       [
@@ -19,6 +19,9 @@ describe('права ролей', () => {
     )
     expect(manager.has('service.manage')).toBe(false)
     expect(manager.has('member.manage')).toBe(false)
+    // Выгрузка всех данных организации (ADR 0059) — только у владельца.
+    expect(permissionsForRole('OWNER').has('organization.export')).toBe(true)
+    expect(manager.has('organization.export')).toBe(false)
   })
 
   it('без роли прав нет', () => {

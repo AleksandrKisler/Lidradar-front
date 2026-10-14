@@ -6,10 +6,9 @@
  */
 import { ref } from 'vue'
 import { isApiError } from '@/shared/api'
+import { formatWait, useRetryAfter } from '@/shared/lib'
 import { UiButton } from '@/shared/ui'
 import { resendEmailVerification } from '@/entities/session'
-import { formatWait } from '../model/format-wait'
-import { useRetryAfter } from '../model/use-retry-after'
 
 withDefaults(defineProps<{ variant?: 'primary' | 'secondary' | 'ghost'; size?: 'md' | 'sm' }>(), {
   variant: 'secondary',

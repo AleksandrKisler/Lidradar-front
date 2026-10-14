@@ -30,6 +30,7 @@ describe('AdminLayout', () => {
       canCreateOrganization: false,
       user: {
         emailVerifiedAt: null,
+        deletionDueAt: null,
         id: 'u',
         email: 'a@b.c',
         displayName: 'Мария',

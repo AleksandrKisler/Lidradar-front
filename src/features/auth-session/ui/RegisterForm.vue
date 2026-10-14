@@ -13,10 +13,10 @@ import { computed, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { describeError, isApiError } from '@/shared/api'
+import { useRetryAfter } from '@/shared/lib'
 import { UiAlert, UiButton, UiField, UiInput, UiPasswordInput } from '@/shared/ui'
 import { register, useRegistrationModeQuery, useSessionStore } from '@/entities/session'
 import { PASSWORD_MIN_LENGTH, registerSchema } from '../model/schemas'
-import { useRetryAfter } from '../model/use-retry-after'
 
 const props = defineProps<{
   /** Код из ссылки приглашения; страница убирает его из адреса, форма только подставляет. */

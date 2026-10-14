@@ -11,11 +11,10 @@ import { computed, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { describeError, isApiError } from '@/shared/api'
+import { formatWait, useRetryAfter } from '@/shared/lib'
 import { UiAlert, UiButton, UiField, UiInput } from '@/shared/ui'
 import { requestPasswordReset } from '@/entities/session'
 import { forgotPasswordSchema } from '../model/schemas'
-import { formatWait } from '../model/format-wait'
-import { useRetryAfter } from '../model/use-retry-after'
 
 const emit = defineEmits<{ sent: [] }>()
 

@@ -63,4 +63,15 @@ describe('маршруты безопасности учётной записи'
       expect(resolveAccess(route(`/${name}#token=abc`, meta), guest)).toBe(true)
     }
   })
+
+  it('«Аккаунт и данные» доступен вошедшему без организации и закрыт гостю (ADR 0059)', () => {
+    const meta = byName('account')?.meta ?? {}
+    expect(meta.access).toBe('session')
+    expect(meta.permission).toBeUndefined()
+    expect(resolveAccess(route('/account', meta), signedIn)).toBe(true)
+    expect(resolveAccess(route('/account', meta), guest)).toEqual({
+      name: 'login',
+      query: { redirect: '/account' },
+    })
+  })
 })

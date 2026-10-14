@@ -18,6 +18,7 @@ const user = {
   createdAt: '2026-09-01T00:00:00Z',
   updatedAt: '2026-09-01T00:00:00Z',
   emailVerifiedAt: null,
+  deletionDueAt: null,
 }
 const one: AuthMeResponse = {
   user,
@@ -239,5 +240,44 @@ describe('подтверждение почты (ADR 0058)', () => {
     vi.mocked(fetchMe).mockRejectedValue(unauthenticated())
     await session.refresh()
     expect(session.emailUnverified).toBe(false)
+  })
+})
+
+describe('назначенное закрытие аккаунта (ADR 0059)', () => {
+  it('срок берётся из /auth/me, сбрасывается отменой и не влияет на вход', async () => {
+    const due = '2026-11-13T09:00:00Z'
+    vi.mocked(fetchMe).mockResolvedValue({
+      user: { ...user, deletionDueAt: due },
+      memberships: [],
+      canCreateOrganization: false,
+    })
+    const session = useSessionStore()
+    expect(session.deletionDueAt).toBeNull() // сессия не загружена
+    await session.bootstrap()
+    expect(session.deletionDueAt).toBe(due)
+    expect(session.isAuthenticated).toBe(true)
+
+    vi.mocked(fetchMe).mockResolvedValue({
+      user: { ...user, deletionDueAt: null },
+      memberships: [],
+      canCreateOrganization: false,
+    })
+    await session.refresh()
+    expect(session.deletionDueAt).toBeNull()
+
+    // Ответ старой версии API без поля не считается назначенным закрытием: баннер не показывается.
+    const withoutField: Partial<typeof user> = { ...user }
+    delete withoutField.deletionDueAt
+    vi.mocked(fetchMe).mockResolvedValue({
+      user: withoutField as never,
+      memberships: [],
+      canCreateOrganization: false,
+    })
+    await session.refresh()
+    expect(session.deletionDueAt).toBeNull()
+
+    vi.mocked(fetchMe).mockRejectedValue(unauthenticated())
+    await session.refresh()
+    expect(session.deletionDueAt).toBeNull()
   })
 })

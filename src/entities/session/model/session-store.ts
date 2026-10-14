@@ -43,6 +43,11 @@ export const useSessionStore = defineStore('session', () => {
    * для напоминания. Отсутствие поля в ответе не считается «не подтверждён».
    */
   const emailUnverified = computed(() => user.value !== null && user.value.emailVerifiedAt === null)
+  /**
+   * Срок обезличивания учётной записи, если пользователь запросил закрытие (ADR 0059); `null` — не запрошено.
+   * До срока вход и работа не ограничены: признак нужен для напоминания и отмены.
+   */
+  const deletionDueAt = computed(() => user.value?.deletionDueAt ?? null)
   /** Членство в выбранной организации либо `null`, если выбор не сделан. */
   const membership = computed(
     () => memberships.value.find((item) => item.tenantId === tenantId.value) ?? null,
@@ -184,6 +189,7 @@ export const useSessionStore = defineStore('session', () => {
     signOutReason,
     isAuthenticated,
     emailUnverified,
+    deletionDueAt,
     membership,
     role,
     permissions,

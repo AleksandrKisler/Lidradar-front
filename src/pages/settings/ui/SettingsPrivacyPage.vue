@@ -12,7 +12,7 @@ import { useSessionStore } from '@/entities/session'
 import { useOrganizationQuery } from '@/entities/organization'
 import { consentState, useConsentQuery } from '@/entities/consent'
 import { useMembersQuery } from '@/entities/team'
-import { ConsentControls } from '@/features/manage-consent'
+import { ConsentControls, ExportOrganizationCard } from '@/features/manage-consent'
 import SettingsTabs from './SettingsTabs.vue'
 
 const session = useSessionStore()
@@ -99,6 +99,8 @@ function personName(userId: string | undefined): string {
         </div>
       </template>
     </UiCard>
+
+    <ExportOrganizationCard v-if="session.can('organization.export')" :tenant-id="tenantId" />
 
     <div class="grid gap-6 md:grid-cols-2">
       <UiCard as="section" aria-labelledby="scope-title">

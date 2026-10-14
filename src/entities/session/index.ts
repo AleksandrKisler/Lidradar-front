@@ -24,10 +24,17 @@ export {
   resetPassword,
   resendEmailVerification,
   verifyEmail,
+  exportAccountData,
+  requestAccountDeletion,
+  cancelAccountDeletion,
+  deletionBlockers,
 } from './api/account-api'
 export type {
   ChangePasswordRequest,
   ForgotPasswordRequest,
   ResetPasswordRequest,
   VerifyEmailRequest,
+  PasswordConfirmationRequest,
+  AccountDeletionScheduled,
+  AccountDeletionBlocker,
 } from './api/account-api'

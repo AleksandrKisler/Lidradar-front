@@ -61,6 +61,13 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/workspaces').then((m) => m.WorkspacesPage),
         meta: { access: 'session', title: 'Рабочие пространства' },
       },
+      // Данные и закрытие аккаунта (ADR 0059) не зависят от организации: доступны и тем, у кого её нет.
+      {
+        path: 'account',
+        name: 'account',
+        component: () => import('@/pages/account').then((m) => m.AccountPage),
+        meta: { access: 'session', title: 'Аккаунт и данные' },
+      },
       {
         path: 'invitations/accept',
         name: 'invitations-accept',

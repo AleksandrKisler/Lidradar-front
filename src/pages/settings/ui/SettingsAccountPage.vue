@@ -1,14 +1,19 @@
 <script setup lang="ts">
 /**
- * Аккаунт: адрес почты и смена пароля (ADR 0058). Раздел относится к пользователю, а не к организации,
- * поэтому доступен любой роли. Подтверждение почты мягкое: статус честно показывает, что работа от него
+ * Аккаунт: адрес почты, смена пароля (ADR 0058), выгрузка личных данных и закрытие аккаунта (ADR 0059).
+ * Раздел относится к пользователю, а не к организации, поэтому доступен любой роли. Подтверждение почты мягкое: статус честно показывает, что работа от него
  * не зависит, а письмо можно запросить заново.
  */
 import { computed } from 'vue'
 import { formatDateTime } from '@/shared/lib'
 import { UiBadge, UiCard, UiPageHeader } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
-import { ChangePasswordForm, ResendVerificationButton } from '@/features/auth-session'
+import {
+  AccountDeletionCard,
+  ChangePasswordForm,
+  ExportAccountDataCard,
+  ResendVerificationButton,
+} from '@/features/auth-session'
 import SettingsTabs from './SettingsTabs.vue'
 
 const session = useSessionStore()
@@ -52,5 +57,8 @@ const verifiedAt = computed(() => session.user?.emailVerifiedAt ?? null)
       </p>
       <ChangePasswordForm />
     </UiCard>
+
+    <ExportAccountDataCard />
+    <AccountDeletionCard />
   </div>
 </template>

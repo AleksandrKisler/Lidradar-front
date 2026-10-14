@@ -330,6 +330,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/account/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Download the personal data of the signed-in user
+         * @description ADR 0059. Нужны сессия и текущий пароль в теле. Ответ — один JSON-файл (вложение, Cache-Control: no-store, формат lidradar.account-export/1): учётная запись, членства, сессии (даты, IP, user agent; без хэшей), события безопасности, настройки уведомлений, привязки Telegram, решения по согласию и число внесённых записей по организациям. Хэш пароля, хэши токенов, очереди, идентификаторы организаций и чужие данные не входят; содержимое внесённых записей принадлежит организации и выгружается её владельцем. Каждый список ограничен 50 000 строк, при превышении раздел помечается truncated. Запись ACCOUNT_DATA_EXPORTED пишется до выдачи тела. Подтверждение паролем делит счётчик подбора со сменой пароля и закрытием учётной записи (5 попыток за 15 минут); отдельный предел — 3 выгрузки в час на пользователя. Неверный пароль — 403 INVALID_CURRENT_PASSWORD, а не 401.
+         */
+        post: operations["exportAccountData"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/account/deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Schedule the closure of the signed-in account
+         * @description ADR 0059. Нужны сессия и текущий пароль в теле. Назначает обезличивание учётной записи через 30 суток (политика retention-v1, ADR 0056): адрес заменяется служебным, имя становится «Удалён», пароль непригоден для входа, сессии, токены, настройки уведомлений и привязка Telegram удаляются, членства закрываются; записи, внесённые в организации, остаются без привязки к человеку. До срока вход и работа не ограничиваются, user.deletionDueAt показывает срок, запрос можно отменить. Повторный запрос при уже назначенном удалении возвращает прежний срок, ничего не двигает и письма не шлёт. Запрос отклоняется 409 ACCOUNT_DELETION_BLOCKED с причинами в error.details.blockers: SOLE_OWNER (единственный активный владелец организации в статусе ACTIVE или SUSPENDED; organizationName, hasOtherMembers) и PLATFORM_ADMIN. Блокировки перепроверяются при исполнении: тогда запрос снимается, пользователь получает письмо. Пишет ACCOUNT_DELETION_REQUESTED в той же транзакции и ставит письмо. Подтверждение паролем делит счётчик подбора со сменой пароля; отдельный предел — 5 действий (запросов и отмен) в час на пользователя.
+         */
+        post: operations["requestAccountDeletion"];
+        /**
+         * Cancel the scheduled closure of the signed-in account
+         * @description ADR 0059. Нужна только сессия: отмена ничего не разрушает. Повтор без назначения успешен и ничего не пишет. При отмене пишется ACCOUNT_DELETION_CANCELLED и уходит письмо. Расходует тот же предел, что и запрос (5 действий в час).
+         */
+        delete: operations["cancelAccountDeletion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations": {
         parameters: {
             query?: never;
@@ -396,6 +440,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organization/export": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Explicit Organization tenant selected from /auth/me memberships. */
+                "X-Tenant-ID": components["parameters"]["TenantId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Download all data of the selected Organization
+         * @description ADR 0059. Право organization.export — только у владельца. Потоковый ZIP (вложение, Cache-Control: no-store): README.txt, organization.json, data/*.jsonl (JSON Lines по наборам: команда, приглашения без кодов, точки и часы, услуги, каналы без реквизитов доступа, контакты, переписки и сообщения, вложения (метаданные), сводки, сделки и стадии, риски, рекомендации, вердикты, действия, исходы, выручка и атрибуция, согласия ML, аудит организации) и manifest.json последним (строки, размер и SHA-256 каждого файла, момент снимка). Архив без manifest.json оборван: при сбое после первого байта соединение обрывается. Все наборы читаются одним согласованным снимком. Не входят секреты и реквизиты доступа, служебные очереди и копии обработки, личные данные каждого участника (они в личной выгрузке) и журнал оператора; идентификатор организации в файлах не повторяется. Запись ORGANIZATION_DATA_EXPORTED в аудит организации пишется до первого байта. Пределы: 3 выгрузки в час на организацию и не больше 2 одновременных выгрузок в процессе (429 EXPORT_BUSY); общий предел времени 15 минут.
+         */
+        post: operations["exportOrganizationData"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organization/onboarding": {
         parameters: {
             query?: never;
@@ -431,7 +498,7 @@ export interface paths {
         };
         /**
          * Список участников организации
-         * @description Требует member.manage (OWNER). Включает отозванных участников со статусом DISABLED; адрес почты и имя берутся из учётной записи.
+         * @description Требует member.manage (OWNER). Включает отозванных участников со статусом DISABLED; адрес почты и имя берутся из учётной записи. У закрытой и обезличенной учётной записи (ADR 0059) адрес пустой, имя «Удалён», членство отключено.
          */
         get: operations["listMembers"];
         put?: never;
@@ -1808,6 +1875,11 @@ export interface components {
              * @description Когда подтверждён адрес почты (ADR 0058); null — не подтверждён. Подтверждение мягкое и ничего не блокирует.
              */
             emailVerifiedAt: string | null;
+            /**
+             * Format: date-time
+             * @description Срок обезличивания учётной записи, если пользователь запросил её закрытие (ADR 0059); до этого срока запрос можно отменить, работа не ограничена. null — удаление не назначено.
+             */
+            deletionDueAt: string | null;
         };
         RegisterRequest: {
             /** Format: email */
@@ -1838,6 +1910,76 @@ export interface components {
         VerifyEmailRequest: {
             /** @description Токен из ссылки письма (фрагмент #token=…). */
             token: string;
+        };
+        PasswordConfirmationRequest: {
+            /** @description Текущий пароль: подтверждение необратимого или выдающего данные действия. */
+            password: string;
+        };
+        AccountDeletionScheduled: {
+            /**
+             * Format: date-time
+             * @description Когда учётная запись будет обезличена; до этого момента запрос можно отменить.
+             */
+            deletionDueAt: string;
+        };
+        AccountDeletionBlocker: {
+            /** @enum {string} */
+            code: "SOLE_OWNER" | "PLATFORM_ADMIN";
+            /** @description Для SOLE_OWNER: название организации; идентификатор организации наружу не выходит. */
+            organizationName?: string;
+            /** @description Для SOLE_OWNER: есть ли в организации другие активные участники (тогда достаточно передать владение, иначе организацию закрывает оператор). */
+            hasOtherMembers?: boolean;
+        };
+        AccountDeletionBlockedError: {
+            error: {
+                /** @enum {string} */
+                code: "ACCOUNT_DELETION_BLOCKED";
+                message: string;
+                traceId: string;
+                details: {
+                    blockers: components["schemas"]["AccountDeletionBlocker"][];
+                };
+            };
+        };
+        ExportSection: {
+            items: {
+                [key: string]: unknown;
+            }[];
+            /** @description Истинно, если строк было больше 50 000 и список обрезан. */
+            truncated: boolean;
+        };
+        /** @description Документ личной выгрузки (формат lidradar.account-export/1). Поля разделов перечислены в docs/backend/04-api.md. */
+        AccountExport: {
+            /** @enum {string} */
+            format: "lidradar.account-export/1";
+            /** Format: date-time */
+            generatedAt: string;
+            note: string;
+            account: {
+                /** Format: uuid */
+                id: string;
+                email: string;
+                displayName: string;
+                /** @enum {string} */
+                status: "ACTIVE" | "DISABLED";
+                /** Format: date-time */
+                createdAt: string;
+                /** Format: date-time */
+                emailVerifiedAt: string | null;
+                /** Format: date-time */
+                deletionRequestedAt: string | null;
+                /** Format: date-time */
+                deletionDueAt: string | null;
+            };
+            memberships: components["schemas"]["ExportSection"];
+            sessions: components["schemas"]["ExportSection"];
+            authEvents: components["schemas"]["ExportSection"];
+            notificationSettings: components["schemas"]["ExportSection"];
+            telegramLinks: components["schemas"]["ExportSection"];
+            consentDecisions: components["schemas"]["ExportSection"];
+            authoredRecords: {
+                [key: string]: unknown;
+            }[];
         };
         AuthResponse: {
             user: components["schemas"]["User"];
@@ -1885,7 +2027,7 @@ export interface components {
             membershipId: string;
             /** Format: uuid */
             userId: string;
-            /** Format: email */
+            /** @description Адрес почты участника. Пустая строка — учётная запись закрыта и обезличена (ADR 0059): адрес не хранится, членство отключено, displayName заменено на «Удалён». */
             email: string;
             displayName: string;
             /** @enum {string} */
@@ -3813,6 +3955,111 @@ export interface operations {
             429: components["responses"]["RateLimited"];
         };
     };
+    exportAccountData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordConfirmationRequest"];
+            };
+        };
+        responses: {
+            /** @description JSON-файл личной выгрузки. */
+            200: {
+                headers: {
+                    /** @description attachment; filename="lidradar-account-ГГГГММДД.json" */
+                    "Content-Disposition"?: string;
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountExport"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description INVALID_CURRENT_PASSWORD — пароль не подошёл; ORIGIN_NOT_ALLOWED — недоверенный origin. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    requestAccountDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordConfirmationRequest"];
+            };
+        };
+        responses: {
+            /** @description Удаление назначено (или уже было назначено). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeletionScheduled"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description INVALID_CURRENT_PASSWORD — пароль не подошёл; ORIGIN_NOT_ALLOWED — недоверенный origin. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description ACCOUNT_DELETION_BLOCKED — пользователя нельзя закрыть сейчас; причины в error.details.blockers. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeletionBlockedError"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    cancelAccountDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Удаление отменено либо не было назначено. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
     createOrganization: {
         parameters: {
             query?: never;
@@ -3985,6 +4232,44 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    exportOrganizationData: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Explicit Organization tenant selected from /auth/me memberships. */
+                "X-Tenant-ID": components["parameters"]["TenantId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ZIP-архив выгрузки. */
+            200: {
+                headers: {
+                    /** @description attachment; filename="lidradar-organization-ГГГГММДД.zip" */
+                    "Content-Disposition"?: string;
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description RATE_LIMITED — предел выгрузок организации; EXPORT_BUSY — в процессе уже идёт предельное число выгрузок. Retry-After указывает срок повтора. */
+            429: {
+                headers: {
+                    "Retry-After": components["headers"]["RetryAfter"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getOnboardingStatus: {

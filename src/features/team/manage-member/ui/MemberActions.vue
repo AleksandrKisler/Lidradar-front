@@ -40,7 +40,11 @@ const error = computed(() => commands.changeRole.error.value ?? commands.revoke.
 const errorView = computed(() => (error.value ? describeError(error.value) : null))
 const traceId = computed(() => (isApiError(error.value) ? error.value.traceId : ''))
 
-const identity = computed(() => `${props.member.displayName} (${props.member.email})`)
+const identity = computed(() =>
+  props.member.email
+    ? `${props.member.displayName} (${props.member.email})`
+    : props.member.displayName,
+)
 const roleTitle = computed(() =>
   targetRole.value === 'OWNER' ? 'Сделать владельцем?' : 'Сделать менеджером?',
 )

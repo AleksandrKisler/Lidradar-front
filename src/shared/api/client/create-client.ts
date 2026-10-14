@@ -170,3 +170,45 @@ export async function unwrapWithStatus<Data>(
 export async function unwrap<Data>(call: Promise<FetchResult<Data>>): Promise<Data> {
   return (await unwrapWithStatus(call)).data
 }
+
+/** Файл, который сервер отдаёт вложением (ADR 0059): тело и имя из `Content-Disposition`. */
+export interface DownloadedFile {
+  blob: Blob
+  /** Имя файла, предложенное сервером; `null`, если заголовка нет или он нечитаем. */
+  filename: string | null
+}
+
+/**
+ * Имя файла из `Content-Disposition: attachment; filename="…"`. Принимается только простое имя без
+ * разделителей пути: заголовок приходит с сервера, но имя сохраняемого файла выбирает браузер, и обход
+ * каталогов не должен зависеть от того, чему доверяет читатель.
+ */
+export function filenameFromDisposition(header: string | null): string | null {
+  if (header === null) return null
+  const match = /filename="?([^";]+)"?/i.exec(header)
+  const name = match?.[1]?.trim()
+  if (!name || /[\\/]/.test(name) || name.startsWith('.')) return null
+  return name
+}
+
+/**
+ * Как `unwrap`, но для вложения: возвращает тело файла вместе с именем. Вызов обязан использовать
+ * `parseAs: 'blob'`; ошибки сервера (JSON-конверт) приходят как обычно и становятся `ApiError`.
+ */
+export async function unwrapFile(call: Promise<FetchResult<Blob>>): Promise<DownloadedFile> {
+  let result: FetchResult<Blob>
+  try {
+    result = await call
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    if (isAbortError(error) && (error as DOMException).name === 'AbortError') throw error
+    throw ApiError.network(error)
+  }
+  if (result.error === undefined && result.response.ok) {
+    return {
+      blob: result.data as Blob,
+      filename: filenameFromDisposition(result.response.headers.get('Content-Disposition')),
+    }
+  }
+  throw ApiError.fromResponse(result.response, result.error)
+}

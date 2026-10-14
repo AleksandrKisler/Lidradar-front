@@ -12,10 +12,10 @@ import { computed, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { describeError, isApiError } from '@/shared/api'
+import { useRetryAfter } from '@/shared/lib'
 import { UiAlert, UiButton, UiField, UiInput, UiPasswordInput } from '@/shared/ui'
 import { login, useSessionStore } from '@/entities/session'
 import { loginSchema } from '../model/schemas'
-import { useRetryAfter } from '../model/use-retry-after'
 
 const emit = defineEmits<{ success: [] }>()
 

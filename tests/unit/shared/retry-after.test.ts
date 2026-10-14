@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
-import { useRetryAfter } from '@/features/auth-session'
+import { useRetryAfter } from '@/shared/lib'
 
 describe('useRetryAfter', () => {
   beforeEach(() => {

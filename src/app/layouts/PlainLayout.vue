@@ -9,7 +9,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import { computed } from 'vue'
 import { useSessionStore } from '@/entities/session'
 import { useAdminMeQuery } from '@/entities/admin'
-import { LogoutButton } from '@/features/auth-session'
+import { AccountDeletionBanner, LogoutButton } from '@/features/auth-session'
 
 const session = useSessionStore()
 const router = useRouter()
@@ -37,10 +37,18 @@ function onLoggedOut({ confirmed }: { confirmed: boolean }): void {
         >
           Администрирование
         </RouterLink>
+        <RouterLink
+          :to="{ name: 'account' }"
+          class="text-sm font-semibold text-brand-dark hover:underline"
+          data-testid="account-link"
+        >
+          Аккаунт
+        </RouterLink>
         <p class="hidden text-sm text-muted sm:block">{{ session.user?.displayName }}</p>
         <LogoutButton variant="secondary" @logged-out="onLoggedOut" />
       </div>
     </header>
+    <AccountDeletionBanner />
     <main id="main" class="mx-auto w-full max-w-xl px-5 py-10 md:px-12">
       <RouterView />
     </main>

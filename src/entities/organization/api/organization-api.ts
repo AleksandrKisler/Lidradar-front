@@ -4,7 +4,7 @@
  */
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
-import { apiClient, tenantScope, unwrap } from '@/shared/api'
+import { apiClient, tenantScope, unwrap, unwrapFile, type DownloadedFile } from '@/shared/api'
 import type {
   CreateOrganizationRequest,
   OnboardingStatus,
@@ -76,4 +76,17 @@ export function useOnboardingQuery(tenantId: MaybeRefOrGetter<string | null>) {
     queryFn: ({ signal }) => fetchOnboardingStatus(toValue(tenantId)!, signal),
     enabled: computed(() => toValue(tenantId) !== null),
   })
+}
+
+/**
+ * Выгрузка всех данных организации (ADR 0059): потоковый ZIP, право только у владельца. Тело приходит
+ * целиком в память браузера, поэтому для организаций пилота; сервер ограничивает выгрузку по времени.
+ */
+export function exportOrganizationData(tenantId: string): Promise<DownloadedFile> {
+  return unwrapFile(
+    apiClient.POST('/api/v1/organization/export', {
+      params: { header: { 'X-Tenant-ID': tenantId } },
+      parseAs: 'blob',
+    }),
+  )
 }

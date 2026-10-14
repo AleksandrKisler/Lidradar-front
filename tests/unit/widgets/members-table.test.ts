@@ -163,4 +163,28 @@ describe('таблица участников', () => {
     expect(managerRow!.find('p').exists()).toBe(false)
     wrapper.unmount()
   })
+
+  it('закрытая учётная запись (ADR 0059) показана без адреса и с пояснением, а не пустой строкой', () => {
+    const closed = member({
+      membershipId: 'm-4',
+      userId: 'u-4',
+      role: 'MANAGER',
+      displayName: 'Удалён',
+      email: '',
+      status: 'DISABLED',
+      revokedAt: '2026-10-14T09:00:00Z',
+    })
+    const wrapper = mountTable([owner, closed])
+    const rows = wrapper.findAll('tbody tr')
+    expect(rows).toHaveLength(2)
+    expect(rows[1]!.get('[data-testid="member-closed-account"]').text()).toBe(
+      'Учётная запись удалена',
+    )
+    expect(rows[1]!.text()).toContain('Удалён')
+    expect(rows[1]!.text()).toContain('У') // инициалы берутся из имени
+    // У живых участников пояснения нет.
+    expect(rows[0]!.find('[data-testid="member-closed-account"]').exists()).toBe(false)
+    expect(rows[0]!.text()).toContain('owner@example.test')
+    wrapper.unmount()
+  })
 })

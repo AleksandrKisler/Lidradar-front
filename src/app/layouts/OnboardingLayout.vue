@@ -10,7 +10,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { UiAccessDenied, UiIcon } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
 import { useOnboardingQuery } from '@/entities/organization'
-import { LogoutButton } from '@/features/auth-session'
+import { AccountDeletionBanner, LogoutButton } from '@/features/auth-session'
 import { OnboardingProgress } from '@/widgets/onboarding-progress'
 
 const session = useSessionStore()
@@ -36,10 +36,18 @@ function onLoggedOut({ confirmed }: { confirmed: boolean }): void {
         <UiIcon name="radar" class="size-7" />LidRadar
       </p>
       <div class="flex items-center gap-3">
+        <RouterLink
+          :to="{ name: 'account' }"
+          class="text-sm font-semibold text-brand-dark hover:underline"
+          data-testid="account-link"
+        >
+          Аккаунт
+        </RouterLink>
         <p class="hidden text-sm text-muted sm:block">{{ session.user?.displayName }}</p>
         <LogoutButton variant="secondary" @logged-out="onLoggedOut" />
       </div>
     </header>
+    <AccountDeletionBanner />
     <main
       id="main"
       class="mx-auto grid w-full max-w-5xl gap-10 px-5 py-10 md:grid-cols-[240px_minmax(0,1fr)] md:px-12"

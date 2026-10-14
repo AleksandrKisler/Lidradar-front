@@ -57,6 +57,7 @@ describe('лента Radar: пустое состояние', () => {
       canCreateOrganization: false,
       user: {
         emailVerifiedAt: null,
+        deletionDueAt: null,
         id: 'u',
         email: 'a@b.c',
         displayName: 'A',

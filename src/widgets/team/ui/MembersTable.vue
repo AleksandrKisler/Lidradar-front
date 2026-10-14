@@ -103,10 +103,14 @@ const emailParts = (email: string) => email.match(/[^@._-]+[@._-]?|[@._-]/g) ?? 
                     · вы</span
                   >
                 </span>
-                <span class="block text-sm text-muted [overflow-wrap:anywhere]"
+                <span v-if="member.email" class="block text-sm text-muted [overflow-wrap:anywhere]"
                   ><template v-for="(part, index) in emailParts(member.email)" :key="index"
                     >{{ part }}<wbr /></template
                 ></span>
+                <!-- Обезличенная учётная запись (ADR 0059): адреса нет, членство закрыто. -->
+                <span v-else class="block text-sm text-muted" data-testid="member-closed-account"
+                  >Учётная запись удалена</span
+                >
               </span>
             </div>
           </td>

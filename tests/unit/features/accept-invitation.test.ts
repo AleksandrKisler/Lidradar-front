@@ -40,6 +40,7 @@ describe('AcceptInvitationForm', () => {
       canCreateOrganization: false,
       user: {
         emailVerifiedAt: null,
+        deletionDueAt: null,
         id: 'u',
         email: 'new@b.c',
         displayName: 'Новый',
@@ -94,6 +95,7 @@ describe('AcceptInvitationForm', () => {
       canCreateOrganization: false,
       user: {
         emailVerifiedAt: null,
+        deletionDueAt: null,
         id: 'u',
         email: 'new@b.c',
         displayName: 'Новый',

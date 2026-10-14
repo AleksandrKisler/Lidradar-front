@@ -95,6 +95,7 @@ describe('команда', () => {
       canCreateOrganization: false,
       user: {
         emailVerifiedAt: null,
+        deletionDueAt: null,
         id: 'u',
         email: 'owner@example.test',
         displayName: 'Мария',

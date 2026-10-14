@@ -1,8 +1,16 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { defineComponent, h } from 'vue'
-import { mount } from '@vue/test-utils'
+import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import { ApiError } from '@/shared/api'
-import { UiAlert, UiButton, UiErrorState, UiField, UiInput, UiPasswordInput } from '@/shared/ui'
+import {
+  UiAlert,
+  UiButton,
+  UiDialog,
+  UiErrorState,
+  UiField,
+  UiInput,
+  UiPasswordInput,
+} from '@/shared/ui'
 
 describe('UiButton', () => {
   it('в состоянии загрузки блокирует клики и объявляет занятость, сохраняя имя', async () => {
@@ -93,5 +101,37 @@ describe('UiErrorState', () => {
     expect(wrapper.find('button').exists()).toBe(false)
     expect(wrapper.find('details').exists()).toBe(false)
     wrapper.unmount()
+  })
+})
+
+describe('UiDialog: начальный фокус', () => {
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  const body = () => new DOMWrapper(document.body)
+
+  it('по умолчанию фокус получает первый доступный элемент, а с initialFocus — запрошенный', async () => {
+    const open = async (initialFocus?: string) => {
+      const wrapper = mount(UiDialog, {
+        props: { open: true, title: 'Окно', ...(initialFocus ? { initialFocus } : {}) },
+        slots: { default: '<input name="field" aria-label="Поле" />' },
+        attachTo: document.body,
+      })
+      await flushPromises()
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      const focused = document.activeElement
+      wrapper.unmount()
+      document.body.innerHTML = ''
+      return focused
+    }
+    const byDefault = await open()
+    expect(byDefault?.getAttribute('aria-label')).toBe('Закрыть')
+    const requested = await open('input[name="field"]')
+    expect(requested?.getAttribute('name')).toBe('field')
+    // Селектор без совпадения не ломает окно: остаётся обычный порядок фокуса.
+    const missing = await open('input[name="nothing"]')
+    expect(missing?.getAttribute('aria-label')).toBe('Закрыть')
+    expect(body().find('[role="dialog"]').exists()).toBe(false)
   })
 })

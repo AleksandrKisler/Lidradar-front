@@ -31,6 +31,7 @@ const user = {
   createdAt: '2026-10-13T00:00:00Z',
   updatedAt: '2026-10-13T00:00:00Z',
   emailVerifiedAt: null,
+  deletionDueAt: null,
 }
 const membership = { tenantId: 't-1', organizationName: 'Студия', role: 'OWNER' as const }
 

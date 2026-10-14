@@ -12,11 +12,10 @@ import { computed, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { describeError, isApiError } from '@/shared/api'
+import { formatWait, useRetryAfter } from '@/shared/lib'
 import { UiAlert, UiButton, UiField, UiPasswordInput } from '@/shared/ui'
 import { resetPassword } from '@/entities/session'
 import { PASSWORD_MIN_LENGTH, resetPasswordSchema } from '../model/schemas'
-import { formatWait } from '../model/format-wait'
-import { useRetryAfter } from '../model/use-retry-after'
 
 const props = defineProps<{ token: string }>()
 const emit = defineEmits<{ done: []; invalid: [] }>()

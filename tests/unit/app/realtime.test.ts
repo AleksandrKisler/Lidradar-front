@@ -49,6 +49,7 @@ describe('installRealtime', () => {
       canCreateOrganization: false,
       user: {
         emailVerifiedAt: null,
+        deletionDueAt: null,
         id: 'u',
         email: 'a@b.c',
         displayName: 'A',
@@ -126,6 +127,7 @@ describe('installRealtime', () => {
       canCreateOrganization: false,
       user: {
         emailVerifiedAt: null,
+        deletionDueAt: null,
         id: 'u',
         email: 'a@b.c',
         displayName: 'A',
@@ -198,6 +200,7 @@ describe('installRealtime', () => {
       canCreateOrganization: false,
       user: {
         emailVerifiedAt: null,
+        deletionDueAt: null,
         id: 'u',
         email: 'a@b.c',
         displayName: 'A',

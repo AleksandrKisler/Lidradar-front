@@ -13,9 +13,11 @@ export {
   createApiClient,
   unwrap,
   unwrapWithStatus,
+  unwrapFile,
+  filenameFromDisposition,
   DEFAULT_TIMEOUT_MS,
 } from './client/create-client'
-export type { ApiClient, CreateApiClientOptions } from './client/create-client'
+export type { ApiClient, CreateApiClientOptions, DownloadedFile } from './client/create-client'
 export { ApiError, isApiError, parseRetryAfter, CLIENT_ERROR_CODES } from './client/api-error'
 export { hasPendingCommand } from './client/pending-command'
 export type { ApiErrorInit } from './client/api-error'

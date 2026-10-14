@@ -59,3 +59,52 @@ export const registerSchema = v.object({
 })
 
 export type RegisterValues = v.InferOutput<typeof registerSchema>
+
+/** Новый пароль: те же границы, что у регистрации. */
+const newPassword = v.pipe(
+  v.string(),
+  v.minLength(PASSWORD_MIN_LENGTH, `Не меньше ${PASSWORD_MIN_LENGTH} символов`),
+  v.maxLength(1024, 'Слишком длинный пароль'),
+)
+
+/** Запрос письма сброса (ADR 0058): достаточно адреса; ответ сервера не зависит от его существования. */
+export const forgotPasswordSchema = v.object({ email })
+
+export type ForgotPasswordValues = v.InferOutput<typeof forgotPasswordSchema>
+
+/** Новый пароль по ссылке из письма; повтор нужен, чтобы опечатка не закрыла доступ к аккаунту. */
+export const resetPasswordSchema = v.pipe(
+  v.object({ password: newPassword, confirmation: v.string() }),
+  v.forward(
+    v.check((values) => values.password === values.confirmation, 'Пароли не совпадают'),
+    ['confirmation'],
+  ),
+)
+
+export type ResetPasswordValues = v.InferOutput<typeof resetPasswordSchema>
+
+/** Смена пароля: текущий пароль подтверждает владельца сессии, новый отличается от него. */
+export const changePasswordSchema = v.pipe(
+  v.object({
+    currentPassword: v.pipe(
+      v.string(),
+      v.nonEmpty('Введите текущий пароль'),
+      v.maxLength(1024, 'Слишком длинный пароль'),
+    ),
+    password: newPassword,
+    confirmation: v.string(),
+  }),
+  v.forward(
+    v.check(
+      (values) => values.password !== values.currentPassword,
+      'Новый пароль должен отличаться от текущего',
+    ),
+    ['password'],
+  ),
+  v.forward(
+    v.check((values) => values.password === values.confirmation, 'Пароли не совпадают'),
+    ['confirmation'],
+  ),
+)
+
+export type ChangePasswordValues = v.InferOutput<typeof changePasswordSchema>

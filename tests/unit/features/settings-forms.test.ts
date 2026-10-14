@@ -78,6 +78,7 @@ describe('формы настроек', () => {
     vi.mocked(fetchMe).mockResolvedValue({
       canCreateOrganization: false,
       user: {
+        emailVerifiedAt: null,
         id: 'u',
         email: 'a@b.c',
         displayName: 'A',

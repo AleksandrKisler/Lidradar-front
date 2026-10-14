@@ -45,6 +45,7 @@ describe('ConsentControls', () => {
     vi.mocked(fetchMe).mockResolvedValue({
       canCreateOrganization: false,
       user: {
+        emailVerifiedAt: null,
         id: 'u',
         email: 'o@b.c',
         displayName: 'Мария',

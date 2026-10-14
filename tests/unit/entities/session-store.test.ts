@@ -17,6 +17,7 @@ const user = {
   status: 'ACTIVE' as const,
   createdAt: '2026-09-01T00:00:00Z',
   updatedAt: '2026-09-01T00:00:00Z',
+  emailVerifiedAt: null,
 }
 const one: AuthMeResponse = {
   user,
@@ -201,5 +202,42 @@ describe('выбор организации и выход', () => {
     session.markExpired()
     expect(session.status).toBe('guest')
     expect(session.signOutReason).toBe('expired')
+  })
+})
+
+describe('подтверждение почты (ADR 0058)', () => {
+  it('«не подтверждена» только при явном null; отсутствие поля и гость — нет', async () => {
+    vi.mocked(fetchMe).mockResolvedValue({
+      user: { ...user, emailVerifiedAt: null },
+      memberships: [],
+      canCreateOrganization: false,
+    })
+    const session = useSessionStore()
+    expect(session.emailUnverified).toBe(false) // сессия не загружена
+    await session.bootstrap()
+    expect(session.emailUnverified).toBe(true)
+
+    vi.mocked(fetchMe).mockResolvedValue({
+      user: { ...user, emailVerifiedAt: '2026-10-13T08:00:00Z' },
+      memberships: [],
+      canCreateOrganization: false,
+    })
+    await session.refresh()
+    expect(session.emailUnverified).toBe(false)
+
+    // Ответ сервера без поля (старая версия API) не считается «не подтверждена»: напоминание не нужно.
+    const withoutField: Partial<typeof user> = { ...user }
+    delete withoutField.emailVerifiedAt
+    vi.mocked(fetchMe).mockResolvedValue({
+      user: withoutField as never,
+      memberships: [],
+      canCreateOrganization: false,
+    })
+    await session.refresh()
+    expect(session.emailUnverified).toBe(false)
+
+    vi.mocked(fetchMe).mockRejectedValue(unauthenticated())
+    await session.refresh()
+    expect(session.emailUnverified).toBe(false)
   })
 })

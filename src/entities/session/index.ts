@@ -18,3 +18,16 @@ export {
   useRegistrationModeQuery,
 } from './api/registration-api'
 export type { RegistrationInfo, RegistrationMode } from './api/registration-api'
+export {
+  changePassword,
+  requestPasswordReset,
+  resetPassword,
+  resendEmailVerification,
+  verifyEmail,
+} from './api/account-api'
+export type {
+  ChangePasswordRequest,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
+  VerifyEmailRequest,
+} from './api/account-api'

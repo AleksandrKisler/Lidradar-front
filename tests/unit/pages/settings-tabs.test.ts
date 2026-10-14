@@ -17,6 +17,7 @@ async function signIn(role: Role) {
   vi.mocked(fetchMe).mockResolvedValue({
     canCreateOrganization: false,
     user: {
+      emailVerifiedAt: null,
       id: 'u',
       email: 'a@b.c',
       displayName: 'A',
@@ -43,7 +44,14 @@ describe('вкладки настроек', () => {
     await router.push('/settings/company')
     const wrapper = mount(SettingsTabs, { global: { plugins: [router] } })
     const labels = wrapper.findAll('a').map((link) => link.text())
-    expect(labels).toEqual(['Компания и график', 'Услуги', 'Уведомления', 'Команда', 'Данные'])
+    expect(labels).toEqual([
+      'Компания и график',
+      'Услуги',
+      'Уведомления',
+      'Команда',
+      'Данные',
+      'Аккаунт',
+    ])
     expect(wrapper.get('a[aria-current="page"]').text()).toBe('Компания и график')
     wrapper.unmount()
   })
@@ -54,7 +62,11 @@ describe('вкладки настроек', () => {
     await router.push('/settings')
     expect(router.currentRoute.value.name).toBe('settings-notifications')
     const wrapper = mount(SettingsTabs, { global: { plugins: [router] } })
-    expect(wrapper.findAll('a').map((link) => link.text())).toEqual(['Уведомления', 'Данные'])
+    expect(wrapper.findAll('a').map((link) => link.text())).toEqual([
+      'Уведомления',
+      'Данные',
+      'Аккаунт',
+    ])
     wrapper.unmount()
   })
 })

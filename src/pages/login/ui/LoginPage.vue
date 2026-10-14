@@ -16,6 +16,8 @@ const session = useSessionStore()
 
 const expired = computed(() => session.signOutReason === 'expired')
 const logoutUnconfirmed = computed(() => route.query.signout === 'unconfirmed')
+// После сброса пароля (ADR 0058) сервер завершил все сессии: вход выполняется новым паролем.
+const passwordReset = computed(() => route.query.reset === 'done')
 
 function onSuccess(): void {
   void router.replace(sanitizeReturnPath(route.query.redirect) ?? { name: 'radar' })
@@ -30,6 +32,9 @@ function onSuccess(): void {
       <div class="mt-6 flex flex-col gap-4">
         <UiAlert v-if="expired" tone="info" title="Сессия завершена">
           Срок сессии истёк или доступ был отозван. Войдите снова, чтобы продолжить.
+        </UiAlert>
+        <UiAlert v-if="passwordReset" tone="success" title="Пароль изменён">
+          Войдите с новым паролем. На всех устройствах вы вышли из аккаунта.
         </UiAlert>
         <UiAlert v-if="logoutUnconfirmed" tone="warning" title="Выход выполнен локально">
           Сервер не подтвердил завершение сессии. Если устройство общее, войдите и выйдите ещё раз

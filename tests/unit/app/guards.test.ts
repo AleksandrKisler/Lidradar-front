@@ -19,6 +19,7 @@ const user = {
   status: 'ACTIVE' as const,
   createdAt: '2026-09-01T00:00:00Z',
   updatedAt: '2026-09-01T00:00:00Z',
+  emailVerifiedAt: null,
 }
 
 function route(fullPath: string, meta: RouteLocationNormalized['meta']): RouteLocationNormalized {

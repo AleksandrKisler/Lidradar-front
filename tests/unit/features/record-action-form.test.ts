@@ -44,6 +44,7 @@ describe('RecordActionForm', () => {
     vi.mocked(fetchMe).mockResolvedValue({
       canCreateOrganization: false,
       user: {
+        emailVerifiedAt: null,
         id: 'user-1',
         email: 'a@b.c',
         displayName: 'A',

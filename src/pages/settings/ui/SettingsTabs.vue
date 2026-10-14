@@ -19,6 +19,7 @@ const allTabs: { to: { name: string }; label: string; permission: Permission | n
   { to: { name: 'settings-notifications' }, label: 'Уведомления', permission: null },
   { to: { name: 'settings-team' }, label: 'Команда', permission: 'member.manage' },
   { to: { name: 'settings-privacy' }, label: 'Данные', permission: null },
+  { to: { name: 'settings-account' }, label: 'Аккаунт', permission: null },
 ]
 const tabs = computed(() =>
   allTabs.filter((tab) => tab.permission === null || session.can(tab.permission)),

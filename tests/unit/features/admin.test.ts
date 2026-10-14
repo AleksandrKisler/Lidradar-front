@@ -43,6 +43,7 @@ describe('администрирование', () => {
     vi.mocked(fetchMe).mockResolvedValue({
       canCreateOrganization: false,
       user: {
+        emailVerifiedAt: null,
         id: 'u',
         email: 'admin@example.test',
         displayName: 'Админ',

@@ -38,6 +38,11 @@ export const useSessionStore = defineStore('session', () => {
   let inflight: Promise<void> | null = null
 
   const isAuthenticated = computed(() => status.value === 'authenticated')
+  /**
+   * Адрес почты не подтверждён (ADR 0058). Подтверждение мягкое и ничего не блокирует: признак нужен только
+   * для напоминания. Отсутствие поля в ответе не считается «не подтверждён».
+   */
+  const emailUnverified = computed(() => user.value !== null && user.value.emailVerifiedAt === null)
   /** Членство в выбранной организации либо `null`, если выбор не сделан. */
   const membership = computed(
     () => memberships.value.find((item) => item.tenantId === tenantId.value) ?? null,
@@ -178,6 +183,7 @@ export const useSessionStore = defineStore('session', () => {
     bootError,
     signOutReason,
     isAuthenticated,
+    emailUnverified,
     membership,
     role,
     permissions,

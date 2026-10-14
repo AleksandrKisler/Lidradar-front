@@ -230,6 +230,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/password/change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the password of the signed-in user
+         * @description ADR 0058. Нужны сессия и текущий пароль; новый пароль 12…1024 байт и отличается от текущего. В одной транзакции пароль меняется, все остальные сессии пользователя завершаются (текущая остаётся), неиспользованные ссылки сброса отзываются и пишется PASSWORD_CHANGED; затем в очередь ставится письмо «пароль изменён». Неверный текущий пароль — 403 INVALID_CURRENT_PASSWORD, а не 401: клиент считает 401 потерей сессии. Предел — 5 попыток за 15 минут на пользователя, он расходуется до проверки текущего пароля и сбрасывается при успехе; ошибки формата попытки не тратят.
+         */
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password/forgot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request a password reset link by e-mail
+         * @description ADR 0058. Без сессии. Ответ 204 одинаков для известного, неизвестного, отключённого и неверно записанного адреса: существование учётной записи не раскрывается. Для действующего пользователя выпускается одноразовая ссылка на 60 минут (токен 256 бит во фрагменте адреса) и ставится письмо; ошибка постановки в очередь ответ не меняет. Пределы: 10 в час на адрес клиента и 3 в час на адрес почты; они расходуются до поиска пользователя, поэтому 429 тоже не выдаёт существование.
+         */
+        post: operations["requestPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a new password with a reset token from the e-mail
+         * @description ADR 0058. Без сессии. Одна транзакция: токен гасится, пароль меняется, ВСЕ сессии пользователя завершаются, прочие ссылки сброса отзываются, адрес считается подтверждённым (ссылка дошла до ящика), пишется PASSWORD_RESET_COMPLETED. Автоматического входа нет. Любая причина негодности токена (неизвестен, просрочен, использован, отозван, пользователь отключён) — один ответ RESET_TOKEN_INVALID; слабый пароль токен не расходует. Предел 20 попыток в час на адрес клиента. После сброса уходит письмо «пароль изменён».
+         */
+        post: operations["resetPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/email/verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the e-mail verification link again
+         * @description ADR 0058. Под сессией. Выпускает новый токен на 7 суток (прежний отзывается) и ставит письмо; уже подтверждённому адресу письмо не нужно, ответ 204 без расхода предела. Предел — 3 письма в час на пользователя. Без настроенной почты — 503 MAIL_UNAVAILABLE.
+         */
+        post: operations["resendEmailVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/email/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm the e-mail address with a token from the e-mail
+         * @description ADR 0058. Без сессии: ссылку открывают в любом браузере. Подтверждение мягкое, ничего не блокирует. Токен одноразовый; любая причина негодности — один ответ VERIFICATION_TOKEN_INVALID. Предел 30 попыток в час на адрес клиента.
+         */
+        post: operations["verifyEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations": {
         parameters: {
             query?: never;
@@ -1703,6 +1803,11 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+            /**
+             * Format: date-time
+             * @description Когда подтверждён адрес почты (ADR 0058); null — не подтверждён. Подтверждение мягкое и ничего не блокирует.
+             */
+            emailVerifiedAt: string | null;
         };
         RegisterRequest: {
             /** Format: email */
@@ -1716,6 +1821,23 @@ export interface components {
             /** Format: email */
             email: string;
             password: string;
+        };
+        ChangePasswordRequest: {
+            currentPassword: string;
+            newPassword: string;
+        };
+        ForgotPasswordRequest: {
+            /** @description Адрес почты; неверно записанный адрес не отличается в ответе от неизвестного. */
+            email: string;
+        };
+        ResetPasswordRequest: {
+            /** @description Токен из ссылки письма (фрагмент #token=…). */
+            token: string;
+            newPassword: string;
+        };
+        VerifyEmailRequest: {
+            /** @description Токен из ссылки письма (фрагмент #token=…). */
+            token: string;
         };
         AuthResponse: {
             user: components["schemas"]["User"];
@@ -3534,6 +3656,161 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Password changed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description INVALID_CURRENT_PASSWORD — текущий пароль не подошёл или уже сменён из другого окна; ORIGIN_NOT_ALLOWED — недоверенный origin. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    requestPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgotPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Request accepted. The answer is the same whether or not the address is registered. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    resetPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Password changed and every session of the user ended. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description INVALID_ARGUMENT — неверное тело или слабый пароль; RESET_TOKEN_INVALID — токен нельзя использовать. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    resendEmailVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The link was queued, or the address is already verified. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            /** @description MAIL_UNAVAILABLE — почта на сервере не настроена. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    verifyEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyEmailRequest"];
+            };
+        };
+        responses: {
+            /** @description Address confirmed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description INVALID_ARGUMENT — неверное тело; VERIFICATION_TOKEN_INVALID — токен нельзя использовать. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
         };
     };
     createOrganization: {

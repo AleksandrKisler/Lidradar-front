@@ -20,6 +20,7 @@ export {
 export { maskPhone, maskEmail } from './privacy'
 export { formatBytes } from './files'
 export { sanitizeReturnPath } from './return-path'
+export { readFragmentToken, ACCOUNT_TOKEN_PATTERN } from './fragment-token'
 export { combineSignals, timeoutSignal, isAbortError, isTimeoutError } from './abort'
 export { createUuid } from './id'
 export { plural } from './plural'

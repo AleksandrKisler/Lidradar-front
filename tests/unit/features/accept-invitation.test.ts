@@ -39,6 +39,7 @@ describe('AcceptInvitationForm', () => {
     vi.mocked(fetchMe).mockResolvedValue({
       canCreateOrganization: false,
       user: {
+        emailVerifiedAt: null,
         id: 'u',
         email: 'new@b.c',
         displayName: 'Новый',
@@ -92,6 +93,7 @@ describe('AcceptInvitationForm', () => {
     vi.mocked(fetchMe).mockResolvedValue({
       canCreateOrganization: false,
       user: {
+        emailVerifiedAt: null,
         id: 'u',
         email: 'new@b.c',
         displayName: 'Новый',

@@ -30,6 +30,25 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/register').then((m) => m.RegisterPage),
         meta: { access: 'guest', title: 'Регистрация' },
       },
+      {
+        path: 'forgot-password',
+        name: 'forgot-password',
+        component: () => import('@/pages/forgot-password').then((m) => m.ForgotPasswordPage),
+        meta: { access: 'guest', title: 'Восстановление пароля' },
+      },
+      // Ссылки из писем (ADR 0058) открывают в любом браузере, с сессией и без неё.
+      {
+        path: 'reset-password',
+        name: 'reset-password',
+        component: () => import('@/pages/reset-password').then((m) => m.ResetPasswordPage),
+        meta: { access: 'open', title: 'Новый пароль' },
+      },
+      {
+        path: 'verify-email',
+        name: 'verify-email',
+        component: () => import('@/pages/verify-email').then((m) => m.VerifyEmailPage),
+        meta: { access: 'open', title: 'Подтверждение почты' },
+      },
     ],
   },
   {
@@ -241,6 +260,12 @@ export const routes: RouteRecordRaw[] = [
         name: 'settings-privacy',
         component: () => import('@/pages/settings').then((m) => m.SettingsPrivacyPage),
         meta: { access: 'tenant', title: 'Данные и согласие' },
+      },
+      {
+        path: 'settings/account',
+        name: 'settings-account',
+        component: () => import('@/pages/settings').then((m) => m.SettingsAccountPage),
+        meta: { access: 'tenant', title: 'Аккаунт' },
       },
     ],
   },

@@ -1,6 +1,7 @@
 /**
  * Проверка бюджета сборки по манифесту Vite: входной чанк, самый большой чанк,
- * CSS и суммарный JavaScript не превышают порогов из `bundle-budgets.json`.
+ * CSS, суммарный JavaScript и критическая загрузка (вход с его статическими импортами)
+ * не превышают порогов из `bundle-budgets.json`.
  * Отдельно проверяется, что критическая загрузка не тянет чанки
  * администрирования статически: они должны оставаться динамическими импортами.
  */
@@ -39,12 +40,17 @@ const walk = (key) => {
 const entryKey = Object.keys(manifest).find((key) => manifest[key] === entry)
 walk(entryKey)
 const adminInBoot = [...staticGraph].filter((key) => /admin/i.test(key))
+// Размер файла входа зависит от того, как Rollup делит общие модули между index и общими чанками; честная
+// мера критической загрузки — файл входа вместе со всеми его статическими импортами.
+const initialLoad =
+  entrySize + [...staticGraph].reduce((sum, key) => sum + size(manifest[key].file), 0)
 
 const checks = [
   ['входной чанк', entrySize, budgets.entry],
   [`самый большой чанк (${largest.name})`, largest.size, budgets.largestChunk],
   ['CSS', cssSize, budgets.css],
   ['весь JavaScript', totalJs, budgets.totalJs],
+  ['критическая загрузка (вход и его статические импорты)', initialLoad, budgets.initialLoad],
 ]
 let failed = false
 for (const [label, actual, budget] of checks) {

@@ -106,6 +106,13 @@ const onSubmit = handleSubmit(async (values) => {
         :described-by="describedBy"
         :invalid="invalid"
       />
+      <p class="text-right text-sm">
+        <RouterLink
+          :to="{ name: 'forgot-password' }"
+          class="font-semibold text-brand hover:underline"
+          >Забыли пароль?</RouterLink
+        >
+      </p>
     </UiField>
 
     <UiAlert

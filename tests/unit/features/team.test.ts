@@ -94,6 +94,7 @@ describe('команда', () => {
     vi.mocked(fetchMe).mockResolvedValue({
       canCreateOrganization: false,
       user: {
+        emailVerifiedAt: null,
         id: 'u',
         email: 'owner@example.test',
         displayName: 'Мария',

@@ -93,6 +93,8 @@ export interface MessageBubbleViewModel {
   text: string | null
   /** Сообщение удалено у поставщика: показывается заглушка, не текст. */
   deleted: boolean
+  /** Текст стёрт по сроку хранения независимо от удаления у поставщика. */
+  contentErased: boolean
   sentAt: string
   attachments: AttachmentViewModel[]
 }
@@ -105,8 +107,9 @@ export function toMessageBubble(view: MessageView): MessageBubbleViewModel {
     author: directionLabel(message.direction),
     type: message.type,
     typeLabel: messageTypeLabel(message.type),
-    text: message.text?.trim() ? message.text : null,
+    text: message.contentErasedAt ? null : message.text?.trim() ? message.text : null,
     deleted: message.providerDeletedAt !== null,
+    contentErased: Boolean(message.contentErasedAt),
     sentAt: message.sentAt,
     attachments: attachments.map((attachment) => ({
       id: attachment.id,

@@ -185,5 +185,23 @@ const onSubmit = handleSubmit(async (values) => {
     <UiButton type="submit" block :loading="isSubmitting" :disabled="retry.active.value">
       {{ submitLabel }}
     </UiButton>
+    <p class="text-xs leading-5 text-muted" data-testid="register-legal">
+      Создавая аккаунт, вы принимаете
+      <a
+        href="/legal/terms.html"
+        target="_blank"
+        rel="noopener"
+        class="font-semibold text-brand hover:underline"
+        >Пользовательское соглашение</a
+      >
+      и подтверждаете, что ознакомились с
+      <a
+        href="/legal/privacy.html"
+        target="_blank"
+        rel="noopener"
+        class="font-semibold text-brand hover:underline"
+        >Политикой обработки персональных данных</a
+      >.
+    </p>
   </form>
 </template>

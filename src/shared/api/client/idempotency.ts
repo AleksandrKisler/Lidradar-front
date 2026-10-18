@@ -9,7 +9,7 @@
 import { createUuid } from '@/shared/lib'
 import { isApiError } from './api-error'
 
-export type DraftState = 'submitting' | 'unknown' | 'conflict' | 'failed' | 'succeeded'
+export type DraftState = 'submitting' | 'unknown' | 'conflict' | 'expired' | 'failed' | 'succeeded'
 
 export interface IdempotentDraft<Body> {
   /** Значение заголовка `Idempotency-Key`. */
@@ -37,8 +37,12 @@ export function draftFor<Body>(
   body: Body,
   equals: (left: Body, right: Body) => boolean = sameBody,
 ): IdempotentDraft<Body> {
-  if (previous && ['submitting', 'unknown', 'conflict'].includes(previous.state)) {
-    if (previous.state === 'conflict' || !equals(previous.body, body)) {
+  if (previous && ['submitting', 'unknown', 'conflict', 'expired'].includes(previous.state)) {
+    if (
+      previous.state === 'conflict' ||
+      previous.state === 'expired' ||
+      !equals(previous.body, body)
+    ) {
       throw new Error('Unresolved command must be reconciled before changing its body')
     }
     return { ...previous, state: 'submitting' }
@@ -54,10 +58,12 @@ export function settleFailure<Body>(
   return {
     ...draft,
     state:
-      isApiError(error) && error.code === 'IDEMPOTENCY_CONFLICT'
-        ? 'conflict'
-        : isUnknownResult(error)
-          ? 'unknown'
-          : 'failed',
+      isApiError(error) && error.code === 'IDEMPOTENCY_KEY_EXPIRED'
+        ? 'expired'
+        : isApiError(error) && error.code === 'IDEMPOTENCY_CONFLICT'
+          ? 'conflict'
+          : isUnknownResult(error)
+            ? 'unknown'
+            : 'failed',
   }
 }

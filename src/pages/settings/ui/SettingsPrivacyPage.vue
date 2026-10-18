@@ -102,6 +102,48 @@ function personName(userId: string | undefined): string {
 
     <ExportOrganizationCard v-if="session.can('organization.export')" :tenant-id="tenantId" />
 
+    <UiCard as="section" aria-labelledby="legal-title">
+      <h2 id="legal-title" class="text-lg font-bold text-ink">Юридические документы</h2>
+      <ul class="mt-3 flex flex-col gap-2 text-sm text-ink">
+        <li>
+          <a
+            href="/legal/terms.html"
+            target="_blank"
+            rel="noopener"
+            class="font-semibold text-brand hover:underline"
+            >Пользовательское соглашение</a
+          >
+        </li>
+        <li>
+          <a
+            href="/legal/dpa.html"
+            target="_blank"
+            rel="noopener"
+            class="font-semibold text-brand hover:underline"
+            >Поручение на обработку персональных данных</a
+          >
+        </li>
+        <li>
+          <a
+            href="/legal/privacy.html"
+            target="_blank"
+            rel="noopener"
+            class="font-semibold text-brand hover:underline"
+            >Политика обработки персональных данных</a
+          >
+        </li>
+        <li>
+          <a
+            href="/legal/ai-data.html"
+            target="_blank"
+            rel="noopener"
+            class="font-semibold text-brand hover:underline"
+            >Использование данных для улучшения AI</a
+          >
+        </li>
+      </ul>
+    </UiCard>
+
     <div class="grid gap-6 md:grid-cols-2">
       <UiCard as="section" aria-labelledby="scope-title">
         <h2 id="scope-title" class="text-lg font-bold text-ink">На что влияет согласие</h2>

@@ -15,14 +15,35 @@ function jsonResponse(body: unknown, status = 200): Response {
   })
 }
 
-function stubApi(options: { detailStatus?: number } = {}) {
+function stubApi(
+  options: { detailStatus?: number; erased?: boolean; deletedErased?: boolean } = {},
+) {
   const fetchMock = vi.fn((request: Request) => {
     const url = new URL(request.url)
     if (url.pathname.endsWith('/messages')) {
       const older = url.searchParams.get('cursor') === 'older'
       return Promise.resolve(
         jsonResponse({
-          items: older ? olderPageFixture : newestPageFixture,
+          items: older
+            ? options.deletedErased
+              ? olderPageFixture.map((item) => ({
+                  ...item,
+                  message: { ...item.message, contentErasedAt: '2026-12-17T10:00:00Z' },
+                }))
+              : olderPageFixture
+            : options.erased
+              ? newestPageFixture.map((item, index) =>
+                  index === 1
+                    ? {
+                        ...item,
+                        message: {
+                          ...item.message,
+                          contentErasedAt: '2026-12-17T10:00:00Z',
+                        },
+                      }
+                    : item,
+                )
+              : newestPageFixture,
           nextCursor: older ? null : 'older',
         }),
       )
@@ -112,6 +133,27 @@ describe('ConversationThread', () => {
       ([request]) => new URL(request.url).searchParams.get('cursor') === 'older',
     )
     expect(olderCall).toBeDefined()
+    wrapper.unmount()
+  })
+
+  it('удаление у поставщика остаётся первым при наличии обеих отметок', async () => {
+    stubApi({ deletedErased: true })
+    const wrapper = mountThread()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Показать более ранние'))
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Показать более ранние')!
+      .trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Сообщение удалено в мессенджере.'))
+    expect(wrapper.text()).not.toContain('Текст удалён по сроку хранения')
+    wrapper.unmount()
+  })
+
+  it('показывает пометку срока хранения вместо текста сообщения', async () => {
+    stubApi({ erased: true })
+    const wrapper = mountThread()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Текст удалён по сроку хранения'))
+    expect(wrapper.text()).not.toContain('Полный комплекс — 31 000 ₽.')
     wrapper.unmount()
   })
 

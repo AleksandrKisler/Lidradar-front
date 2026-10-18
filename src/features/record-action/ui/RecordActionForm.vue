@@ -55,7 +55,7 @@ const commandLocked = computed(
     isSubmitting.value ||
     record.isPending.value ||
     record.canRetry.value ||
-    record.draft.value?.state === 'conflict',
+    ['conflict', 'expired'].includes(record.draft.value?.state ?? ''),
 )
 const submit = handleSubmit(async (values) => {
   const draft = { type: values.type as ActionType, ...(values.note ? { note: values.note } : {}) }

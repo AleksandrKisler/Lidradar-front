@@ -35,14 +35,14 @@ export function readPendingCommand<Body>(scope: string): IdempotentDraft<Body> |
       !value.body ||
       typeof value.body !== 'object' ||
       !('state' in value) ||
-      !['submitting', 'unknown', 'conflict'].includes(String(value.state))
+      !['submitting', 'unknown', 'conflict', 'expired'].includes(String(value.state))
     ) {
       throw unavailable()
     }
     return {
       key: value.key,
       body: value.body as Body,
-      state: value.state === 'conflict' ? 'conflict' : 'unknown',
+      state: value.state === 'conflict' || value.state === 'expired' ? value.state : 'unknown',
     }
   } catch {
     throw unavailable()

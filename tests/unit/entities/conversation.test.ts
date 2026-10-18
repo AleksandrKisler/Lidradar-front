@@ -101,6 +101,14 @@ describe('подписи и адаптеры переписки', () => {
     ])
     const deleted = toMessageBubble(olderPageFixture[0]!)
     expect(deleted.deleted).toBe(true)
+    const erased = toMessageBubble({
+      ...newestPageFixture[1]!,
+      message: {
+        ...newestPageFixture[1]!.message,
+        contentErasedAt: '2026-12-17T10:00:00Z',
+      },
+    })
+    expect(erased).toMatchObject({ text: null, contentErased: true, deleted: false })
   })
 
   it('разворачивает страницы «новые → старые» в хронологию', () => {

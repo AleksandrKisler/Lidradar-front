@@ -145,7 +145,7 @@ const commandLocked = computed(
     isSubmitting.value ||
     record.isPending.value ||
     record.canRetry.value ||
-    record.draft.value?.state === 'conflict',
+    ['conflict', 'expired'].includes(record.draft.value?.state ?? ''),
 )
 const submit = handleSubmit(async (formValues) => {
   if (alreadyAttributed.value) return

@@ -180,6 +180,33 @@ describe('useIdempotentMutation', () => {
     scope.stop()
   })
 
+  it('устаревший ключ остаётся терминальным после reload и не создаёт второй платёж', async () => {
+    const expired = new ApiError({ httpStatus: 409, code: 'IDEMPOTENCY_KEY_EXPIRED' })
+    const execute = vi.fn().mockRejectedValue(expired)
+    const scopeName = 'user-a/tenant-a/revenue/opportunity-1'
+    const firstScope = effectScope()
+    const first = firstScope.run(() => useIdempotentMutation({ execute, scope: () => scopeName }))!
+    await first.submit({ amount: '100.00' })
+    expect(first.draft.value?.state).toBe('expired')
+    expect(first.error.value).toBe(expired)
+    expect(first.canRetry.value).toBe(false)
+    expect(await first.retry()).toBeNull()
+    first.reset()
+    firstScope.stop()
+
+    const secondScope = effectScope()
+    const second = secondScope.run(() =>
+      useIdempotentMutation({ execute, scope: () => scopeName }),
+    )!
+    expect(second.draft.value?.state).toBe('expired')
+    expect(second.error.value).toMatchObject({ code: 'IDEMPOTENCY_KEY_EXPIRED' })
+    expect(await second.submit({ amount: '100.00' })).toBeNull()
+    expect(await second.submit({ amount: '200.00' })).toBeNull()
+    expect(execute).toHaveBeenCalledTimes(1)
+    expect(localStorage.length).toBe(1)
+    secondScope.stop()
+  })
+
   it('ошибка сохранения до запроса не отправляет команду без восстановимого ключа', async () => {
     const execute = vi.fn()
     const storage = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {

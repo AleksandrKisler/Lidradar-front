@@ -1050,7 +1050,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '409': { description: 'RISK_CLOSED — риск уже закрыт; IDEMPOTENCY_CONFLICT — ключ использован с другим содержимым.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: 'RISK_CLOSED — риск уже закрыт; IDEMPOTENCY_CONFLICT — ключ использован с другим содержимым; IDEMPOTENCY_KEY_EXPIRED — ответ по ключу стёрт, команда не выполняется повторно и требует сверки истории.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/v1/opportunities/{opportunityId}/outcomes:
     parameters:
       - { $ref: '#/components/parameters/TenantId' }
@@ -1068,7 +1068,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '409': { description: Ключ идемпотентности использован с другим содержимым., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: 'IDEMPOTENCY_CONFLICT — ключ использован с другим содержимым; IDEMPOTENCY_KEY_EXPIRED — ответ по ключу стёрт, команда не выполняется повторно и требует сверки истории.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/v1/analytics/payments:
     parameters: [{ $ref: '#/components/parameters/TenantId' }]
     get:
@@ -1356,7 +1356,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '409': { description: 'Два кода: IDEMPOTENCY_CONFLICT — ключ идемпотентности использован с другим содержимым (повторить с новым ключом); RECOVERED_ALREADY_ATTRIBUTED — у возможности уже есть атрибуция RECOVERED, последующие оплаты подтверждаются как ORGANIC по явному решению пользователя.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: 'IDEMPOTENCY_CONFLICT — ключ использован с другим содержимым; IDEMPOTENCY_KEY_EXPIRED — ответ по ключу стёрт, повторное подтверждение не выполняется и требует сверки истории; RECOVERED_ALREADY_ATTRIBUTED — у возможности уже есть атрибуция RECOVERED, последующие оплаты подтверждаются как ORGANIC по явному решению пользователя.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/v1/revenue/confirmed-recovered:
     parameters:
       - { $ref: '#/components/parameters/TenantId' }
@@ -2051,6 +2051,7 @@ components:
         sentAt: { type: string, format: date-time }
         receivedAt: { type: string, format: date-time }
         providerDeletedAt: { type: [string, 'null'], format: date-time }
+        contentErasedAt: { type: [string, 'null'], format: date-time, description: 'Время стирания текста по сроку хранения; отсутствие поля или null означает, что текст не помечен стёртым.' }
         metadata: { type: object, additionalProperties: true }
         createdAt: { type: string, format: date-time }
     Attachment:

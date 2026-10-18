@@ -2420,6 +2420,11 @@ export interface components {
             receivedAt: string;
             /** Format: date-time */
             providerDeletedAt: string | null;
+            /**
+             * Format: date-time
+             * @description Время стирания текста по сроку хранения; отсутствие поля или null означает, что текст не помечен стёртым.
+             */
+            contentErasedAt?: string | null;
             metadata: {
                 [key: string]: unknown;
             };
@@ -5637,7 +5642,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description RISK_CLOSED — риск уже закрыт; IDEMPOTENCY_CONFLICT — ключ использован с другим содержимым. */
+            /** @description RISK_CLOSED — риск уже закрыт; IDEMPOTENCY_CONFLICT — ключ использован с другим содержимым; IDEMPOTENCY_KEY_EXPIRED — ответ по ключу стёрт, команда не выполняется повторно и требует сверки истории. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -5692,7 +5697,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description Ключ идемпотентности использован с другим содержимым. */
+            /** @description IDEMPOTENCY_CONFLICT — ключ использован с другим содержимым; IDEMPOTENCY_KEY_EXPIRED — ответ по ключу стёрт, команда не выполняется повторно и требует сверки истории. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6392,7 +6397,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description Два кода: IDEMPOTENCY_CONFLICT — ключ идемпотентности использован с другим содержимым (повторить с новым ключом); RECOVERED_ALREADY_ATTRIBUTED — у возможности уже есть атрибуция RECOVERED, последующие оплаты подтверждаются как ORGANIC по явному решению пользователя. */
+            /** @description IDEMPOTENCY_CONFLICT — ключ использован с другим содержимым; IDEMPOTENCY_KEY_EXPIRED — ответ по ключу стёрт, повторное подтверждение не выполняется и требует сверки истории; RECOVERED_ALREADY_ATTRIBUTED — у возможности уже есть атрибуция RECOVERED, последующие оплаты подтверждаются как ORGANIC по явному решению пользователя. */
             409: {
                 headers: {
                     [name: string]: unknown;

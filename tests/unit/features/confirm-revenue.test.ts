@@ -185,6 +185,22 @@ describe('ConfirmRevenueDialog', () => {
     wrapper.unmount()
   })
 
+  it('устаревший ключ показывает сверку и блокирует новую оплату', async () => {
+    vi.mocked(confirmRevenue).mockRejectedValueOnce(
+      new ApiError({ httpStatus: 409, code: 'IDEMPOTENCY_KEY_EXPIRED' }),
+    )
+    const wrapper = await mountDialog()
+    await dialog().get('input[name="confirmed"]').setValue(true)
+    await dialog().get('form').trigger('submit')
+    await settle()
+    expect(dialog().text()).toContain('Срок ответа по ключу истёк')
+    expect(dialog().text()).toContain('Сверьте историю действия или оплаты')
+    expect(dialog().text()).not.toContain('Результат неизвестен')
+    expect(dialog().get('button[type="submit"]').attributes('disabled')).toBeDefined()
+    expect(confirmRevenue).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
   it('неизвестный результат: диалог не закрыть, повтор тем же ключом', async () => {
     vi.mocked(confirmRevenue)
       .mockRejectedValueOnce(ApiError.network(new TypeError('offline')))

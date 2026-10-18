@@ -101,6 +101,16 @@ async function confirmRevoke(): Promise<void> {
         Выдача записывается в аудит с вашим именем и временем. Работа сервиса от согласия не
         зависит: без него данные используются только для поиска рисков.
       </p>
+      <p class="text-sm text-muted">
+        Условия — в документе
+        <a
+          href="/legal/ai-data.html"
+          target="_blank"
+          rel="noopener"
+          class="font-semibold text-brand hover:underline"
+          >«Использование данных для улучшения AI»</a
+        >.
+      </p>
       <UiAlert v-if="errorView" tone="danger" :title="errorView.title" :trace-id="traceId">
         {{ errorView.description }}
       </UiAlert>

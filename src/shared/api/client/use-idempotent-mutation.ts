@@ -57,9 +57,13 @@ export function useIdempotentMutation<Body, Result>(
     try {
       draft.value = readPendingCommand<Body>(scope.value)
       if (draft.value) {
-        status.value = draft.value.state === 'conflict' ? 'error' : 'unknown'
-        if (draft.value.state === 'conflict')
-          error.value = new ApiError({ httpStatus: 409, code: 'IDEMPOTENCY_CONFLICT' })
+        status.value = ['conflict', 'expired'].includes(draft.value.state) ? 'error' : 'unknown'
+        if (draft.value.state === 'conflict' || draft.value.state === 'expired')
+          error.value = new ApiError({
+            httpStatus: 409,
+            code:
+              draft.value.state === 'expired' ? 'IDEMPOTENCY_KEY_EXPIRED' : 'IDEMPOTENCY_CONFLICT',
+          })
       }
     } catch (cause) {
       error.value = cause
@@ -164,7 +168,8 @@ export function useIdempotentMutation<Body, Result>(
     reset: () => {
       if (
         inFlight ||
-        (draft.value && ['submitting', 'unknown', 'conflict'].includes(draft.value.state))
+        (draft.value &&
+          ['submitting', 'unknown', 'conflict', 'expired'].includes(draft.value.state))
       )
         return
       draft.value = null

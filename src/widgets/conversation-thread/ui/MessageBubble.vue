@@ -29,6 +29,9 @@ const alignment = computed(() => {
   >
     <span class="text-xs font-semibold text-ink/70">{{ bubble.author }}</span>
     <p v-if="bubble.deleted" class="text-ink/70 italic">Сообщение удалено в мессенджере.</p>
+    <p v-else-if="bubble.contentErased" class="text-ink/70 italic">
+      Текст удалён по сроку хранения
+    </p>
     <template v-else>
       <p v-if="bubble.text" class="break-words whitespace-pre-line text-ink">{{ bubble.text }}</p>
       <p v-else-if="bubble.type !== 'TEXT' && !bubble.attachments.length" class="text-ink/70">

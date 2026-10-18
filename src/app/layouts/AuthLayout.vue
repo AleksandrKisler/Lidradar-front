@@ -41,6 +41,17 @@ import { UiIcon } from '@/shared/ui'
           <UiIcon name="radar" class="size-7" />LidRadar
         </p>
         <RouterView />
+        <nav
+          class="mt-8 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-muted"
+          aria-label="Юридические документы"
+        >
+          <a href="/legal/terms.html" target="_blank" rel="noopener" class="hover:underline"
+            >Пользовательское соглашение</a
+          >
+          <a href="/legal/privacy.html" target="_blank" rel="noopener" class="hover:underline"
+            >Политика конфиденциальности</a
+          >
+        </nav>
       </div>
     </main>
   </div>

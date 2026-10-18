@@ -1036,7 +1036,7 @@ test.describe('менеджер организации', () => {
     await expect(page).toHaveURL(/\/settings\/notifications$/)
     await expect(
       page.getByRole('navigation', { name: 'Разделы настроек' }).getByRole('link'),
-    ).toHaveText(['Уведомления', 'Данные'])
+    ).toHaveText(['Уведомления', 'Данные', 'Аккаунт'])
     await expect(page.getByRole('region', { name: 'Ваши уведомления в Telegram' })).toBeVisible()
     await expect(
       page.getByRole('list', { name: 'Настройки по типам рисков' }).locator(':scope > li'),
@@ -1067,9 +1067,7 @@ test.describe('новый сотрудник', () => {
 
   test('принимает код приглашения и попадает в организацию', async ({ page }) => {
     await page.goto('/radar')
-    // Без членств guard ведёт к созданию организации; оттуда есть путь к коду.
-    await expect(page).toHaveURL(/\/onboarding\/company$/)
-    await page.getByRole('link', { name: 'Принять приглашение' }).click()
+    // Без членств и права создавать организацию guard ведёт сразу к приглашению.
     await expect(page).toHaveURL(/\/invitations\/accept$/)
     await expectNoAxeViolations(page)
 

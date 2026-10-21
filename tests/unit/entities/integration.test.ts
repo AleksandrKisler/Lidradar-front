@@ -34,6 +34,9 @@ describe('подписи интеграций', () => {
     expect(capabilityLabel('CAN_RECEIVE_ATTACHMENTS')).toBe('вложения')
     expect(connectionErrorLabel('TELEGRAM_WEBHOOK_MISMATCH')).toContain('не на LidRadar')
     expect(connectionErrorLabel('SOMETHING_ELSE')).toBe('SOMETHING_ELSE')
+    // Коды, которые ставят worker и проверка ботов (ADR 0062): владелец должен понять, что делать.
+    expect(connectionErrorLabel('TELEGRAM_UNAUTHORIZED')).toContain('новым токеном')
+    expect(connectionErrorLabel('TELEGRAM_BOT_CONNECTED_ELSEWHERE')).toContain('Отключите лишнее')
     expect(verificationLabel('REMOTE')).toContain('опрошен')
     expect(BOT_TOKEN_PATTERN.test('123456789:AAHf1234567890abcdefghijklmnop')).toBe(true)
     expect(BOT_TOKEN_PATTERN.test('token')).toBe(false)

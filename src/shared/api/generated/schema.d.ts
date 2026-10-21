@@ -761,7 +761,7 @@ export interface paths {
         put?: never;
         /**
          * Create a channel connection
-         * @description OWNER-only (integration.manage). The webhook secret may be omitted: the server then issues a 256-bit base64url secret, returns it once in this response for providers without remote registration and persists only its SHA-256 verifier. CONNECTED_BUSINESS_BOT also requires botToken submitted once over TLS; the token is encrypted at rest with the connection as associated data, never logged and never returned (ADR 0045).
+         * @description OWNER-only (integration.manage). The webhook secret may be omitted: the server then issues a 256-bit base64url secret, returns it once in this response for providers without remote registration and persists only its SHA-256 verifier. CONNECTED_BUSINESS_BOT also requires botToken submitted once over TLS; the token is encrypted at rest with the connection as associated data, never logged and never returned (ADR 0045). Before anything is stored the token is confirmed with Telegram getMe and the bot id from getMe is reserved for this connection (ADR 0062): a token Telegram rejects is answered 400 CHANNEL_CREDENTIALS_REJECTED, an unreachable Telegram 503 CONNECTOR_UNAVAILABLE, and in both cases no connection is created. Older connections of the same bot that predate the bot id (migration 000031) are checked with getMe first: a working old token makes this request 409 CHANNEL_ALREADY_CONNECTED.
          */
         post: operations["connectChannel"];
         delete?: never;
@@ -4820,7 +4820,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Connection created. A Telegram connection is ACTIVE after setWebhook/getWebhookInfo verification, or ERROR with a safe code when remote provisioning failed. webhookSecret is present only when the server generated it for a provider whose sender must be configured by the operator. */
+            /** @description Connection created. A Telegram connection is ACTIVE after setWebhook/getWebhookInfo verification (or, with LIDRADAR_TELEGRAM_UPDATES=polling, after deleteWebhook and an empty getWebhookInfo url; ADR 0062), or ERROR with a safe code when remote provisioning failed. webhookSecret is present only when the server generated it for a provider whose sender must be configured by the operator. */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -4833,7 +4833,16 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description Telegram provisioning is not configured safely. */
+            /** @description CHANNEL_ALREADY_CONNECTED: the same bot already has a live connection, possibly in another organization; disconnect it first (ADR 0062). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Telegram provisioning is not configured safely, or Telegram could not be reached to confirm the token (CONNECTOR_UNAVAILABLE); no connection is created. */
             503: {
                 headers: {
                     [name: string]: unknown;

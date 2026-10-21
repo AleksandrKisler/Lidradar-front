@@ -223,6 +223,38 @@ describe('интеграции', () => {
     wrapper.unmount()
   })
 
+  it('Telegram: отвергнутый токен и уже подключённый бот объясняются, токен очищается', async () => {
+    const token = '123456789:AAHf1234567890abcdefghijklmnop'
+    fetchMock
+      .mockImplementationOnce(async () => errorResponse(400, 'CHANNEL_CREDENTIALS_REJECTED'))
+      .mockImplementationOnce(async () => errorResponse(409, 'CHANNEL_ALREADY_CONNECTED'))
+    const wrapper = mount(ConnectChannelDialog, {
+      props: { tenantId: 'tenant-a', locations: [], open: true },
+      global: { plugins: plugins() },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    await dialog().get('input[name="connectionName"]').setValue('Telegram · переписка')
+
+    await dialog().get('input[name="botToken"]').setValue(token)
+    await dialog().get('form').trigger('submit')
+    await settle()
+    expect(dialog().text()).toContain('Telegram не принял токен')
+    expect(dialog().text()).toContain('@BotFather')
+    expect(dialog().text()).not.toContain('raw')
+    expect(dialog().get<HTMLInputElement>('input[name="botToken"]').element.value).toBe('')
+
+    await dialog().get('input[name="botToken"]').setValue(token)
+    await dialog().get('form').trigger('submit')
+    await settle()
+    expect(dialog().text()).toContain('Этот бот уже подключён')
+    expect(dialog().text()).toContain('в другой организации')
+    expect(dialog().text()).not.toContain('Telegram не принял токен')
+    expect(dialog().get<HTMLInputElement>('input[name="botToken"]').element.value).toBe('')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+  })
+
   it('отключение: подтверждение, а при 503 — предупреждение и перечитывание', async () => {
     fetchMock.mockResolvedValueOnce(errorResponse(503, 'CONNECTOR_UNAVAILABLE'))
     const wrapper = mount(DisconnectChannelButton, {

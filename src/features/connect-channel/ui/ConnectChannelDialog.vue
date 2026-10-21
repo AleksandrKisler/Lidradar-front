@@ -224,8 +224,8 @@ watch(open, (isOpen) => {
         </p>
       </details>
       <UiAlert v-if="unavailable" tone="warning" title="Подключение временно недоступно">
-        Не удалось подключить Telegram. Черновик без токена сохранён, пока окно открыто: введите
-        токен заново и повторите попытку.
+        Не удалось связаться с Telegram, чтобы проверить токен, или подключение временно недоступно.
+        Черновик без токена сохранён, пока окно открыто: введите токен заново и повторите попытку.
       </UiAlert>
       <UiAlert v-else-if="errorView" tone="danger" :title="errorView.title" :trace-id="traceId">
         {{ errorView.description }}

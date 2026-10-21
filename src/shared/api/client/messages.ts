@@ -56,6 +56,16 @@ const byCode: Record<string, ApiErrorDescription> = {
     title: 'Конфликт данных',
     description: 'Состояние изменилось. Обновите данные и примите решение заново.',
   },
+  CHANNEL_CREDENTIALS_REJECTED: {
+    title: 'Telegram не принял токен',
+    description:
+      'Скопируйте токен из @BotFather целиком. Если токен перевыпускали командой /revoke, нужен новый. Подключение не создано.',
+  },
+  CHANNEL_ALREADY_CONNECTED: {
+    title: 'Этот бот уже подключён',
+    description:
+      'Бот работает в другом подключении, возможно, в другой организации. Отключите его там или подключите другого бота.',
+  },
   EMAIL_ALREADY_REGISTERED: {
     title: 'Электронная почта уже используется',
     description: 'Войдите с этим адресом или используйте другой.',

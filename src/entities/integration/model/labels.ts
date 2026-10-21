@@ -48,6 +48,10 @@ const errorLabels: Record<string, string> = {
   TELEGRAM_CONFIGURATION_REQUIRED: 'Telegram ещё не настроен: вебхук не зарегистрирован',
   TELEGRAM_WEBHOOK_MISMATCH: 'Вебхук Telegram указывает не на LidRadar',
   INVALID_PAYLOAD: 'Провайдер прислал данные в неожиданном формате',
+  TELEGRAM_UNAUTHORIZED:
+    'Telegram не принимает токен бота: он перевыпущен или бот удалён. Подключите бота заново с новым токеном',
+  TELEGRAM_BOT_CONNECTED_ELSEWHERE:
+    'Этот бот уже подключён в другом месте, сюда сообщения не приходят. Отключите лишнее подключение',
 }
 
 const verificationLabels: Record<HealthVerification, string> = {

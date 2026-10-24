@@ -1,7 +1,8 @@
 name: Quality and build
 on:
   push:
-    branches: [main, develop]
+    # stage — ветка стенда LidRadar (ADR 0065 бэкенда): проверки до слияния в main (production).
+    branches: [main, develop, stage]
   pull_request:
   workflow_dispatch:
 permissions:

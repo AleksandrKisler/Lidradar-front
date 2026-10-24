@@ -12,6 +12,8 @@ export interface NavItem {
   label: string
   /** Право, без которого пункт не показывается. */
   permission?: Permission
+  /** Пункт только для закрытого стейджа с песочницей (ADR 0066); показывается отдельно, под чертой. */
+  sandbox?: true
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
@@ -21,8 +23,18 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { to: '/integrations', label: 'Интеграции', permission: 'integration.manage' },
   // Настройки видит каждый участник: менеджеру доступны личные уведомления.
   { to: '/settings', label: 'Настройки' },
+  { to: '/sandbox', label: 'Песочница', permission: 'conversation.read', sandbox: true },
 ]
 
-export function visibleNavItems(can: (permission: Permission) => boolean): NavItem[] {
-  return NAV_ITEMS.filter((item) => !item.permission || can(item.permission))
+/**
+ * Пункты, доступные участнику. Песочница видна только при признаке `sandbox` из `/auth/me`: в production его нет.
+ */
+export function visibleNavItems(
+  can: (permission: Permission) => boolean,
+  options: { sandbox?: boolean } = {},
+): NavItem[] {
+  return NAV_ITEMS.filter(
+    (item) =>
+      (!item.permission || can(item.permission)) && (!item.sandbox || options.sandbox === true),
+  )
 }

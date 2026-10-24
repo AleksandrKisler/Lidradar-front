@@ -211,6 +211,19 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/conversations').then((m) => m.ConversationsPage),
         meta: { access: 'tenant', permission: 'conversation.read', title: 'Диалог' },
       },
+      // Песочница закрытого стейджа (ADR 0066): без признака sandbox в /auth/me страница объясняет, что её нет.
+      {
+        path: 'sandbox',
+        name: 'sandbox',
+        component: () => import('@/pages/sandbox').then((m) => m.SandboxPage),
+        meta: { access: 'tenant', permission: 'conversation.read', title: 'Песочница' },
+      },
+      {
+        path: 'sandbox/:conversationId',
+        name: 'sandbox-conversation',
+        component: () => import('@/pages/sandbox').then((m) => m.SandboxPage),
+        meta: { access: 'tenant', permission: 'conversation.read', title: 'Песочница' },
+      },
       {
         path: 'analytics',
         name: 'analytics',

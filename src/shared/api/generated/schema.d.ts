@@ -2187,6 +2187,8 @@ export interface components {
             connectionId: string;
             contactName: string;
             templateCode: string;
+            /** @description Изменены тексты или состав исходной сборки; null — версия каталога больше недоступна. Живые сообщения не меняют отметку. */
+            templateModified: boolean | null;
             templateVersion: number;
             expectedRiskType: components["schemas"]["RiskType"] | null;
             /** Format: date-time */
@@ -2230,6 +2232,11 @@ export interface components {
             dueAt: string | null;
             /** @description EVENT_FAILED или ANALYSIS_FAILED, через двоеточие — код модуля. */
             failureCode: string | null;
+            /**
+             * Format: uuid
+             * @description Сообщение песочницы с ошибкой события; при ошибке AI — последнее сообщение анализируемой переписки. Для поиска RawEvent используйте sandbox-event:<id>.
+             */
+            failureMessageId: string | null;
             /**
              * Format: uuid
              * @description Переписка модуля conversation; по ней интерфейс открывает «Диалоги».

@@ -16,6 +16,7 @@ const props = defineProps<{
   verdict: SandboxVerdict | null
   templateVersion: number | null
   sandboxId: string | null
+  templateModified: boolean | null
   timeZone: string
   now: Date
 }>()
@@ -74,6 +75,7 @@ const reportLine = computed(() => {
   if (props.verdict.analysisVersion) parts.push(`AI ${props.verdict.analysisVersion}`)
   if (props.sandboxId) parts.push(`песочница ${props.sandboxId}`)
   if (props.verdict.conversationId) parts.push(`диалог ${props.verdict.conversationId}`)
+  if (props.verdict.failureMessageId) parts.push(`сообщение ${props.verdict.failureMessageId}`)
   return parts.join(' · ')
 })
 </script>
@@ -89,6 +91,7 @@ const reportLine = computed(() => {
         {{ expectedRiskType ? riskTypeLabel(expectedRiskType) : 'Не задан' }}
       </p>
       <p class="text-sm text-muted">{{ closedByText(closedBy) }}</p>
+      <p v-if="templateModified" class="text-sm font-medium text-warning">Шаблон изменён</p>
     </section>
 
     <section

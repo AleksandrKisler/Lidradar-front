@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h, nextTick } from 'vue'
+import { defineComponent, h, nextTick, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
@@ -9,6 +9,8 @@ import {
   addDraftMessage,
   browserStorage,
   draftFromTemplate,
+  editDraftMessage,
+  hasModifiedTemplate,
   draftStorageKey,
   readDraft,
   removeDraftMessage,
@@ -60,6 +62,20 @@ describe('черновик переписки', () => {
     expect(toCreateRequest(draft)).not.toHaveProperty('contactName')
     const first = addDraftMessage({ ...draft, messages: [], nextPause: 180 }, 'INCOMING', 'Привет')
     expect(first.messages[0]!.pauseBeforeMinutes).toBe(0)
+  })
+
+  it('позволяет править текст шаблона только в черновике и сохраняет правку', () => {
+    const original = draftFromTemplate(priceTemplate, LOCATION_ID)
+    expect(hasModifiedTemplate(original, priceTemplate)).toBe(false)
+    const edited = editDraftMessage(original, 1, 'Другая цена')
+    expect(original.messages[1]!.text).toBe('8 000 ₽, когда удобно?')
+    expect(edited.messages[1]!.text).toBe('Другая цена')
+    expect(hasModifiedTemplate(edited, priceTemplate)).toBe(true)
+    expect(toCreateRequest(edited).messages[1]!.text).toBe('Другая цена')
+    const key = draftStorageKey('user-1', 'tenant-a')
+    writeDraft(browserStorage(), key, edited)
+    expect(hasModifiedTemplate(readDraft(browserStorage(), key)!, priceTemplate)).toBe(true)
+    expect(editDraftMessage(edited, -1, 'x')).toBe(edited)
   })
 
   it('хранится в браузере и отбрасывает повреждённые записи', () => {
@@ -199,5 +215,61 @@ describe('команды песочницы', () => {
       { direction: 'INCOMING', text: 'Хорошо' },
     ])
     expect(mutation.status.value).toBe('success')
+  })
+  it('очищает созданный черновик до обновления кеша и не трогает новую организацию', async () => {
+    let finishRefresh!: () => void
+    const refresh = new Promise<void>((resolve) => {
+      finishRefresh = resolve
+    })
+    const invalidation = vi.spyOn(queryClient, 'invalidateQueries').mockReturnValue(refresh)
+    vi.mocked(createSandboxConversation).mockResolvedValue({
+      conversation: sandboxConversation(),
+      created: true,
+    })
+    let text = 'Старый черновик'
+    const created = vi.fn(() => {
+      text = ''
+    })
+    const mutation = withSetup(() => useCreateSandboxConversation(created))
+    const pending = mutation.submit(toCreateRequest(draftFromTemplate(priceTemplate, LOCATION_ID)))
+    await flushPromises()
+    expect(created).toHaveBeenCalledTimes(1)
+    expect(text).toBe('')
+    useSessionStore().clearTenant()
+    text = 'Черновик другой организации'
+    finishRefresh()
+    await pending
+    expect(text).toBe('Черновик другой организации')
+    expect(created).toHaveBeenCalledTimes(1)
+    invalidation.mockRestore()
+  })
+
+  it('очищает подтверждённое сообщение до обновления кеша и не трогает другой диалог', async () => {
+    let finishRefresh!: () => void
+    const refresh = new Promise<void>((resolve) => {
+      finishRefresh = resolve
+    })
+    const invalidation = vi.spyOn(queryClient, 'invalidateQueries').mockReturnValue(refresh)
+    vi.mocked(sendSandboxMessage).mockResolvedValue({
+      conversation: sandboxConversation(),
+      created: true,
+    })
+    const selected = ref(SANDBOX_ID)
+    let text = 'Хорошо'
+    const sent = vi.fn(() => {
+      text = ''
+    })
+    const mutation = withSetup(() => useSendSandboxMessage(selected, sent))
+    const pending = mutation.submit({ direction: 'INCOMING', text })
+    await flushPromises()
+    expect(sent).toHaveBeenCalledTimes(1)
+    expect(text).toBe('')
+    selected.value = 'another-conversation'
+    text = 'Сообщение в другом диалоге'
+    finishRefresh()
+    await pending
+    expect(text).toBe('Сообщение в другом диалоге')
+    expect(sent).toHaveBeenCalledTimes(1)
+    invalidation.mockRestore()
   })
 })

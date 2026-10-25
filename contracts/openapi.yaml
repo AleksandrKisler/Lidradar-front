@@ -1756,13 +1756,14 @@ components:
     SandboxConversation:
       type: object
       additionalProperties: false
-      required: [id, locationId, connectionId, contactName, templateCode, templateVersion, expectedRiskType, createdAt, lastSentAt, messages, status]
+      required: [id, locationId, connectionId, contactName, templateCode, templateVersion, templateModified, expectedRiskType, createdAt, lastSentAt, messages, status]
       properties:
         id: { type: string, format: uuid }
         locationId: { type: string, format: uuid }
         connectionId: { type: string, format: uuid, description: Канал TEST «Песочница» точки. }
         contactName: { type: string }
         templateCode: { type: string }
+        templateModified: { type: [boolean, 'null'], description: "Изменены тексты или состав исходной сборки; null — версия каталога больше недоступна. Живые сообщения не меняют отметку." }
         templateVersion: { type: integer, minimum: 1 }
         expectedRiskType: { oneOf: [{ $ref: '#/components/schemas/RiskType' }, { type: 'null' }] }
         createdAt: { type: string, format: date-time }
@@ -1785,7 +1786,7 @@ components:
       type: object
       additionalProperties: false
       description: 'Сверка «Ожидали / Нашли» (ADR 0066 п. 6). PROCESSING — обработка идёт (stage: SENDING — коннектор принял не все сообщения, повторите команду; NORMALIZING — собирается переписка; ANALYZING — AI разбирает текущую ревизию; EVALUATING — правила рисков отрабатывают, до 90 секунд после анализа). MATCH — найден активный ожидаемый риск; PENDING — риск ещё не наступил, dueAt — срок его проверки в рабочих часах точки; CLOSED — ожидаемый риск был найден и закрыт; MISMATCH — обработка завершена, ожидаемого риска нет; NO_EXPECTATION — у шаблона нет ожидания; FAILED — событие или анализ завершились ошибкой (failureCode).'
-      required: [state, stage, expectedRiskType, expectedRiskId, dueAt, failureCode, conversationId, analysisVersion, found]
+      required: [state, stage, expectedRiskType, expectedRiskId, dueAt, failureCode, failureMessageId, conversationId, analysisVersion, found]
       properties:
         state: { type: string, enum: [PROCESSING, MATCH, PENDING, CLOSED, MISMATCH, NO_EXPECTATION, FAILED] }
         stage: { type: [string, 'null'], enum: [SENDING, NORMALIZING, ANALYZING, EVALUATING, null] }
@@ -1793,6 +1794,7 @@ components:
         expectedRiskId: { type: [string, 'null'], format: uuid, description: Найденный риск ожидаемого типа (активный или последний закрытый). }
         dueAt: { type: [string, 'null'], format: date-time }
         failureCode: { type: [string, 'null'], description: 'EVENT_FAILED или ANALYSIS_FAILED, через двоеточие — код модуля.' }
+        failureMessageId: { type: [string, 'null'], format: uuid, description: 'Сообщение песочницы с ошибкой события; при ошибке AI — последнее сообщение анализируемой переписки. Для поиска RawEvent используйте sandbox-event:<id>.' }
         conversationId: { type: [string, 'null'], format: uuid, description: Переписка модуля conversation; по ней интерфейс открывает «Диалоги». }
         analysisVersion: { type: [string, 'null'], description: 'Кортеж AI последнего успешного анализа переписки: модель/схема/инструкция. Для отчёта о баге.' }
         found: { type: array, items: { $ref: '#/components/schemas/SandboxFoundRisk' } }

@@ -35,6 +35,7 @@ export {
   createSandboxConversation,
   sendSandboxMessage,
   pollInterval,
+  SANDBOX_PENDING_POLL_INTERVAL_MS,
   storeSandboxConversation,
   useSandboxOverviewQuery,
   useSandboxTemplatesQuery,

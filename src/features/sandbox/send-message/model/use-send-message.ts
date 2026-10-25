@@ -12,7 +12,10 @@ import {
   type SandboxSendRequest,
 } from '@/entities/sandbox'
 
-export function useSendSandboxMessage(conversationId: MaybeRefOrGetter<string>) {
+export function useSendSandboxMessage(
+  conversationId: MaybeRefOrGetter<string>,
+  onSent?: (conversation: SandboxConversation) => void,
+) {
   const session = useSessionStore()
   const queryClient = useQueryClient()
   return useIdempotentMutation<SandboxSendRequest, SandboxConversation>({
@@ -29,8 +32,13 @@ export function useSendSandboxMessage(conversationId: MaybeRefOrGetter<string>) 
       (await sendSandboxMessage(session.tenantId ?? '', toValue(conversationId), key, body))
         .conversation,
     onSuccess: async (conversation) => {
-      if (session.tenantId)
-        await storeSandboxConversation(queryClient, session.tenantId, conversation)
+      const refresh = session.tenantId
+        ? storeSandboxConversation(queryClient, session.tenantId, conversation)
+        : Promise.resolve()
+      // Очищаем поле сразу после подтверждения команды, пока проверенный scope
+      // ещё текущий. Обновление кеша может завершиться уже в другом диалоге.
+      onSent?.(conversation)
+      await refresh
     },
   })
 }

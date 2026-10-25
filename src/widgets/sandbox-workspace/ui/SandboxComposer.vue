@@ -3,7 +3,7 @@
  * Поле нового сообщения и две равные кнопки отправителя. Enter ничего не отправляет: отправитель выбирается
  * явно, чтобы не написать от имени не той стороны.
  */
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { UiButton, UiField, UiInput } from '@/shared/ui'
 import {
   MAX_TEXT_LENGTH,
@@ -19,6 +19,7 @@ const props = defineProps<{
   showPause: boolean
   busy: boolean
   locked: boolean
+  clearToken: number
 }>()
 const emit = defineEmits<{
   add: [direction: SandboxDirection, text: string]
@@ -29,6 +30,15 @@ const text = ref('')
 const error = ref('')
 const hint = ref('')
 const pauseOptions = PAUSE_OPTIONS.map((value) => ({ value, label: formatPause(value) }))
+
+watch(
+  () => props.clearToken,
+  () => {
+    text.value = ''
+    error.value = ''
+    hint.value = ''
+  },
+)
 
 function submit(direction: SandboxDirection): void {
   if (props.busy || props.locked) return
@@ -44,7 +54,7 @@ function submit(direction: SandboxDirection): void {
   error.value = ''
   hint.value = ''
   emit('add', direction, value)
-  text.value = ''
+  if (props.mode === 'draft') text.value = ''
 }
 
 function onEnter(): void {

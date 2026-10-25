@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /** Лента переписки: клиент слева, бизнес справа, паузы подписями; внизу — линия «сейчас». */
-import { UiIcon } from '@/shared/ui'
-import { formatMoment } from '@/entities/sandbox'
+import { UiIcon, UiTextarea } from '@/shared/ui'
+import { MAX_TEXT_LENGTH, formatMoment } from '@/entities/sandbox'
 import type { TimelineItem } from '../model/view'
 
 defineProps<{
@@ -10,7 +10,7 @@ defineProps<{
   now: Date
   editable: boolean
 }>()
-const emit = defineEmits<{ remove: [index: number] }>()
+const emit = defineEmits<{ remove: [index: number]; edit: [index: number, text: string] }>()
 </script>
 
 <template>
@@ -34,7 +34,16 @@ const emit = defineEmits<{ remove: [index: number] }>()
               item.direction === 'OUTGOING' ? 'items-end' : 'items-start',
             ]"
           >
+            <UiTextarea
+              v-if="editable && item.draftIndex !== null"
+              :model-value="item.text"
+              :aria-label="`Текст сообщения ${item.draftIndex + 1}`"
+              :maxlength="MAX_TEXT_LENGTH"
+              :rows="2"
+              @update:model-value="emit('edit', item.draftIndex!, $event ?? '')"
+            />
             <p
+              v-else
               :class="[
                 'rounded-card px-4 py-2.5 text-sm break-words whitespace-pre-line',
                 item.direction === 'OUTGOING'

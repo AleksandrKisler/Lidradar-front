@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient } from '@tanstack/vue-query'
 import {
   SANDBOX_POLL_INTERVAL_MS,
+  SANDBOX_PENDING_POLL_INTERVAL_MS,
   createSandboxConversation,
   draftProblem,
   fetchSandboxConversation,
@@ -200,12 +201,15 @@ describe('запросы песочницы', () => {
     expect(send!.headers.get('Idempotency-Key')).toBe('key-2')
   })
 
-  it('опрашивает только обрабатывающиеся переписки и обновляет кеш после команды', async () => {
+  it('опрашивает обработку и ожидающий риск, обновляет кеш после команды', async () => {
     expect(pollInterval(undefined)).toBe(false)
     expect(
       pollInterval([sandboxConversation({ status: verdict({ state: 'MATCH', stage: null }) })]),
     ).toBe(false)
     expect(pollInterval([sandboxConversation()])).toBe(SANDBOX_POLL_INTERVAL_MS)
+    expect(
+      pollInterval([sandboxConversation({ status: verdict({ state: 'PENDING', stage: null }) })]),
+    ).toBe(SANDBOX_PENDING_POLL_INTERVAL_MS)
     const queryClient = new QueryClient()
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
     await storeSandboxConversation(queryClient, 'tenant-a', sandboxConversation())

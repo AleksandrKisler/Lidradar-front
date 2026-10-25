@@ -9,6 +9,7 @@ defineProps<{
   templateNames: Record<string, string>
   selectedId: string | null
   draftSelected: boolean
+  createDisabled: boolean
 }>()
 const emit = defineEmits<{ select: [id: string | null]; create: [] }>()
 </script>
@@ -25,7 +26,9 @@ const emit = defineEmits<{ select: [id: string | null]; create: [] }>()
       <span class="text-xs text-muted">{{ conversations.length + (draft ? 1 : 0) }}</span>
     </div>
     <div class="px-4 pb-3">
-      <UiButton variant="secondary" block @click="emit('create')">Новый клиент</UiButton>
+      <UiButton variant="secondary" block :disabled="createDisabled" @click="emit('create')"
+        >Новый клиент</UiButton
+      >
     </div>
     <ul class="flex flex-col gap-1 px-2 pb-3" aria-label="Виртуальные клиенты">
       <li v-if="draft">

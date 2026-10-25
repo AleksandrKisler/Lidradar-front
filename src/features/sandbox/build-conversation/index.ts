@@ -2,6 +2,8 @@ export {
   draftStorageKey,
   draftFromTemplate,
   addDraftMessage,
+  editDraftMessage,
+  hasModifiedTemplate,
   removeDraftMessage,
   toCreateRequest,
   readDraft,

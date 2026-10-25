@@ -58,6 +58,29 @@ export function removeDraftMessage(draft: SandboxDraft, index: number): SandboxD
   return { ...draft, messages }
 }
 
+/** Меняет только текст сообщения черновика; отправленные сообщения неизменяемы. */
+export function editDraftMessage(draft: SandboxDraft, index: number, text: string): SandboxDraft {
+  if (index < 0 || index >= draft.messages.length) return draft
+  return {
+    ...draft,
+    messages: draft.messages.map((message, position) =>
+      position === index ? { ...message, text } : message,
+    ),
+  }
+}
+
+/** Сравнение с исходными текстами шаблона для подсказки до отправки. */
+export function hasModifiedTemplate(
+  draft: SandboxDraft,
+  template: SandboxTemplate | null,
+): boolean {
+  if (!template || template.code === 'empty' || draft.templateCode !== template.code) return false
+  return (
+    draft.messages.length !== template.messages.length ||
+    draft.messages.some((message, index) => message.text !== template.messages[index]?.text)
+  )
+}
+
 /** Тело команды сборки: пустое имя клиента не отправляется — сервер выберет синтетическое. */
 export function toCreateRequest(draft: SandboxDraft): SandboxCreateRequest {
   const contactName = draft.contactName.trim()

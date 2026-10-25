@@ -23,6 +23,8 @@ import {
 import {
   addDraftMessage,
   draftFromTemplate,
+  editDraftMessage,
+  hasModifiedTemplate,
   removeDraftMessage,
   toCreateRequest,
   useCreateSandboxConversation,
@@ -57,6 +59,7 @@ const selected = useSandboxConversationQuery(
 )
 const { draft, update } = useSandboxDraft()
 const dialogOpen = ref(false)
+const clearComposerToken = ref(0)
 
 const allTemplates = computed(() => templates.data.value ?? [])
 const qualifiedTemplates = computed(() => allTemplates.value.filter((item) => item.qualified))
@@ -84,6 +87,9 @@ const template = computed(() => {
   const code = conversation.value?.templateCode ?? draft.value?.templateCode
   return allTemplates.value.find((item) => item.code === code) ?? null
 })
+const draftModified = computed(() =>
+  draft.value ? hasModifiedTemplate(draft.value, template.value) : false,
+)
 const items = computed(() => {
   if (mode.value === 'live' && conversation.value)
     return sentTimeline(conversation.value, now.value)
@@ -96,7 +102,12 @@ const create = useCreateSandboxConversation((created) => {
   update(null)
   emit('select', created.id)
 })
-const send = useSendSandboxMessage(() => props.conversationId ?? '')
+const send = useSendSandboxMessage(
+  () => props.conversationId ?? '',
+  () => {
+    clearComposerToken.value += 1
+  },
+)
 
 /** Пока результат прошлой отправки неизвестен, черновик не меняется: повтор идёт тем же телом. */
 const draftLocked = computed(() => create.isPending.value || create.canRetry.value)
@@ -133,6 +144,7 @@ const commandError = computed(() => {
 })
 
 function startDraft(templateCode: string, locationId: string, contactName: string): void {
+  if (draftLocked.value) return
   const chosen = allTemplates.value.find((item) => item.code === templateCode)
   if (!chosen) return
   update({ ...draftFromTemplate(chosen, locationId), contactName })
@@ -144,7 +156,19 @@ function onAdd(direction: SandboxDirection, text: string): void {
     update(addDraftMessage(draft.value, direction, text))
     return
   }
-  if (mode.value === 'live') void send.submit({ direction, text })
+  if (mode.value === 'live') {
+    void send.submit({ direction, text })
+  }
+}
+
+function retrySend(): void {
+  void send.retry()
+}
+
+function retryLoad(): void {
+  void templates.refetch()
+  void locations.refetch()
+  void conversations.refetch()
 }
 
 function submitDraft(): void {
@@ -171,11 +195,29 @@ function submitDraft(): void {
       :template-names="templateNames"
       :selected-id="conversationId"
       :draft-selected="mode === 'draft'"
+      :create-disabled="draftLocked"
       @select="emit('select', $event)"
       @create="dialogOpen = true"
     />
 
+    <UiAlert
+      v-if="templates.isError.value || locations.isError.value || conversations.isError.value"
+      tone="danger"
+      title="Не удалось загрузить песочницу"
+    >
+      Повторите загрузку данных.
+      <UiButton variant="secondary" @click="retryLoad"> Повторить </UiButton>
+    </UiAlert>
+
     <UiCard v-if="mode === 'empty'" :padded="false">
+      <p
+        v-if="
+          templates.isPending.value || locations.isPending.value || conversations.isPending.value
+        "
+        class="px-6 pt-5 text-sm text-muted"
+      >
+        Загружаем песочницу…
+      </p>
       <UiEmptyState
         title="Создайте виртуального клиента"
         description="Выберите шаблон: он заполнит переписку. Дальше отправьте её в систему и сверьте найденный риск с ожидаемым."
@@ -202,6 +244,17 @@ function submitDraft(): void {
         </div>
       </header>
 
+      <UiAlert
+        v-if="mode === 'live' && selected.isError.value"
+        tone="danger"
+        title="Не удалось загрузить переписку"
+      >
+        <UiButton variant="secondary" @click="selected.refetch()">Повторить</UiButton>
+      </UiAlert>
+      <p v-else-if="mode === 'live' && !conversation" class="px-6 pt-5 text-sm text-muted">
+        Загружаем переписку…
+      </p>
+
       <div class="px-6 py-5">
         <SandboxTimeline
           :items="items"
@@ -209,6 +262,7 @@ function submitDraft(): void {
           :now="now"
           :editable="mode === 'draft' && !draftLocked"
           @remove="draft && update(removeDraftMessage(draft, $event))"
+          @edit="(index, text) => draft && update(editDraftMessage(draft, index, text))"
         >
           <template v-if="mode === 'draft' && draft" #tail>
             <div class="flex flex-col items-center gap-2 py-1">
@@ -243,16 +297,22 @@ function submitDraft(): void {
           v-if="mode === 'live' && send.canRetry.value"
           variant="secondary"
           :loading="send.isPending.value"
-          @click="send.retry()"
+          @click="retrySend"
         >
           Повторить отправку
         </UiButton>
         <SandboxComposer
+          :key="`${tenantId}:${conversationId ?? 'draft'}`"
           :mode="mode === 'live' ? 'live' : 'draft'"
+          :clear-token="clearComposerToken"
           :pause="draft?.nextPause ?? 0"
           :show-pause="mode === 'draft' && Boolean(draft?.messages.length)"
           :busy="send.isPending.value"
-          :locked="mode === 'draft' ? draftLocked : send.canRetry.value"
+          :locked="
+            mode === 'draft'
+              ? draftLocked
+              : send.canRetry.value || send.isPending.value || !conversation
+          "
           @add="onAdd"
           @update:pause="draft && update({ ...draft, nextPause: $event })"
         />
@@ -281,12 +341,16 @@ function submitDraft(): void {
         :verdict="mode === 'live' ? (conversation?.status ?? null) : null"
         :template-version="conversation?.templateVersion ?? template?.version ?? null"
         :sandbox-id="conversation?.id ?? null"
+        :template-modified="
+          mode === 'draft' ? draftModified : (conversation?.templateModified ?? null)
+        "
         :time-zone="timeZone"
         :now="now"
       />
     </div>
 
     <SandboxNewClientDialog
+      v-if="!draftLocked"
       v-model:open="dialogOpen"
       :templates="qualifiedTemplates"
       :locations="locations.data.value ?? []"

@@ -58,42 +58,68 @@ const templates = [
 export interface SandboxMockOptions {
   /** Первая сборка получает этот отказ (например, `SANDBOX_BUSY`). */
   failCreate?: { status: number; code: string }
+  failSend?: { status: number; code: string }
+  initialState?: 'PROCESSING' | 'PENDING' | 'FAILED'
 }
 
 export async function mockSandbox(
   page: Page,
   options: SandboxMockOptions = {},
-): Promise<{ created: unknown[] }> {
+): Promise<{ created: unknown[]; sent: unknown[] }> {
   const created: unknown[] = []
+  const sent: unknown[] = []
   let conversation: Record<string, unknown> | null = null
   let reads = 0
+  let readyAt = Infinity
   let failure = options.failCreate
+  let sendFailure = options.failSend
+  let followUp = false
+  let followUpReads = 0
 
   const verdict = (state: string) => ({
     state,
     stage: state === 'PROCESSING' ? 'ANALYZING' : null,
     expectedRiskType: 'CUSTOMER_SILENT_AFTER_PRICE',
-    expectedRiskId: state === 'MATCH' ? '01990000-0000-7000-8000-000000000301' : null,
-    dueAt: null,
-    failureCode: null,
+    expectedRiskId: ['MATCH', 'CLOSED'].includes(state)
+      ? '01990000-0000-7000-8000-000000000301'
+      : null,
+    dueAt: state === 'PENDING' ? new Date(Date.now() + 15_000).toISOString() : null,
+    failureCode: state === 'FAILED' ? 'EVENT_FAILED:INVALID_PAYLOAD' : null,
+    failureMessageId: state === 'FAILED' ? '01990000-0000-7000-8066-000000000499' : null,
     conversationId: '01990000-0000-7000-8000-000000000601',
-    analysisVersion: state === 'MATCH' ? 'lidradar-main-v1/analyze-conversation.v2/v9' : null,
-    found:
-      state === 'MATCH'
-        ? [
-            {
-              id: '01990000-0000-7000-8000-000000000301',
-              type: 'CUSTOMER_SILENT_AFTER_PRICE',
-              status: 'OPEN',
-              severity: 'MEDIUM',
-              detectedAt: '2026-10-25T09:00:00Z',
-              resolvedAt: null,
-              active: true,
-            },
-          ]
-        : [],
+    analysisVersion: ['MATCH', 'CLOSED'].includes(state)
+      ? 'lidradar-main-v1/analyze-conversation.v2/v9'
+      : null,
+    found: ['MATCH', 'CLOSED'].includes(state)
+      ? [
+          {
+            id: '01990000-0000-7000-8000-000000000301',
+            type: 'CUSTOMER_SILENT_AFTER_PRICE',
+            status: state === 'CLOSED' ? 'RESOLVED' : 'OPEN',
+            severity: 'MEDIUM',
+            detectedAt: '2026-10-25T09:00:00Z',
+            resolvedAt: null,
+            active: state === 'MATCH',
+          },
+        ]
+      : [],
   })
-  const current = () => ({ ...conversation!, status: verdict(reads > 0 ? 'MATCH' : 'PROCESSING') })
+  const current = () => ({
+    ...conversation!,
+    status: verdict(
+      options.initialState === 'FAILED'
+        ? 'FAILED'
+        : options.initialState === 'PENDING' && Date.now() < readyAt
+          ? 'PENDING'
+          : followUp
+            ? followUpReads > 1
+              ? 'CLOSED'
+              : 'PROCESSING'
+            : reads > 1
+              ? 'MATCH'
+              : (options.initialState ?? 'PROCESSING'),
+    ),
+  })
 
   await page.route('**/api/v1/auth/me', (route) =>
     json(route, 200, {
@@ -139,6 +165,7 @@ export async function mockSandbox(
       templateCode: string
     }
     created.push(body)
+    readyAt = Date.now() + 3000
     conversation = {
       id: SANDBOX_CONVERSATION_ID,
       locationId: LOCATION_ID,
@@ -146,6 +173,19 @@ export async function mockSandbox(
       contactName: body.contactName ?? 'Анна Петрова',
       templateCode: body.templateCode,
       templateVersion: 1,
+      templateModified:
+        body.templateCode !== 'empty' &&
+        (() => {
+          const template = templates.find((item) => item.code === body.templateCode)
+          return (
+            body.messages.length !== template?.messages.length ||
+            body.messages.some(
+              (message, index) =>
+                message.text !== template?.messages[index]?.text ||
+                message.direction !== template?.messages[index]?.direction,
+            )
+          )
+        })(),
       expectedRiskType: 'CUSTOMER_SILENT_AFTER_PRICE',
       createdAt: new Date().toISOString(),
       lastSentAt: new Date().toISOString(),
@@ -163,7 +203,32 @@ export async function mockSandbox(
     if (!conversation)
       return json(route, 404, { error: { code: 'NOT_FOUND', message: '', traceId: 't' } })
     reads += 1
+    if (followUp) followUpReads += 1
     return json(route, 200, current())
   })
-  return { created }
+  await page.route('**/api/v1/sandbox/conversations/*/messages', (route) => {
+    if (sendFailure) {
+      const { status, code } = sendFailure
+      sendFailure = undefined
+      return json(route, status, { error: { code, message: code, traceId: 'trace-sandbox' } })
+    }
+    const body = route.request().postDataJSON() as { direction: string; text: string }
+    sent.push(body)
+    followUp = true
+    followUpReads = 0
+    conversation = {
+      ...conversation!,
+      messages: [
+        ...(conversation!.messages as Record<string, unknown>[]),
+        {
+          id: '01990000-0000-7000-8066-000000000499',
+          sequence: (conversation!.messages as unknown[]).length + 1,
+          ...body,
+          sentAt: new Date().toISOString(),
+        },
+      ],
+    }
+    return json(route, 201, current())
+  })
+  return { created, sent }
 }

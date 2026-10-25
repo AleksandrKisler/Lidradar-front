@@ -1,6 +1,6 @@
 /**
  * Запросы песочницы стейджа (ADR 0066). Ключи начинаются с организации; переписки, которые ещё обрабатываются,
- * перечитываются раз в 3 секунды, остальные — только по действию пользователя. Команды идут с ключом
+ * перечитываются раз в 3 секунды, ожидающие срока проверки — раз в 15 секунд. Остальные — по действию пользователя. Команды идут с ключом
  * идемпотентности: повтор той же отправки досылает недоставленные сообщения без дублей.
  */
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
@@ -109,13 +109,18 @@ export async function sendSandboxMessage(
   return { conversation: data, created: status === 201 }
 }
 
-/** Интервал опроса: только пока хотя бы одна переписка обрабатывается. */
+/** PENDING меняется после срока проверки без действия пользователя; опрашиваем его реже обработки. */
+export const SANDBOX_PENDING_POLL_INTERVAL_MS = 15_000
+
+/** Интервал опроса: обработка каждые 3 секунды, запланированный риск каждые 15. */
 export function pollInterval(
   conversations: readonly SandboxConversation[] | undefined,
 ): number | false {
-  return conversations?.some((item) => item.status.state === 'PROCESSING')
-    ? SANDBOX_POLL_INTERVAL_MS
-    : false
+  if (conversations?.some((item) => item.status.state === 'PROCESSING'))
+    return SANDBOX_POLL_INTERVAL_MS
+  if (conversations?.some((item) => item.status.state === 'PENDING'))
+    return SANDBOX_PENDING_POLL_INTERVAL_MS
+  return false
 }
 
 /** Кладёт свежий ответ команды в кеш переписки и обновляет список. */

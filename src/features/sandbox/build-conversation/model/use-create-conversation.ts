@@ -25,9 +25,13 @@ export function useCreateSandboxConversation(
     execute: async (body, key) =>
       (await createSandboxConversation(session.tenantId ?? '', key, body)).conversation,
     onSuccess: async (conversation) => {
-      if (session.tenantId)
-        await storeSandboxConversation(queryClient, session.tenantId, conversation)
+      const refresh = session.tenantId
+        ? storeSandboxConversation(queryClient, session.tenantId, conversation)
+        : Promise.resolve()
+      // Команда уже подтверждена, а её scope ещё текущий. Не откладываем
+      // очистку черновика до сетевого обновления кеша: пользователь может сменить организацию.
       onCreated(conversation)
+      await refresh
     },
   })
 }

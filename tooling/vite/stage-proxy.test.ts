@@ -169,7 +169,7 @@ describe('настоящие HTTP-запросы через Vite', () => {
     respond = (_req, res) => {
       res.writeHead(200, {
         'Set-Cookie': [
-          'lidradar_session=token; Path=/; Domain=stage.api-lid-radar.ru; HttpOnly; Secure; SameSite=Strict',
+          'lidradar_session=token; Path=/; Domain=stage.app-lid-radar.ru; HttpOnly; Secure; SameSite=Strict',
           'lidradar_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict',
         ],
       })

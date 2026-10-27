@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite --mode development",
+    "dev:stage": "vite --mode stage",
     "dev:pre-prod": "vite --mode preprod",
     "typecheck": "vue-tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
     "build": "npm run build:prod",

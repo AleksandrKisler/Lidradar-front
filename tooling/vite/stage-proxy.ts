@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { ProxyOptions } from 'vite'
 
-export const STAGE_API_ORIGIN = 'https://stage.api-lid-radar.ru'
+export const STAGE_API_ORIGIN = 'https://stage.app-lid-radar.ru'
 const SESSION_COOKIE = 'lidradar_session'
 const LOCAL_SESSION_COOKIE = 'lidradar_stage_session'
 

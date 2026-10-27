@@ -15,11 +15,30 @@ npm run dev
 
 Node закреплён в `.nvmrc`; `engine-strict` не даст поставить зависимости другой версией.
 
+### Локальный frontend с backend staging на VPS
+
+Вместо локального backend можно использовать `https://stage.app-lid-radar.ru`:
+
+```sh
+cp .env.stage.example .env.stage.local
+chmod 600 .env.stage.local
+# Заполните логин и пароль общего входа staging в .env.stage.local.
+nvm use
+npm run dev:stage
+```
+
+Если `.env.stage.local` уже существует, не перезаписывайте его шаблоном.
+Frontend открывается на `http://127.0.0.1:5173`; локальные backend и Docker не нужны.
+В форму входа вводите учётную запись приложения staging, а не общий пароль стенда.
+Действия интерфейса изменяют данные staging на VPS. Подробности прокси и cookie —
+[в описании окружений](docs/environments.md#локальная-разработка-с-vps-staging).
+
 ## Команды
 
 | Команда                     | Назначение                                                                    |
 | --------------------------- | ----------------------------------------------------------------------------- |
 | `npm run dev`               | Локальная разработка с HMR и proxy `/api` → стенд                             |
+| `npm run dev:stage`         | Локальная разработка с API staging на VPS и реквизитами из `.env.stage.local` |
 | `npm run build:prod`        | Проверка типов и production-сборка без source maps                            |
 | `npm run build:pre-prod`    | Та же сборка с настройками pre-prod                                           |
 | `npm run preview`           | Раздача готового `dist` на 4173 (не production-сервер)                        |

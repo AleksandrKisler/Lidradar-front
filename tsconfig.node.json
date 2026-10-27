@@ -3,10 +3,11 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["*.config.ts", "tests/e2e/**/*.ts", "tooling/visual/**/*.ts"]
+  "include": ["*.config.ts", "tests/e2e/**/*.ts", "tooling/visual/**/*.ts", "tooling/vite/**/*.ts"]
 }

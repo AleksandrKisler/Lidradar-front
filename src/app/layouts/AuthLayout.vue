@@ -1,58 +1,80 @@
 <script setup lang="ts">
 import { UiIcon } from '@/shared/ui'
 /**
- * Гостевой layout по макету «Вход»: слева тёмная панель с ценностью
- * продукта, справа карточка формы. На узких экранах панель скрыта.
+ * Гостевой layout по Figma «Доступ · Apple HIG» (462:5453, 464:6336, 464:8859):
+ * на desktop две равные колонки — обзор продукта слева, форма справа; на
+ * планшете и телефоне шапка с брендом, форма и обзор продукта под ней.
  */
+const benefits = [
+  'Деньги требуют внимания.',
+  'Понятные причины вместо догадок.',
+  'Решение и ответ клиенту остаются за вами.',
+]
 </script>
 
 <template>
-  <div class="min-h-dvh lg:grid lg:grid-cols-2">
-    <aside class="hidden bg-nav text-white lg:flex lg:flex-col lg:justify-between lg:p-12">
-      <p class="flex items-center gap-2 text-xl font-bold tracking-tight">
+  <div class="flex min-h-dvh flex-col bg-canvas lg:grid lg:grid-cols-2">
+    <header class="flex h-18 items-center px-6 md:h-20 md:px-8 lg:hidden">
+      <p class="flex items-center gap-2.5 text-xl leading-7 font-semibold text-ink">
         <UiIcon name="radar" class="size-7" />LidRadar
       </p>
-      <div class="max-w-md">
-        <p class="text-xs font-semibold tracking-widest text-nav-text">
-          Контроль потерянных возможностей
-        </p>
-        <p class="mt-4 text-4xl leading-tight font-bold">Замечайте риски. Возвращайте клиентов.</p>
-        <p class="mt-4 text-base leading-7 text-nav-text">
-          Переписка, причина риска и следующий шаг — в одном рабочем пространстве.
-        </p>
-        <ul class="mt-8 flex flex-col gap-3 text-sm text-nav-text">
-          <li class="flex gap-3">
-            <span class="text-brand" aria-hidden="true">●</span>Деньги требуют внимания.
-          </li>
-          <li class="flex gap-3">
-            <span class="text-brand" aria-hidden="true">●</span>Понятные причины вместо догадок.
-          </li>
-          <li class="flex gap-3">
-            <span class="text-brand" aria-hidden="true">●</span>Решение и ответ клиенту остаются за
-            вами.
-          </li>
-        </ul>
-      </div>
-      <p class="text-sm text-nav-text">LidRadar · Для малого бизнеса</p>
-    </aside>
-    <main id="main" class="flex items-center justify-center px-5 py-10 md:px-12">
-      <div class="w-full max-w-md">
-        <p class="flex items-center gap-2 mb-8 text-xl font-bold tracking-tight text-ink lg:hidden">
-          <UiIcon name="radar" class="size-7" />LidRadar
-        </p>
-        <RouterView />
+    </header>
+
+    <main
+      id="main"
+      class="flex flex-col items-center px-4 pt-4 pb-8 md:px-[161px] md:pt-8 md:pb-12 lg:min-h-dvh lg:justify-center lg:px-8 lg:py-12 xl:px-[104px]"
+    >
+      <div class="w-full max-w-[512px]">
+        <slot><RouterView /></slot>
         <nav
-          class="mt-8 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-muted"
+          class="mt-6 flex flex-col items-center gap-2 text-xs leading-[18px] text-link md:flex-row md:gap-6"
           aria-label="Юридические документы"
         >
-          <a href="/legal/terms.html" target="_blank" rel="noopener" class="hover:underline"
+          <a
+            href="/legal/terms.html"
+            target="_blank"
+            rel="noopener"
+            class="flex h-[46px] w-full items-center justify-center text-center hover:underline md:flex-1"
             >Пользовательское соглашение</a
           >
-          <a href="/legal/privacy.html" target="_blank" rel="noopener" class="hover:underline"
+          <a
+            href="/legal/privacy.html"
+            target="_blank"
+            rel="noopener"
+            class="flex h-[46px] w-full items-center justify-center text-center hover:underline md:flex-1"
             >Политика конфиденциальности</a
           >
         </nav>
       </div>
     </main>
+
+    <aside
+      class="flex flex-col gap-6 bg-panel px-6 py-8 md:px-24 md:py-12 lg:order-first lg:min-h-dvh lg:justify-between lg:gap-0 lg:px-16"
+    >
+      <p class="hidden items-center gap-2.5 text-xl leading-7 font-semibold text-ink lg:flex">
+        <UiIcon name="radar" class="size-7" />LidRadar
+      </p>
+      <div class="flex max-w-[592px] flex-col gap-6 md:max-w-[642px] lg:max-w-[592px]">
+        <div class="flex flex-col gap-3">
+          <p class="text-meta font-medium text-secondary">Контроль потерянных возможностей</p>
+          <p
+            class="text-[24px] leading-[30px] font-semibold text-ink md:text-4xl md:leading-10 lg:text-display lg:leading-12"
+          >
+            Замечайте риски.<br />Возвращайте клиентов.
+          </p>
+        </div>
+        <p class="text-sm text-secondary md:text-note lg:text-[17px] lg:leading-[25px]">
+          Переписка, причина риска и следующий шаг — в одном рабочем пространстве.
+        </p>
+        <ul class="flex flex-col gap-3 text-sm text-secondary md:text-note">
+          <li v-for="benefit in benefits" :key="benefit" class="flex items-center gap-3">
+            <span class="w-3 text-xs leading-[18px] font-medium text-brand" aria-hidden="true"
+              >●</span
+            >{{ benefit }}
+          </li>
+        </ul>
+      </div>
+      <p class="text-xs text-secondary">LidRadar · Для малого бизнеса</p>
+    </aside>
   </div>
 </template>

@@ -32,7 +32,9 @@
     "api:check": "node scripts/check-openapi-types.mjs",
     "audit:bundle": "node scripts/check-bundle.mjs dist",
     "audit:release": "npm run build:prod && node scripts/release-audit.mjs",
-    "test:stand": "playwright test --project=stand"
+    "test:stand": "playwright test --project=stand",
+    "visual:capture": "playwright test -c tooling/visual/playwright.config.ts",
+    "visual:compare": "node tooling/visual/compare.mjs"
   },
   "dependencies": {
     "@tanstack/vue-query": "5.103.2",

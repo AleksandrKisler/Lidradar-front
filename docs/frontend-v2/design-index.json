@@ -1,0 +1,274 @@
+{
+  "preparedAt": "2026-10-26",
+  "fileKey": "jN8Hhzn6ObIAEi7FoY9kPu",
+  "note": "Index extracted from local ledgers. Login phone verified live 2026-10-26; risk detail adaptives, medium severity and login footer verified live 2026-10-27. See evidence/pilot-audit-2026-10-27.md for verification scope. Never infer state from ledger row/column alone.",
+  "userDecision": "Access, Onboarding and canonical screens inside Radar are references; accepted 2026-10-26 in setup conversation.",
+  "access": {
+    "status": "approved",
+    "ledger": "access-hig-review-2026-10-25/ledger.json",
+    "approvedAreaId": "461:5453",
+    "selection": "Use pairs[].id; sourceId is the preserved old version. Remaining states from ledger.",
+    "pilotFrames": [
+      {
+        "name": "Login desktop",
+        "nodeId": "462:5453",
+        "legacySourceId": "41:3246",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        }
+      },
+      {
+        "name": "Login tablet",
+        "nodeId": "464:6336",
+        "legacySourceId": "60:2526",
+        "viewport": {
+          "width": 834,
+          "height": 1194
+        }
+      },
+      {
+        "name": "Login phone",
+        "nodeId": "464:8980",
+        "legacySourceId": "67:4587",
+        "figmaName": "Актуально · Вход · 390 × 844 · Исходное · Apple HIG",
+        "verifiedAt": "2026-10-26",
+        "verification": "Live Figma metadata and screenshot; see evidence/F01/login-phone-reference-correction.md",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "documentNodeId": "464:8981",
+        "documentSize": {
+          "width": 390,
+          "height": 1154
+        },
+        "footerReference": {
+          "instanceId": "464:9020",
+          "masterId": "459:3285",
+          "y": 786,
+          "width": 390,
+          "height": 368,
+          "verifiedAt": "2026-10-27",
+          "verification": "Live instance/master mapping: name-only override; full master screenshot inspected. Child export clips to viewport."
+        }
+      }
+    ]
+  },
+  "onboarding": {
+    "status": "approved",
+    "ledger": "onboarding-hig-review-2026-10-25/ledger.json",
+    "correction": "onboarding-hig-review-2026-10-25/correction-validation-2026-10-25.json",
+    "followup": "onboarding-hig-review-2026-10-25/skeleton-followup-verification.json",
+    "selection": "Use pairs[].id, latestCorrection and current Figma state; old validation.json is superseded.",
+    "sampleFrames": [
+      {
+        "name": "Компания · Apple HIG · Шаг 1",
+        "nodeId": "477:7927",
+        "legacySourceId": "21:4409",
+        "frameSize": {
+          "width": 1440,
+          "height": 1000
+        }
+      },
+      {
+        "name": "Точка и график · Apple HIG · Шаг 2",
+        "nodeId": "477:8024",
+        "legacySourceId": "21:3646",
+        "frameSize": {
+          "width": 1440,
+          "height": 1000
+        }
+      },
+      {
+        "name": "Услуги и цены · Apple HIG · Шаг 3",
+        "nodeId": "477:8201",
+        "legacySourceId": "21:3569",
+        "frameSize": {
+          "width": 1440,
+          "height": 1000
+        }
+      },
+      {
+        "name": "Источник сообщений · Apple HIG · Шаг 4",
+        "nodeId": "477:8322",
+        "legacySourceId": "21:3502",
+        "frameSize": {
+          "width": 1440,
+          "height": 1000
+        }
+      },
+      {
+        "name": "Компания · Шаг 1 · 390 × 844 · Исходное · Apple HIG",
+        "nodeId": "477:8822",
+        "legacySourceId": "80:9879",
+        "frameSize": {
+          "width": 390,
+          "height": 844
+        }
+      },
+      {
+        "name": "Компания · Шаг 1 · 834 × 1194 · Исходное · Apple HIG",
+        "nodeId": "479:13232",
+        "legacySourceId": "80:7518",
+        "frameSize": {
+          "width": 834,
+          "height": 1194
+        }
+      }
+    ]
+  },
+  "radar": {
+    "status": "canonical originals are references; distinct proposals are not automatically selected",
+    "source": "radar-adaptive-accent-2026-10-26/REPORT.md",
+    "canonical": [
+      {
+        "name": "Full tile feed",
+        "nodeId": "21:1982"
+      },
+      {
+        "name": "Full list feed",
+        "nodeId": "21:1753"
+      },
+      {
+        "name": "Risk detail",
+        "nodeId": "199:11280"
+      }
+    ],
+    "adaptiveCandidates": [
+      {
+        "name": "Tiles tablet",
+        "nodeId": "630:6182",
+        "viewport": {
+          "width": 834,
+          "height": 1194
+        }
+      },
+      {
+        "name": "List tablet",
+        "nodeId": "630:6708",
+        "viewport": {
+          "width": 834,
+          "height": 1194
+        }
+      },
+      {
+        "name": "Tiles phone",
+        "nodeId": "630:7204",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        }
+      },
+      {
+        "name": "List phone",
+        "nodeId": "630:7726",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        }
+      }
+    ],
+    "adaptiveSelection": "Final deliverables exist; verify the chosen canonical/adaptive relationship at F00. Do not equate artifact completion with explicit approval of every proposal.",
+    "finalDeliverables": "radar-adaptive-accent-2026-10-26/final-deliverables.json",
+    "separateAccentProposal": {
+      "nodeId": "632:8092",
+      "status": "not selected; keep canonical detail unless user chooses accent"
+    },
+    "excludedHistoricalReviews": ["502", "503", "510", "515"],
+    "exclusionMeaning": "Rejected review families from the design documentation, not a prefix matching rule for all node IDs in Figma.",
+    "canonicalAdaptives": [
+      {
+        "name": "Risk detail tablet",
+        "nodeId": "220:2755",
+        "documentNodeId": "220:2959",
+        "viewport": {
+          "width": 834,
+          "height": 1194
+        },
+        "documentSize": {
+          "width": 834,
+          "height": 2914
+        },
+        "verifiedAt": "2026-10-27",
+        "verification": "Live metadata and first-card prototype target from 630:6182; screenshot not independently inspected by Codex."
+      },
+      {
+        "name": "Risk detail phone",
+        "nodeId": "220:2970",
+        "documentNodeId": "220:3174",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "documentSize": {
+          "width": 390,
+          "height": 3809
+        },
+        "verifiedAt": "2026-10-27",
+        "verification": "Live metadata, screenshot and first-card prototype target from 630:7204."
+      }
+    ],
+    "mediumSeverityReference": {
+      "textNodeId": "27:2667",
+      "badgeNodeId": "267:3796",
+      "withinNodeId": "21:1982",
+      "textColor": "#6e6e73",
+      "backgroundColor": "#f2f2f5",
+      "verifiedAt": "2026-10-27",
+      "verification": "Live text/parent fills; same values confirmed in mobile 630:7204."
+    }
+  },
+  "uiKit": {
+    "references": [
+      {
+        "name": "Buttons",
+        "nodeId": "21:7500"
+      },
+      {
+        "name": "Select",
+        "nodeId": "475:3543"
+      },
+      {
+        "name": "Close",
+        "nodeId": "475:3547"
+      },
+      {
+        "name": "Metric",
+        "nodeId": "21:7749"
+      },
+      {
+        "name": "Approved onboarding controls",
+        "nodeId": "475:3236"
+      }
+    ],
+    "instruction": "Read variable bindings and variants before reuse; no new competing component family."
+  },
+  "otherAreas": [
+    {
+      "area": "dialogs",
+      "sources": "dialogs-2026-10-25/DELIVERY.md",
+      "selection": "Resolve exact current frame from final ledger; preserve business contracts."
+    },
+    {
+      "area": "analytics",
+      "sources": "analytics-2026-10-25/DELIVERY.md",
+      "selection": "Resolve exact current frame from final ledger; preserve business contracts."
+    },
+    {
+      "area": "integrations",
+      "sources": "integrations-2026-10-25/states/README.md",
+      "selection": "Resolve exact current frame from final ledger; preserve business contracts."
+    },
+    {
+      "area": "settings",
+      "sources": "settings-2026-10-26/REPORT.md",
+      "selection": "Resolve exact current frame from final ledger; preserve business contracts."
+    },
+    {
+      "area": "admin",
+      "sources": "admin-2026-10-26/REPORT.md",
+      "selection": "Resolve exact current frame from final ledger; preserve business contracts."
+    }
+  ]
+}

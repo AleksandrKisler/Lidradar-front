@@ -5,8 +5,10 @@
  */
 import type { LocationQuery, LocationQueryRaw } from 'vue-router'
 import {
+  RISK_FEED_STATUSES,
   RISK_SEVERITIES,
   RISK_TYPES,
+  type RiskFeedStatus,
   type RiskFilters,
   type RiskSeverity,
   type RiskType,
@@ -32,8 +34,20 @@ export function parseRiskFilters(query: LocationQuery): RiskFilters {
   return filters
 }
 
-export function riskFiltersToQuery(filters: RiskFilters): LocationQueryRaw {
+/** Вкладка статуса: только OPEN и ACKNOWLEDGED; прочее — общая активная лента. */
+export function parseRiskFeedStatus(query: LocationQuery): RiskFeedStatus | null {
+  const status = single(query.status)
+  return status && (RISK_FEED_STATUSES as readonly string[]).includes(status)
+    ? (status as RiskFeedStatus)
+    : null
+}
+
+export function riskFiltersToQuery(
+  filters: RiskFilters,
+  status: RiskFeedStatus | null = null,
+): LocationQueryRaw {
   const query: LocationQueryRaw = {}
+  if (status) query.status = status
   if (filters.severity) query.severity = filters.severity
   if (filters.riskType) query.riskType = filters.riskType
   if (filters.locationId) query.locationId = filters.locationId

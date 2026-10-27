@@ -99,8 +99,8 @@ function openEdit(location: Location): void {
         <h2 id="company-title" class="text-lg font-bold text-ink">Компания</h2>
         <div class="mt-4">
           <div v-if="organization.isPending.value" role="status" aria-label="Загрузка компании">
-            <UiSkeleton class="h-11 w-full" />
-            <UiSkeleton class="mt-4 h-11 w-full" />
+            <UiSkeleton class="h-input w-full" />
+            <UiSkeleton class="mt-4 h-input w-full" />
           </div>
           <UiErrorState
             v-else-if="organization.isError.value || !organization.data.value"

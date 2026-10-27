@@ -1,0 +1,239 @@
+{
+  "_comment": "region/actual/reference_region — полуинтервал [y0,y1) в px; windows — нарезка по высоте. Эталоны Figma для деталей tablet/phone и login-экранов обрезаны родительским viewport: сравнивается только видимая часть, остальное — блоком geometry.",
+  "pairs": [
+    {
+      "stage": "F01",
+      "name": "login-desktop",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F01",
+      "name": "login-tablet",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F01",
+      "name": "login-phone",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      },
+      "note": "видимые 844 px эталона 464:8980"
+    },
+    {
+      "stage": "F01",
+      "name": "login-phone",
+      "reference": "login-phone-footer-master",
+      "actual": {
+        "y0": 786,
+        "y1": 1154
+      },
+      "reference_region": {
+        "y0": 0,
+        "y1": 368
+      },
+      "note": "нижний блок: actual y=786…1154 против master 459:3285 (instance 464:9020)"
+    },
+    {
+      "stage": "F01",
+      "name": "login-phone-error",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F01",
+      "name": "login-phone-busy",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F01",
+      "name": "login-phone-loading",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F01",
+      "name": "register-phone",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F02",
+      "name": "radar-tiles-desktop",
+      "windows": 1000
+    },
+    {
+      "stage": "F02",
+      "name": "radar-list-desktop",
+      "windows": 1000
+    },
+    {
+      "stage": "F02",
+      "name": "radar-tiles-tablet",
+      "windows": 1000
+    },
+    {
+      "stage": "F02",
+      "name": "radar-list-tablet",
+      "windows": 1000
+    },
+    {
+      "stage": "F02",
+      "name": "radar-tiles-phone",
+      "windows": 1000
+    },
+    {
+      "stage": "F02",
+      "name": "radar-list-phone",
+      "windows": 1000
+    },
+    {
+      "stage": "F02",
+      "name": "risk-detail-desktop",
+      "windows": 1000
+    },
+    {
+      "stage": "F02",
+      "name": "risk-detail-tablet",
+      "reference": "risk-detail-tablet-viewport",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      },
+      "note": "видимый viewport эталона 220:2755"
+    },
+    {
+      "stage": "F02",
+      "name": "risk-detail-phone",
+      "reference": "risk-detail-phone-viewport",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      },
+      "note": "видимый viewport эталона 220:2970"
+    }
+  ],
+  "geometry": [
+    {
+      "stage": "F02",
+      "name": "risk-detail-phone",
+      "tolerance": 6,
+      "note": "позиции блоков документа 220:3174 (390×3809) из метаданных Figma",
+      "blocks": [
+        {
+          "name": "Ситуация",
+          "y": 166,
+          "height": 472
+        },
+        {
+          "name": "Переписка",
+          "y": 662,
+          "height": 393
+        },
+        {
+          "name": "Рекомендация",
+          "y": 1079,
+          "height": 184
+        },
+        {
+          "name": "Работа по риску",
+          "y": 1287,
+          "height": 770
+        },
+        {
+          "name": "Деньги",
+          "y": 2081,
+          "height": 351
+        },
+        {
+          "name": "Сделка",
+          "y": 2456,
+          "height": 292
+        },
+        {
+          "name": "История",
+          "y": 2772,
+          "height": 279
+        },
+        {
+          "name": "Оценка сигнала",
+          "y": 3075,
+          "height": 632
+        },
+        {
+          "name": "Закрыть риск",
+          "y": 3731,
+          "height": 46
+        }
+      ]
+    },
+    {
+      "stage": "F02",
+      "name": "risk-detail-tablet",
+      "tolerance": 6,
+      "note": "позиции блоков документа 220:2959 (834×2914) из метаданных Figma",
+      "blocks": [
+        {
+          "name": "Ситуация",
+          "y": 174,
+          "height": 329
+        },
+        {
+          "name": "Переписка",
+          "y": 527,
+          "height": 273
+        },
+        {
+          "name": "Рекомендация",
+          "y": 824,
+          "height": 172
+        },
+        {
+          "name": "Работа по риску",
+          "y": 1020,
+          "height": 430
+        },
+        {
+          "name": "Деньги",
+          "y": 1474,
+          "height": 339
+        },
+        {
+          "name": "Сделка",
+          "y": 1837,
+          "height": 300
+        },
+        {
+          "name": "История",
+          "y": 2161,
+          "height": 247
+        },
+        {
+          "name": "Оценка сигнала",
+          "y": 2432,
+          "height": 380
+        },
+        {
+          "name": "Закрыть риск",
+          "y": 2836,
+          "height": 46
+        }
+      ]
+    }
+  ]
+}

@@ -28,7 +28,7 @@ function onDone(): void {
 
 <template>
   <div>
-    <UiCard class="shadow-sm">
+    <UiCard :padded="false" class="p-[23px] md:p-[31px]">
       <template v-if="invalid || token === null">
         <p class="text-xs font-semibold tracking-wide text-muted">Восстановление доступа</p>
         <h1 class="mt-2 text-2xl font-bold text-ink">Ссылка недействительна</h1>

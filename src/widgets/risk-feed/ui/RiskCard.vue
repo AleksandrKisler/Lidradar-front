@@ -1,29 +1,50 @@
 <script setup lang="ts">
 /**
- * Карточка риска в ленте: важность и тип, контакт и услуга, причина,
- * потенциал сделки, последнее сообщение и безопасный внешний переход.
- * Все тексты API выводятся как текст; ссылка берётся только из ответа.
+ * Карточка риска в ленте Radar в двух представлениях по Figma: плитка
+ * 21:1982 (27:2488) и строка списка 21:1753 (31:1151). Показывает важность
+ * и статус, контакт и услугу, тип и причину, последнее сообщение, потенциал
+ * сделки и переход к разбору. Тексты API выводятся только как текст.
+ * Внешняя ссылка на чат, время обнаружения и история действий в карточке
+ * макета отсутствуют и доступны в рабочем пространстве риска.
  */
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { formatDateTime, formatRelative } from '@/shared/lib'
-import { UiBadge, UiCard } from '@/shared/ui'
-import {
-  RiskSeverityBadge,
-  externalLinkUnavailableLabel,
-  type RiskCardViewModel,
-} from '@/entities/risk'
+import { UiGlyph } from '@/shared/ui'
+import { RiskSeverityBadge, type RiskCardViewModel } from '@/entities/risk'
 
-const props = defineProps<{ card: RiskCardViewModel; timeZone: string; now: Date }>()
+const props = withDefaults(
+  defineProps<{
+    card: RiskCardViewModel
+    timeZone: string
+    now: Date
+    view?: 'tiles' | 'list'
+    /** Имена точек по идентификатору; неизвестная точка просто не показывается. */
+    locationNames?: Record<string, string> | undefined
+  }>(),
+  { view: 'tiles', locationNames: () => ({}) },
+)
 
-const detectedRelative = computed(() => formatRelative(props.card.detectedAt, props.now))
-const detectedAbsolute = computed(() => formatDateTime(props.card.detectedAt, props.timeZone))
 const dueRelative = computed(() => formatRelative(props.card.dueAt, props.now))
 const dueAbsolute = computed(() => formatDateTime(props.card.dueAt, props.timeZone))
+const detectedRelative = computed(() => formatRelative(props.card.detectedAt, props.now))
+const detectedAbsolute = computed(() => formatDateTime(props.card.detectedAt, props.timeZone))
 
-const unavailableText = computed(() =>
-  externalLinkUnavailableLabel(props.card.externalUnavailableReason),
+const location = computed(() =>
+  props.card.locationId ? (props.locationNames[props.card.locationId] ?? null) : null,
 )
+/** Плитка: «услуга · точка» (Figma 27:2488); список и телефон добавляют канал (31:1151). */
+const meta = computed(() =>
+  [
+    props.card.serviceName ?? 'Услуга не уточнена',
+    location.value,
+    props.view === 'list' || !location.value ? props.card.channelName : null,
+  ]
+    .filter((part) => part)
+    .join(' · '),
+)
+
+const inProgress = computed(() => props.card.statusLabel === 'В работе')
 
 const messageAuthor = computed(() => {
   switch (props.card.lastMessage?.direction) {
@@ -35,90 +56,189 @@ const messageAuthor = computed(() => {
       return 'Система'
   }
 })
+const riskRoute = computed(() => ({ name: 'risk', params: { riskId: props.card.id } }))
 </script>
 
 <template>
-  <UiCard as="li">
-    <article :aria-labelledby="`risk-${card.id}-title`">
-      <div class="flex flex-wrap items-center gap-2">
+  <li class="min-w-0">
+    <!-- Плитка (27:2488): 3 колонки на широкой ленте -->
+    <article
+      v-if="view === 'tiles'"
+      :aria-labelledby="`risk-${card.id}-title`"
+      class="relative flex min-h-[356px] min-w-0 flex-col rounded-[14px] border border-hairline bg-paper px-[19px] pt-[15px] pb-[9px]"
+    >
+      <div class="flex items-center justify-between gap-2">
         <RiskSeverityBadge :severity="card.severity" />
-        <UiBadge :tone="card.typeTone">{{ card.typeLabel }}</UiBadge>
-        <UiBadge tone="neutral">{{ card.statusLabel }}</UiBadge>
+        <span
+          :class="['text-xs leading-[18px] font-medium', inProgress ? 'text-brand' : 'text-muted']"
+          >{{ card.statusLabel }}</span
+        >
       </div>
-
-      <div class="mt-3 flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
-        <div class="min-w-0">
-          <h3 :id="`risk-${card.id}-title`" class="text-xl font-bold break-words text-ink">
-            <RouterLink
-              :to="{ name: 'risk', params: { riskId: card.id } }"
-              class="rounded-field hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-            >
-              {{ card.contactName }}
-            </RouterLink>
-          </h3>
-          <p class="mt-0.5 text-sm text-muted">
-            <span>{{ card.serviceName ?? 'Услуга не уточнена' }}</span>
-            <span v-if="card.channelName" aria-hidden="true"> · </span>
-            <span v-if="card.channelName">{{ card.channelName }}</span>
-          </p>
-        </div>
-        <p class="text-2xl font-bold text-ink tabular-nums">
-          <template v-if="card.potential">{{ card.potential }}</template>
-          <span v-else class="text-base font-medium text-muted">Сумма не определена</span>
-        </p>
-      </div>
-
-      <p class="mt-3 max-w-3xl text-sm leading-6 text-ink">{{ card.reason }}</p>
-
-      <!-- Пары «подпись — значение» разделяются flex-отступом: Vue убирает
-           переносы между элементами, и пробел из разметки сюда не попадает. -->
-      <dl class="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted">
-        <div class="flex gap-1">
-          <dt>Ожидание с</dt>
-          <dd>
-            <time :datetime="card.dueAt" :title="dueAbsolute ?? undefined">{{ dueRelative }}</time>
-          </dd>
-        </div>
-        <div class="flex gap-1">
-          <dt>Обнаружен</dt>
-          <dd>
-            <time :datetime="card.detectedAt" :title="detectedAbsolute ?? undefined">{{
-              detectedRelative
-            }}</time>
-          </dd>
-        </div>
-        <div v-if="card.actionsCount" class="flex gap-1">
-          <dt>Действий</dt>
-          <dd>{{ card.actionsCount }}</dd>
-        </div>
-        <div v-if="card.outcomeLabel" class="flex gap-1">
-          <dt>Последний исход</dt>
-          <dd>{{ card.outcomeLabel }}</dd>
-        </div>
-      </dl>
-
+      <h3
+        :id="`risk-${card.id}-title`"
+        class="mt-[18px] truncate text-lg leading-6 font-semibold text-ink"
+      >
+        <RouterLink :to="riskRoute" class="rounded-field hover:underline">{{
+          card.contactName
+        }}</RouterLink>
+      </h3>
+      <p class="mt-1 truncate text-xs leading-[18px] text-muted">{{ meta }}</p>
+      <p class="mt-3.5 truncate text-note font-semibold text-ink">{{ card.typeLabel }}</p>
+      <p class="mt-[25px] flex h-[18px] min-w-0 items-center gap-2 text-meta text-muted">
+        <UiGlyph name="clock" class="size-4" />
+        <span class="truncate" :title="card.reason">{{ card.reason }}</span>
+      </p>
       <blockquote
         v-if="card.lastMessage"
-        class="mt-4 rounded-control border-l-4 border-line bg-canvas px-4 py-2.5 text-sm text-ink"
+        class="mt-3 h-16 rounded-lg bg-canvas px-2.5 py-1.5 text-xs leading-[17px] text-muted"
       >
-        <span class="font-semibold text-muted">{{ messageAuthor }}: </span>
-        <template v-if="card.lastMessage.preview">{{ card.lastMessage.preview }}</template>
-        <span v-else class="text-muted">сообщение без текста</span>
+        <span class="line-clamp-3">
+          <span class="sr-only">{{ messageAuthor }}: </span>
+          <template v-if="card.lastMessage.preview">«{{ card.lastMessage.preview }}»</template>
+          <template v-else>сообщение без текста</template>
+        </span>
       </blockquote>
-
-      <div class="mt-4 flex flex-wrap items-center gap-3">
-        <a
-          v-if="card.externalUrl"
-          :href="card.externalUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="inline-flex h-9 items-center rounded-control bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-dark"
+      <div v-else class="mt-3 h-16" aria-hidden="true" />
+      <div
+        class="mt-3.5 flex items-center justify-between gap-2 border-t border-hairline pt-[18px]"
+      >
+        <div class="flex min-w-0 flex-col gap-1">
+          <p class="text-xl leading-[26px] font-semibold text-ink tabular-nums">
+            <template v-if="card.potential">{{ card.potential }}</template>
+            <template v-else>Неизвестна</template>
+          </p>
+          <p class="flex items-center gap-2 text-xs leading-[18px] text-muted">
+            <UiGlyph name="banknote" class="size-[18px]" />{{
+              card.potential ? 'Потенциал сделки' : 'Сумма сделки'
+            }}
+          </p>
+        </div>
+        <RouterLink
+          :to="riskRoute"
+          :aria-label="`Разобрать риск: ${card.contactName}`"
+          class="flex shrink-0 items-center justify-center font-medium max-lg:h-input max-lg:w-[140px] max-lg:rounded-button max-lg:border max-lg:border-line max-lg:bg-paper max-lg:text-field max-lg:leading-5 max-lg:text-ink max-lg:hover:bg-canvas lg:h-9 lg:w-[116px] lg:rounded-[7px] lg:bg-action-pale lg:text-[13px] lg:leading-5 lg:text-link lg:hover:bg-nav-selected"
+          >Разобрать →</RouterLink
         >
-          Открыть в Telegram
-        </a>
-        <p v-else-if="unavailableText" class="text-sm text-muted">{{ unavailableText }}</p>
-        <span v-if="card.hasRecommendation" class="text-sm text-success">Есть рекомендация</span>
       </div>
+      <dl class="sr-only">
+        <dt>Ожидание с</dt>
+        <dd>
+          <time :datetime="card.dueAt" :title="dueAbsolute ?? undefined">{{ dueRelative }}</time>
+        </dd>
+        <dt>Обнаружен</dt>
+        <dd>
+          <time :datetime="card.detectedAt" :title="detectedAbsolute ?? undefined">{{
+            detectedRelative
+          }}</time>
+        </dd>
+        <template v-if="card.actionsCount">
+          <dt>Действий</dt>
+          <dd>{{ card.actionsCount }}</dd>
+        </template>
+        <template v-if="card.outcomeLabel">
+          <dt>Последний исход</dt>
+          <dd>{{ card.outcomeLabel }}</dd>
+        </template>
+      </dl>
     </article>
-  </UiCard>
+
+    <!-- Строка списка (31:1151): оценка и действие справа от широкого экрана -->
+    <article
+      v-else
+      :aria-labelledby="`risk-${card.id}-title`"
+      class="relative grid min-w-0 rounded-[14px] border border-hairline bg-paper px-[19px] pt-[15px] pb-[9px] md:grid-cols-[minmax(0,1fr)_180px] md:gap-x-6 md:pt-[21px] md:pb-[15px] lg:grid-cols-[minmax(0,1fr)_auto_216px] lg:gap-x-0 lg:pt-[15px] lg:pb-[9px]"
+    >
+      <div class="flex min-w-0 flex-col">
+        <div
+          class="flex min-h-7 flex-wrap items-center gap-x-3 gap-y-1 md:justify-between lg:justify-start"
+        >
+          <h3
+            :id="`risk-${card.id}-title`"
+            class="w-[292px] max-w-full min-w-0 truncate text-lg leading-6 font-semibold text-ink"
+          >
+            <RouterLink :to="riskRoute" class="rounded-field hover:underline">{{
+              card.contactName
+            }}</RouterLink>
+          </h3>
+          <div class="flex items-center gap-3">
+            <RiskSeverityBadge :severity="card.severity" />
+            <span
+              :class="[
+                'text-xs leading-[18px] font-medium',
+                inProgress ? 'text-brand' : 'text-muted',
+              ]"
+              >{{ card.statusLabel }}</span
+            >
+          </div>
+        </div>
+        <!-- Планшет (630:6708): тип и причина двумя строками; от 1024 px — в одну строку (31:1151). -->
+        <div
+          class="mt-2.5 flex min-w-0 flex-col gap-2.5 lg:min-h-[22px] lg:flex-row lg:items-center lg:gap-2"
+        >
+          <p class="shrink-0 text-note font-semibold text-ink">{{ card.typeLabel }}</p>
+          <span class="text-meta text-muted max-lg:hidden" aria-hidden="true">·</span>
+          <p class="flex min-w-0 items-center gap-2">
+            <UiGlyph name="clock" class="size-4 shrink-0 text-muted" />
+            <span class="truncate text-meta text-muted" :title="card.reason">{{
+              card.reason
+            }}</span>
+          </p>
+        </div>
+        <blockquote
+          v-if="card.lastMessage"
+          class="mt-2.5 flex min-h-[38px] items-center rounded-lg bg-canvas px-3 py-2.5 text-meta text-muted"
+        >
+          <span class="truncate">
+            <span class="sr-only">{{ messageAuthor }}: </span>
+            <template v-if="card.lastMessage.preview">«{{ card.lastMessage.preview }}»</template>
+            <template v-else>сообщение без текста</template>
+          </span>
+        </blockquote>
+        <p class="mt-3 truncate text-xs leading-[18px] text-muted">{{ meta }}</p>
+      </div>
+
+      <div class="my-1 mr-4 ml-6 hidden w-px bg-hairline lg:block" aria-hidden="true" />
+
+      <div
+        class="mt-3 flex flex-col gap-2 border-t border-hairline pt-3 md:my-auto md:items-end md:border-t-0 md:pt-0 lg:my-1 lg:mb-1.5"
+      >
+        <p class="text-[22px] leading-7 font-semibold text-ink tabular-nums">
+          <template v-if="card.potential">{{ card.potential }}</template>
+          <template v-else>Неизвестна</template>
+        </p>
+        <p class="flex items-center gap-2 text-xs leading-[18px] text-muted">
+          <UiGlyph name="banknote" class="size-[18px]" />{{
+            card.potential ? 'Потенциал сделки' : 'Сумма сделки'
+          }}
+        </p>
+        <RouterLink
+          :to="riskRoute"
+          :aria-label="`Разобрать риск: ${card.contactName}`"
+          class="flex items-center justify-center font-medium max-lg:h-input max-lg:w-full max-lg:rounded-button max-lg:border max-lg:border-line max-lg:bg-paper max-lg:text-field max-lg:leading-5 max-lg:text-ink max-lg:hover:bg-canvas md:w-[180px] lg:h-9 lg:rounded-[7px] lg:bg-action-pale lg:text-[13px] lg:leading-5 lg:text-link lg:hover:bg-nav-selected"
+          ><span class="lg:hidden">Разобрать →</span
+          ><span class="max-lg:hidden">Разобрать риск →</span></RouterLink
+        >
+      </div>
+      <dl class="sr-only">
+        <dt>Ожидание с</dt>
+        <dd>
+          <time :datetime="card.dueAt" :title="dueAbsolute ?? undefined">{{ dueRelative }}</time>
+        </dd>
+        <dt>Обнаружен</dt>
+        <dd>
+          <time :datetime="card.detectedAt" :title="detectedAbsolute ?? undefined">{{
+            detectedRelative
+          }}</time>
+        </dd>
+        <template v-if="card.actionsCount">
+          <dt>Действий</dt>
+          <dd>{{ card.actionsCount }}</dd>
+        </template>
+        <template v-if="card.outcomeLabel">
+          <dt>Последний исход</dt>
+          <dd>{{ card.outcomeLabel }}</dd>
+        </template>
+      </dl>
+    </article>
+  </li>
 </template>

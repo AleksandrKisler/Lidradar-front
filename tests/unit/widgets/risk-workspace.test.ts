@@ -36,6 +36,11 @@ function stubApi(detail: () => unknown | Error) {
   const fetchMock = vi.fn((request: Request) => {
     const path = new URL(request.url).pathname
     if (path === '/api/v1/organization') return Promise.resolve(jsonResponse(organization))
+    if (path === '/api/v1/locations') {
+      return Promise.resolve(
+        jsonResponse({ items: [{ id: 'loc-1', name: 'Тверская' }], nextCursor: null }),
+      )
+    }
     // Сделка читается отдельным запросом: история этапов есть только в нём.
     if (path.startsWith('/api/v1/opportunities/')) {
       return Promise.resolve(
@@ -142,8 +147,10 @@ describe('RiskWorkspace', () => {
   it('показывает контекст и команды активного риска владельцу', async () => {
     stubApi(() => riskDetailFixture)
     const wrapper = await mountWorkspace()
-    expect(wrapper.get('h1').text()).toBe('Ирина')
+    // Дизайн v2: заголовок — тип риска, имя клиента — в подзаголовке.
+    expect(wrapper.get('h1').text()).toBe('Нет ответа клиенту')
     const text = wrapper.text()
+    expect(text).toContain('Ирина')
     expect(text).toContain('Почему это риск')
     expect(text).toContain('Бизнес не ответил клиенту в течение 60 рабочих минут')
     expect(text).toContain('Ответить клиенту сейчас.')
@@ -175,11 +182,63 @@ describe('RiskWorkspace', () => {
     const text = wrapper.text()
     expect(text).toContain('Договорённость требует внимания')
     expect(text).toContain('Клиент пока не подтвердил предложенное время записи')
-    expect(text).toMatch(/Услуга не уточнена\s*· Telegram/)
+    // Имя точки — по locationId, а не имя канала.
+    expect(text).toMatch(/Услуга не уточнена\s*· Тверская/)
     expect(text).toContain('Сумма не определена')
-    expect(wrapper.get('[aria-labelledby="risk-money-title"]').text()).toContain(
-      'ПотенциальнаяСумма не определена',
-    )
+    const money = wrapper.get('[aria-labelledby="risk-money-title"]').text()
+    expect(money).toContain('Потенциал сделки')
+    expect(money).toContain('Сумма не определена')
+    wrapper.unmount()
+  })
+
+  it('показывает срок по правилу и время обнаружения, а не длительность ожидания', async () => {
+    stubApi(() => riskDetailFixture)
+    const wrapper = await mountWorkspace()
+    const hero = wrapper.get('[aria-labelledby="risk-reason-title"]').text()
+    expect(hero).toContain('Срок по правилу')
+    expect(hero).toContain('18 сентября, 12:00')
+    expect(hero).toContain('Риск обнаружен')
+    expect(hero).toContain('18 сентября, 13:00')
+    expect(hero).toContain('Часовой пояс: Europe/Moscow')
+    expect(hero).not.toContain('Ожидание')
+    expect(hero).not.toContain('Срок ответа не наступил')
+    wrapper.unmount()
+  })
+
+  it('срок в будущем, отсутствие даты и закрытый риск не выдумывают ожидание', async () => {
+    stubApi(() => ({
+      ...riskDetailFixture,
+      risk: {
+        ...riskDetailFixture.risk,
+        type: 'FOLLOW_UP_CANDIDATE',
+        status: 'RESOLVED',
+        dueAt: '2999-01-01T09:00:00Z',
+        detectedAt: null,
+      },
+    }))
+    const wrapper = await mountWorkspace()
+    const hero = wrapper.get('[aria-labelledby="risk-reason-title"]').text()
+    expect(hero).toContain('1 января, 12:00')
+    expect(hero).toContain('Не указан')
+    expect(hero).not.toContain('Срок ответа не наступил')
+    expect(hero).not.toContain('Ожидание')
+    expect(hero).toContain('Риск закрыт')
+    wrapper.unmount()
+  })
+
+  it('без внешней ссылки показывает отключённую кнопку Telegram и связанное пояснение', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    stubApi(() => ({
+      ...riskDetailFixture,
+      externalLink: { url: null, kind: null, unavailableReason: 'PROVIDER_UNSUPPORTED' },
+    }))
+    const wrapper = await mountWorkspace()
+    const button = wrapper.findAll('button').find((item) => item.text() === 'Открыть в Telegram')!
+    expect(button.attributes('disabled')).toBeDefined()
+    expect(button.attributes('aria-describedby')).toBe('telegram-unavailable')
+    expect(wrapper.get('#telegram-unavailable').text()).toContain('Читайте переписку в LidRadar')
+    expect(warn).not.toHaveBeenCalled()
+    warn.mockRestore()
     wrapper.unmount()
   })
 
@@ -214,7 +273,7 @@ describe('RiskWorkspace', () => {
       .find((button) => button.text() === 'Обновить')!
       .trigger('click')
     await vi.waitFor(() => expect(wrapper.text()).toContain('Не удалось обновить данные'))
-    expect(wrapper.get('h1').text()).toBe('Ирина')
+    expect(wrapper.get('h1').text()).toBe('Нет ответа клиенту')
     wrapper.unmount()
 
     const errorWrapper = mount(RiskWorkspace, {

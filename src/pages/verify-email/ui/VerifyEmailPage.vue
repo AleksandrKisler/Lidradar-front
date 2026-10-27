@@ -56,7 +56,7 @@ function proceed(): void {
 
 <template>
   <div>
-    <UiCard class="shadow-sm">
+    <UiCard :padded="false" class="p-[23px] md:p-[31px]">
       <p class="text-xs font-semibold tracking-wide text-muted">Подтверждение почты</p>
 
       <template v-if="state === 'loading'">

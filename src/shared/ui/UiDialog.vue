@@ -25,7 +25,7 @@ const props = withDefaults(
     /** `full` — экран целиком (мобильное меню); `md` и `lg` — окно по центру. */
     size?: 'md' | 'lg' | 'full' | undefined
     /** Тёмная поверхность для окон, продолжающих тёмное боковое меню. */
-    tone?: 'light' | 'dark' | undefined
+    tone?: 'light' | 'dark' | 'panel' | undefined
     dismissible?: boolean | undefined
     initialFocus?: string | undefined
   }>(),
@@ -49,6 +49,11 @@ const toneClasses = {
     surface: 'bg-paper',
     title: 'text-ink',
     close: 'text-muted hover:bg-canvas hover:text-ink',
+  },
+  panel: {
+    surface: 'bg-panel text-ink',
+    title: 'text-ink',
+    close: 'text-muted hover:bg-segment hover:text-ink',
   },
   dark: {
     surface: 'bg-nav text-white',

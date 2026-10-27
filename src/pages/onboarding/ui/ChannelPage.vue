@@ -79,7 +79,7 @@ function toRadar(): void {
     <UiCard v-if="status.isPending.value" role="status" aria-label="Загрузка статуса источника">
       <UiSkeleton class="h-6 w-56" />
       <UiSkeleton class="mt-4 h-4 w-full max-w-md" />
-      <UiSkeleton class="mt-6 h-11 w-44" />
+      <UiSkeleton class="mt-6 h-input w-44" />
     </UiCard>
 
     <UiCard v-else-if="!channelDone" as="section" aria-labelledby="source-title">
@@ -185,7 +185,7 @@ function toRadar(): void {
     <div class="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
       <RouterLink
         :to="{ name: 'onboarding-services' }"
-        class="inline-flex h-11 items-center rounded-control border border-line px-5 text-sm font-semibold text-ink hover:bg-canvas"
+        class="inline-flex h-input items-center rounded-control border border-line px-5 text-sm font-semibold text-ink hover:bg-canvas"
       >
         Назад
       </RouterLink>

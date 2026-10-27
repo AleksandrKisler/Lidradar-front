@@ -93,6 +93,7 @@ async function retry(): Promise<void> {
     <UiField
       v-slot="{ id, describedBy, invalid }"
       label="Чем ответил клиент"
+      label-style="compact"
       :description="paidHint ? 'Оплата не считается выручкой: сумму подтверждают отдельно.' : ''"
       :error="errors.status"
     >
@@ -107,12 +108,18 @@ async function retry(): Promise<void> {
         :disabled="disabled || commandLocked"
       />
     </UiField>
-    <UiField v-slot="{ id, describedBy, invalid }" label="Заметка" :error="errors.note">
+    <UiField
+      v-slot="{ id, describedBy, invalid }"
+      label="Заметка · необязательно"
+      label-style="muted"
+      :error="errors.note"
+    >
       <UiTextarea
         :id="id"
         v-model="note"
         name="outcomeNote"
-        :rows="2"
+        class="h-[88px]"
+        placeholder="Уточните реакцию клиента"
         :maxlength="NOTE_MAX_LENGTH"
         :described-by="describedBy"
         :invalid="invalid"
@@ -141,10 +148,14 @@ async function retry(): Promise<void> {
       type="submit"
       variant="secondary"
       block
-      :disabled="disabled || commandLocked"
+      aria-describedby="outcome-hint"
+      :disabled="disabled || commandLocked || !status"
       :loading="record.isPending.value"
     >
       Записать исход
     </UiButton>
+    <p id="outcome-hint" class="text-sm leading-5 text-muted">
+      После реакции клиента на ваше действие.
+    </p>
   </form>
 </template>

@@ -57,7 +57,7 @@ const model = defineModel<string | undefined>({ default: '' })
     :aria-invalid="invalid || undefined"
     :aria-describedby="describedBy"
     :class="[
-      'h-input w-full rounded-field border bg-paper px-3.5 text-base text-ink placeholder:text-muted/70 disabled:cursor-not-allowed disabled:bg-canvas',
+      'h-input w-full rounded-field border bg-paper px-3.5 text-field text-ink placeholder:text-secondary disabled:cursor-not-allowed disabled:opacity-70',
       invalid ? 'border-danger' : 'border-line hover:border-muted/60',
     ]"
   />

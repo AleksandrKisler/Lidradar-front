@@ -5,6 +5,8 @@
 export { default as UiButton } from './UiButton.vue'
 export { default as UiSpinner } from './UiSpinner.vue'
 export { default as UiIcon } from './UiIcon.vue'
+export { default as UiGlyph } from './UiGlyph.vue'
+export type { GlyphName } from './glyphs'
 export { default as UiRingChart } from './UiRingChart.vue'
 export type { Ring, RingSegment } from './UiRingChart.vue'
 export { RING_TONES } from './ring-tones'

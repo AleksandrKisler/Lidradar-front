@@ -8,7 +8,7 @@
  * раскрывает, существует ли адрес; `429` включает обратный отсчёт по
  * серверному `Retry-After`; сетевая ошибка не выдаётся за неверные реквизиты.
  */
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { describeError, isApiError } from '@/shared/api'
@@ -20,7 +20,16 @@ import { loginSchema } from '../model/schemas'
 const emit = defineEmits<{ success: [] }>()
 
 const session = useSessionStore()
+/** Скринридеру отсчёт объявляется один раз при блокировке, а не каждую секунду. */
+const announcedSeconds = ref(0)
 const retry = useRetryAfter('lidradar.login.retryUntil')
+watch(
+  () => retry.active.value,
+  (active) => {
+    if (active) announcedSeconds.value = retry.secondsLeft.value
+  },
+  { immediate: true },
+)
 
 const { defineField, handleSubmit, errors, resetField, isSubmitting } = useForm({
   validationSchema: toTypedSchema(loginSchema),
@@ -82,7 +91,7 @@ const onSubmit = handleSubmit(async (values) => {
 </script>
 
 <template>
-  <form class="flex flex-col gap-5" novalidate @submit.prevent="onSubmit">
+  <form class="flex flex-col gap-4" novalidate @submit.prevent="onSubmit">
     <UiField v-slot="{ id, describedBy, invalid }" label="Электронная почта" :error="errors.email">
       <UiInput
         :id="id"
@@ -95,6 +104,7 @@ const onSubmit = handleSubmit(async (values) => {
         :described-by="describedBy"
         :invalid="invalid"
         :maxlength="254"
+        :disabled="isSubmitting"
       />
     </UiField>
     <UiField v-slot="{ id, describedBy, invalid }" label="Пароль" :error="errors.password">
@@ -105,11 +115,10 @@ const onSubmit = handleSubmit(async (values) => {
         autocomplete="current-password"
         :described-by="describedBy"
         :invalid="invalid"
+        :disabled="isSubmitting"
       />
-      <p class="text-right text-sm">
-        <RouterLink
-          :to="{ name: 'forgot-password' }"
-          class="font-semibold text-brand hover:underline"
+      <p class="flex h-[46px] items-center justify-end text-sm">
+        <RouterLink :to="{ name: 'forgot-password' }" class="text-link hover:underline"
           >Забыли пароль?</RouterLink
         >
       </p>
@@ -124,11 +133,15 @@ const onSubmit = handleSubmit(async (values) => {
       {{ errorView.text }}
     </UiAlert>
     <p v-if="retry.active.value" class="sr-only" role="status">
-      Вход временно недоступен. Повторите попытку через {{ retry.secondsLeft.value }} секунд.
+      Вход временно недоступен. Повторите попытку через {{ announcedSeconds }} секунд.
     </p>
 
     <UiButton type="submit" block :loading="isSubmitting" :disabled="retry.active.value">
-      {{ submitLabel }}
+      <!-- Figma 459:3312: при отправке «Входим…», доступное имя кнопки остаётся «Войти». -->
+      <template v-if="isSubmitting">
+        <span aria-hidden="true">Входим…</span><span class="sr-only">{{ submitLabel }}</span>
+      </template>
+      <template v-else>{{ submitLabel }}</template>
     </UiButton>
   </form>
 </template>

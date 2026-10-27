@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseRiskFilters, riskFiltersToQuery } from '@/pages/radar'
+import { parseRiskFeedStatus, parseRiskFilters, riskFiltersToQuery } from '@/pages/radar'
 
 describe('фильтры Radar в query-строке', () => {
   it('принимает только известные значения', () => {
@@ -28,5 +28,17 @@ describe('фильтры Radar в query-строке', () => {
   it('сериализует без пустых значений', () => {
     expect(riskFiltersToQuery({ severity: 'LOW' })).toEqual({ severity: 'LOW' })
     expect(riskFiltersToQuery({})).toEqual({})
+  })
+
+  it('вкладка статуса: только OPEN и ACKNOWLEDGED, остальное — общая лента', () => {
+    expect(parseRiskFeedStatus({ status: 'OPEN' })).toBe('OPEN')
+    expect(parseRiskFeedStatus({ status: 'ACKNOWLEDGED' })).toBe('ACKNOWLEDGED')
+    expect(parseRiskFeedStatus({ status: 'ACTED' })).toBeNull()
+    expect(parseRiskFeedStatus({ status: '<x>' })).toBeNull()
+    expect(parseRiskFeedStatus({})).toBeNull()
+    expect(riskFiltersToQuery({ severity: 'LOW' }, 'OPEN')).toEqual({
+      severity: 'LOW',
+      status: 'OPEN',
+    })
   })
 })

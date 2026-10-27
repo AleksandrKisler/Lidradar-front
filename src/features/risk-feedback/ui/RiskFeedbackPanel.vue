@@ -44,8 +44,8 @@ const feedback = useRiskFeedback(() => props.riskId)
 const confirmOpen = ref(false)
 
 const verdictHints: Record<RiskVerdict, string> = {
-  TRUE_POSITIVE: 'Radar верно заметил ситуацию, даже если её уже решили.',
-  FALSE_POSITIVE: 'Риска на самом деле не было: сигнал сработал зря.',
+  TRUE_POSITIVE: 'Ситуация была определена верно, даже если её уже решили.',
+  FALSE_POSITIVE: 'Риска не было. Для закрытия потребуются причина и подтверждение.',
 }
 const reasonOptions: UiSelectOption[] = FEEDBACK_REASONS.map((value) => ({
   value,
@@ -146,14 +146,14 @@ function editAgain(): void {
     <UiButton variant="ghost" size="sm" @click="editAgain">Оценить ещё раз</UiButton>
   </div>
 
-  <form v-else class="flex flex-col gap-4" novalidate @submit.prevent="onSubmit">
-    <fieldset class="flex flex-col gap-2">
-      <legend class="mb-2 text-sm font-semibold text-ink">Что было на самом деле</legend>
+  <form v-else class="grid gap-4 md:grid-cols-2 md:gap-x-6" novalidate @submit.prevent="onSubmit">
+    <fieldset class="flex flex-col gap-3">
+      <legend class="sr-only">Что было на самом деле</legend>
       <label
         v-for="value in RISK_VERDICTS"
         :key="value"
         :class="[
-          'flex cursor-pointer gap-3 rounded-control border px-4 py-3',
+          'flex cursor-pointer items-start gap-3 rounded-control border p-3',
           values.verdict === value ? 'border-brand ring-1 ring-brand' : 'border-line',
         ]"
       >
@@ -162,11 +162,11 @@ function editAgain(): void {
           type="radio"
           name="verdict"
           :value="value"
-          class="mt-1 size-4 shrink-0 accent-brand"
+          class="size-5 shrink-0 accent-brand"
           :disabled="feedback.isPending.value"
         />
-        <span class="flex flex-col gap-1 text-sm">
-          <span class="font-semibold text-ink">{{ verdictLabel(value) }}</span>
+        <span class="flex flex-col gap-1 text-sm leading-5">
+          <span class="font-medium text-ink">{{ verdictLabel(value) }}</span>
           <span class="text-muted">{{ verdictHints[value] }}</span>
         </span>
       </label>
@@ -175,61 +175,79 @@ function editAgain(): void {
       </p>
     </fieldset>
 
-    <UiField
-      v-if="falsePositive"
-      v-slot="{ id, describedBy, invalid }"
-      label="Почему сигнал ложный"
-      :error="errors.reason"
-    >
-      <UiSelect
-        :id="id"
-        v-model="reason"
-        name="feedbackReason"
-        :options="reasonOptions"
-        placeholder="Выберите причину"
-        :described-by="describedBy"
-        :invalid="invalid"
-        :disabled="feedback.isPending.value"
-      />
-    </UiField>
+    <div class="flex flex-col gap-4">
+      <UiField
+        v-if="falsePositive"
+        v-slot="{ id, describedBy, invalid }"
+        label="Почему сигнал ложный"
+        label-style="compact"
+        :error="errors.reason"
+      >
+        <UiSelect
+          :id="id"
+          v-model="reason"
+          name="feedbackReason"
+          :options="reasonOptions"
+          placeholder="Выберите причину"
+          :described-by="describedBy"
+          :invalid="invalid"
+          :disabled="feedback.isPending.value"
+        />
+      </UiField>
 
-    <UiField
-      v-slot="{ id, describedBy, invalid }"
-      label="Комментарий"
-      description="Необязательно: что поможет точнее настроить правило."
-      :error="errors.note"
-    >
-      <UiTextarea
-        :id="id"
-        v-model="note"
-        name="feedbackNote"
-        :rows="2"
-        :maxlength="FEEDBACK_NOTE_MAX_LENGTH"
-        :described-by="describedBy"
-        :invalid="invalid"
-        :disabled="feedback.isPending.value"
-      />
-    </UiField>
+      <UiField
+        v-slot="{ id, describedBy, invalid }"
+        label="Комментарий"
+        label-style="compact"
+        :error="errors.note"
+      >
+        <UiTextarea
+          :id="id"
+          v-model="note"
+          name="feedbackNote"
+          class="h-[88px]"
+          placeholder="Что поможет точнее определить ситуацию"
+          :maxlength="FEEDBACK_NOTE_MAX_LENGTH"
+          :described-by="describedBy"
+          :invalid="invalid"
+          :disabled="feedback.isPending.value"
+        />
+      </UiField>
+      <p class="-mt-2 text-sm leading-5 text-muted">
+        Для ложного срабатывания причина обязательна.
+      </p>
+    </div>
 
-    <UiAlert v-if="closesRisk" tone="warning" title="Риск закроется">
-      Активный риск получит статус «ложное срабатывание» и уйдёт из ленты Radar. История сохранится.
-      <template v-if="losesOpportunity">
-        Сделка по этому обращению будет закрыта как потерянная: клиент не был лидом.
-      </template>
-    </UiAlert>
-    <UiAlert v-else-if="losesOpportunity" tone="warning" title="Сделка закроется">
-      Причина «это не клиент» закроет сделку по этому обращению как потерянную.
-    </UiAlert>
+    <div class="flex flex-col gap-4 md:col-span-2">
+      <UiAlert v-if="closesRisk" tone="warning" title="Риск закроется">
+        Активный риск получит статус «ложное срабатывание» и уйдёт из ленты Radar. История
+        сохранится.
+        <template v-if="losesOpportunity">
+          Сделка по этому обращению будет закрыта как потерянная: клиент не был лидом.
+        </template>
+      </UiAlert>
+      <UiAlert v-else-if="losesOpportunity" tone="warning" title="Сделка закроется">
+        Причина «это не клиент» закроет сделку по этому обращению как потерянную.
+      </UiAlert>
 
-    <UiAlert v-if="errorView" tone="danger" :title="errorView.title" :trace-id="traceId">
-      {{ errorView.description }}
-    </UiAlert>
+      <UiAlert v-if="errorView" tone="danger" :title="errorView.title" :trace-id="traceId">
+        {{ errorView.description }}
+      </UiAlert>
 
-    <!-- Вариант кнопки не меняется от выбора: смена цвета в переходе мешает
-         проверкам контраста, а о последствиях предупреждают текст и диалог. -->
-    <UiButton type="submit" block :loading="feedback.isPending.value">
-      {{ submitLabel }}
-    </UiButton>
+      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
+        <p class="text-sm leading-5 text-muted">Подтверждение риска не закрывает его.</p>
+        <!-- Без перехода цвета: смена варианта в движении мешает проверкам контраста. -->
+        <UiButton
+          type="submit"
+          class="transition-none md:w-[436px] lg:w-[228px]"
+          :variant="values.verdict ? 'primary' : 'secondary'"
+          :disabled="!values.verdict"
+          :loading="feedback.isPending.value"
+        >
+          {{ submitLabel }}
+        </UiButton>
+      </div>
+    </div>
 
     <UiDialog
       v-model:open="confirmOpen"

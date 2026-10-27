@@ -93,7 +93,7 @@ async function disable(): Promise<void> {
               :href="startUrl"
               target="_blank"
               rel="noopener noreferrer"
-              class="inline-flex h-11 items-center rounded-control bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-dark"
+              class="inline-flex h-input items-center rounded-control bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-dark"
             >
               Открыть бота
             </a>

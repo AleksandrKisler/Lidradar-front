@@ -40,6 +40,77 @@ export function formatDateTime(
   }
 }
 
+/**
+ * Полная дата и время для контекста страницы: `23 октября 2026 · 15:40 МСК`.
+ * Неизвестный часовой пояс не роняет интерфейс — используется UTC.
+ */
+export function formatLongDateTime(value: Date, timeZone: string): string {
+  const format = (zone: string) => {
+    const date = new Intl.DateTimeFormat('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: zone,
+    }).format(value)
+    const time = new Intl.DateTimeFormat('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZoneName: 'short',
+      timeZone: zone,
+    }).format(value)
+    const clock = time
+      .replace(',', '')
+      .replace(/GMT\+3$/, zone === 'Europe/Moscow' ? 'МСК' : 'GMT+3')
+    return `${date.replace(/\s*г\.$/, '')} · ${clock}`
+  }
+  try {
+    return format(timeZone)
+  } catch {
+    return format('UTC')
+  }
+}
+
+/** Дата без года и время для карточек: `23 октября, 14:22`. */
+export function formatDayTime(
+  value: string | Date | null | undefined,
+  timeZone: string,
+): string | null {
+  const date = value instanceof Date ? value : parseInstant(value)
+  if (!date) return null
+  const format = (zone: string) =>
+    new Intl.DateTimeFormat('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: zone,
+    })
+      .format(date)
+      .replace(' в ', ', ')
+  try {
+    return format(timeZone)
+  } catch {
+    return format('UTC')
+  }
+}
+
+/**
+ * Длительность между моментами: `2 ч 18 мин`, `3 дн 4 ч`, `менее минуты`. Это
+ * календарное время, а не рабочие минуты политики риска.
+ */
+export function formatElapsed(from: string | Date | null | undefined, now: Date): string | null {
+  const start = from instanceof Date ? from : parseInstant(from)
+  if (!start) return null
+  const minutes = Math.max(0, Math.floor((now.getTime() - start.getTime()) / 60_000))
+  if (minutes < 1) return 'менее минуты'
+  const days = Math.floor(minutes / 1440)
+  const hours = Math.floor((minutes % 1440) / 60)
+  const rest = minutes % 60
+  if (days > 0) return hours > 0 ? `${days} дн ${hours} ч` : `${days} дн`
+  if (hours > 0) return rest > 0 ? `${hours} ч ${rest} мин` : `${hours} ч`
+  return `${rest} мин`
+}
+
 /** Только время `13:41` в часовом поясе организации. */
 export function formatTime(
   value: string | Date | null | undefined,

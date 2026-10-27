@@ -37,9 +37,9 @@ test.describe('стенд · небольшая студия', () => {
     await feed.getByRole('link').first().click()
     await expect(page).toHaveURL(/\/risks\/[0-9a-f-]{36}$/)
     await expect(page.getByRole('heading', { name: 'Почему это риск' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Этапы сделки' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Этап сделки' })).toBeVisible()
     await expect(
-      page.getByRole('list', { name: 'История этапов' }).getByRole('listitem').first(),
+      page.getByRole('list', { name: 'История' }).getByRole('listitem').first(),
     ).toBeVisible()
     await page.screenshot({ path: 'test-results/stand-risk.png', fullPage: true })
     // Диалог оплаты открывается и закрывается без записи.
@@ -48,7 +48,7 @@ test.describe('стенд · небольшая студия', () => {
     await expect(dialog).toBeVisible()
     await dialog.getByRole('button', { name: 'Отмена' }).click()
     await expect(dialog).toBeHidden()
-    await page.getByRole('link', { name: '← Radar' }).click()
+    await page.getByRole('link', { name: 'К рискам' }).click()
     await expect(page).toHaveURL(/severity=HIGH/)
     await stand.context.close()
   })

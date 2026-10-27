@@ -113,7 +113,7 @@ describe('StageChangeControl', () => {
     expect(fetchMock).not.toHaveBeenCalled()
     await dialog
       .findAll('button')
-      .find((button) => button.text() === 'Перевести')!
+      .find((button) => button.text() === 'Изменить этап')!
       .trigger('click')
     await settle()
     expect(fetchMock).toHaveBeenCalledTimes(1)

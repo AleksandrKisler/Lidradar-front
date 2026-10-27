@@ -171,6 +171,25 @@ describe('запросы Radar', () => {
     expect(feedUrl.searchParams.get('cursor')).toBe('cursor-1')
     expect(feedUrl.searchParams.get('limit')).toBe('20')
     expect(feedUrl.searchParams.get('severity')).toBe('HIGH')
+    expect(feedUrl.searchParams.has('status')).toBe(false)
+  })
+
+  it('вкладка статуса заменяет active параметром status и меняет ключ', async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ items: [], nextCursor: null }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    await fetchActiveRisks('tenant-a', {}, null, undefined, 'OPEN')
+    const url = new URL((fetchMock.mock.calls[0]![0] as Request).url)
+    expect(url.searchParams.getAll('status')).toEqual(['OPEN'])
+    expect(url.searchParams.has('active')).toBe(false)
+    expect(riskKeys.activeFeed('t', {}, 'ACKNOWLEDGED')[3]).toEqual({ status: 'ACKNOWLEDGED' })
+    expect(riskKeys.activeFeed('t', {}, null)[3]).toEqual({ active: true })
   })
 })
 

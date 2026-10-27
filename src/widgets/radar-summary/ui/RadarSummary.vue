@@ -12,7 +12,7 @@
  */
 import { computed } from 'vue'
 import { formatAmount, formatMoney } from '@/shared/lib'
-import { UiCard, UiErrorState, UiSkeleton } from '@/shared/ui'
+import { UiErrorState, UiSkeleton } from '@/shared/ui'
 import type { RadarSummary } from '@/entities/risk'
 
 const props = defineProps<{
@@ -66,48 +66,75 @@ const tiles = computed(() => {
 <template>
   <section aria-labelledby="radar-summary-title">
     <h2 id="radar-summary-title" class="sr-only">Сводка</h2>
-    <UiCard
+    <div
       v-if="loading && !summary"
-      :padded="false"
-      class="@container"
+      class="@container overflow-hidden rounded-[14px] border border-hairline bg-paper"
       role="status"
       aria-label="Загрузка сводки"
     >
-      <div class="grid divide-y divide-line @2xl:grid-cols-3 @2xl:divide-x @2xl:divide-y-0">
-        <div v-for="index in 3" :key="index" class="px-4 py-3 @2xl:px-6 @2xl:py-5">
-          <UiSkeleton class="h-3 w-32" />
-          <UiSkeleton class="mt-3 h-6 w-24" />
+      <div class="grid grid-cols-2 gap-4 p-4 @[560px]:grid-cols-3 @[860px]:p-0">
+        <div
+          v-for="index in 3"
+          :key="index"
+          class="@[860px]:h-[136px] @[860px]:px-[23px] @[860px]:py-[18px]"
+        >
+          <UiSkeleton class="h-3 w-24" />
+          <UiSkeleton class="mt-3 h-6 w-20 @[860px]:mt-6 @[860px]:h-9 @[860px]:w-40" />
         </div>
       </div>
-    </UiCard>
+    </div>
     <UiErrorState
       v-else-if="error && !summary"
       :error="error"
       title="Не удалось загрузить сводку"
       @retry="emit('retry')"
     />
-    <UiCard v-else :padded="false" class="@container">
-      <ul class="grid divide-y divide-line @2xl:grid-cols-3 @2xl:divide-x @2xl:divide-y-0">
-        <li v-for="tile in tiles" :key="tile.key" class="px-4 py-3 @2xl:px-6 @2xl:py-5">
-          <div
-            class="flex flex-wrap items-baseline justify-between gap-x-4 @2xl:flex-col @2xl:items-start @2xl:gap-y-2"
+    <template v-else>
+      <p v-if="error" class="mb-2 text-xs leading-[18px] text-warning" role="status">
+        Не удалось обновить сводку: показаны прежние значения.
+      </p>
+      <div class="@container overflow-hidden rounded-[14px] border border-hairline bg-paper">
+        <!-- Телефон: «Активных рисков» отдельной строкой, деньги в две колонки; планшет: три колонки;
+           десктоп: колонки с разделителями (Figma 21:2019, 630:6182, 630:7204). -->
+        <ul
+          class="grid grid-cols-2 @[560px]:grid-cols-3 @[860px]:grid-cols-[248px_1fr_1fr] @[860px]:divide-x @[860px]:divide-hairline"
+        >
+          <li
+            v-for="tile in tiles"
+            :key="tile.key"
+            :class="[
+              'flex min-w-0 flex-col gap-1 p-4 @[860px]:h-[136px] @[860px]:gap-0 @[860px]:px-[23px] @[860px]:py-[18px]',
+              tile.key === 'open'
+                ? 'col-span-2 flex-row items-center justify-between gap-3 border-b border-hairline @[560px]:col-span-1 @[560px]:flex-col @[560px]:items-start @[560px]:justify-start @[560px]:border-b-0'
+                : '',
+            ]"
           >
-            <p
-              class="min-w-0 grow basis-40 text-sm text-muted @2xl:min-h-10 @2xl:grow-0 @5xl:min-h-0 @2xl:basis-auto"
-            >
+            <p class="text-meta leading-5 font-medium text-muted @[860px]:mb-[7px]">
               {{ tile.label }}
             </p>
-            <p class="text-xl font-medium text-ink tabular-nums @2xl:text-3xl">
+            <p
+              :class="[
+                'text-metric font-semibold tabular-nums @[560px]:text-4xl @[560px]:leading-10 @[860px]:text-[36px] @[860px]:leading-[44px] @[860px]:tracking-[-0.8px]',
+                tile.key === 'recovered' ? 'text-money' : 'text-ink',
+              ]"
+            >
               {{ tile.value }}
               <template v-if="tile.unknownSum">
                 <span class="text-muted" aria-hidden="true">+&nbsp;?</span>
                 <span class="sr-only">плюс сделки без суммы</span>
               </template>
             </p>
-          </div>
-          <p class="mt-0.5 text-xs text-muted @2xl:mt-2 @2xl:text-sm">{{ tile.note }}</p>
-        </li>
-      </ul>
-    </UiCard>
+            <p
+              :class="[
+                'text-xs leading-[18px] text-muted @[860px]:mt-3',
+                tile.key === 'open' ? 'text-right @[560px]:text-left' : '',
+              ]"
+            >
+              {{ tile.note }}
+            </p>
+          </li>
+        </ul>
+      </div>
+    </template>
   </section>
 </template>

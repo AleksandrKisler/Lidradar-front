@@ -1,2 +1,2 @@
 export { default as RadarPage } from './ui/RadarPage.vue'
-export { parseRiskFilters, riskFiltersToQuery } from './model/filters-query'
+export { parseRiskFilters, parseRiskFeedStatus, riskFiltersToQuery } from './model/filters-query'

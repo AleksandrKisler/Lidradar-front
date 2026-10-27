@@ -38,20 +38,20 @@ function onSuccess(): void {
 </script>
 
 <template>
-  <div>
-    <UiCard class="shadow-sm">
-      <p class="text-xs font-semibold tracking-wide text-muted">Новый аккаунт</p>
-      <h1 class="mt-2 text-2xl font-bold text-ink">Создайте аккаунт</h1>
-      <p class="mt-2 text-sm text-muted">{{ subtitle }}</p>
-      <div class="mt-6">
-        <RegisterForm :initial-code="initialCode" @success="onSuccess" />
-      </div>
-      <p class="mt-6 text-center text-sm text-muted">
-        Уже есть аккаунт?
-        <RouterLink :to="{ name: 'login' }" class="font-semibold text-brand hover:underline"
+  <UiCard :padded="false" class="flex flex-col gap-6 p-[23px] md:p-[31px]">
+    <div class="flex flex-col gap-2">
+      <p class="text-meta font-medium text-secondary">Новый аккаунт</p>
+      <h1 class="text-metric font-semibold text-ink md:text-4xl md:leading-10">Создать аккаунт</h1>
+      <p class="text-note text-secondary">{{ subtitle }}</p>
+    </div>
+    <RegisterForm :initial-code="initialCode" @success="onSuccess" />
+    <p class="flex h-[46px] items-center justify-center text-center text-sm text-secondary">
+      <span
+        >Уже есть аккаунт?
+        <RouterLink :to="{ name: 'login' }" class="font-medium text-link hover:underline"
           >Войти</RouterLink
-        >
-      </p>
-    </UiCard>
-  </div>
+        ></span
+      >
+    </p>
+  </UiCard>
 </template>

@@ -3,21 +3,37 @@
  * Бизнес-фильтры ленты и сводки: точка, важность, тип риска. Одни и те же
  * значения передаются обоим запросам, чтобы числа и список совпадали.
  */
-import { computed } from 'vue'
-import { UiButton, UiSelect, type UiSelectOption } from '@/shared/ui'
+import { computed, ref } from 'vue'
+import { UiButton, UiDialog, UiField, UiSelect, type UiSelectOption } from '@/shared/ui'
 import type { Location } from '@/entities/location'
+import RiskStatusTabs from './RiskStatusTabs.vue'
 import {
   RISK_SEVERITIES,
   RISK_TYPES,
   riskTypeLabel,
   severityLabel,
+  type RiskFeedStatus,
   type RiskFilters,
   type RiskSeverity,
   type RiskType,
 } from '@/entities/risk'
 
-const props = defineProps<{ modelValue: RiskFilters; locations: Location[] }>()
-const emit = defineEmits<{ 'update:modelValue': [filters: RiskFilters] }>()
+const props = withDefaults(
+  defineProps<{
+    modelValue: RiskFilters
+    /** Вкладка статуса; в панели `bar` стоит слева от выпадающих фильтров. */
+    status?: RiskFeedStatus | null
+    locations: Location[]
+    /** `bar` — панель над лентой (десктоп); `panel` — кнопка и окно «Фильтры» (планшет, телефон). */
+    variant?: 'bar' | 'panel'
+  }>(),
+  { variant: 'bar', status: null },
+)
+const panelOpen = ref(false)
+const emit = defineEmits<{
+  'update:modelValue': [filters: RiskFilters]
+  'update:status': [status: RiskFeedStatus | null]
+}>()
 
 const severityOptions: UiSelectOption[] = RISK_SEVERITIES.map((value) => ({
   value,
@@ -46,36 +62,41 @@ function update(patch: Partial<RiskFilters>): void {
 
 <template>
   <div
-    class="grid grid-cols-2 items-end gap-3 sm:flex sm:flex-wrap"
+    v-if="variant === 'bar'"
+    class="hidden min-h-[72px] flex-wrap items-center gap-3 rounded-xl border border-hairline bg-paper p-4 lg:flex lg:justify-between"
     role="group"
     aria-label="Фильтры"
   >
-    <label
-      v-if="locations.length > 1"
-      class="col-span-2 flex min-w-0 flex-col gap-1.5 text-sm font-medium text-ink sm:min-w-44"
-    >
-      Точка
+    <RiskStatusTabs
+      :model-value="status"
+      @update:model-value="(value) => emit('update:status', value)"
+    />
+    <div class="ml-auto flex flex-wrap items-center gap-3">
       <UiSelect
+        v-if="locations.length > 1"
+        size="filter"
+        class="w-[156px]"
+        aria-label="Точка"
         :model-value="modelValue.locationId ?? ''"
         :options="locationOptions"
         placeholder="Все точки"
         @update:model-value="(value) => update({ locationId: value || undefined })"
       />
-    </label>
-    <label class="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-ink sm:min-w-40">
-      Важность
       <UiSelect
+        size="filter"
+        class="w-[156px]"
+        aria-label="Важность"
         :model-value="modelValue.severity ?? ''"
         :options="severityOptions"
-        placeholder="Любая"
+        placeholder="Любая важность"
         @update:model-value="
           (value) => update({ severity: (value || undefined) as RiskSeverity | undefined })
         "
       />
-    </label>
-    <label class="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-ink sm:min-w-56">
-      Тип риска
       <UiSelect
+        size="filter"
+        class="w-[156px]"
+        aria-label="Тип риска"
         :model-value="modelValue.riskType ?? ''"
         :options="typeOptions"
         placeholder="Все типы"
@@ -83,13 +104,59 @@ function update(patch: Partial<RiskFilters>): void {
           (value) => update({ riskType: (value || undefined) as RiskType | undefined })
         "
       />
-    </label>
-    <UiButton
-      v-if="hasFilters"
-      variant="ghost"
-      class="col-span-2 sm:col-auto"
-      @click="emit('update:modelValue', {})"
-      >Сбросить фильтры</UiButton
+      <UiButton v-if="hasFilters" variant="ghost" size="sm" @click="emit('update:modelValue', {})"
+        >Сбросить фильтры</UiButton
+      >
+    </div>
+  </div>
+
+  <div v-else class="lg:hidden">
+    <button
+      type="button"
+      class="h-[46px] rounded-button border border-line bg-paper px-5 text-field leading-5 font-medium text-ink hover:bg-canvas"
+      aria-haspopup="dialog"
+      @click="panelOpen = true"
     >
+      Фильтры
+    </button>
+    <UiDialog v-model:open="panelOpen" title="Фильтры" size="md">
+      <div class="flex flex-col gap-4">
+        <UiField v-if="locations.length > 1" v-slot="{ id }" label="Точка">
+          <UiSelect
+            :id="id"
+            :model-value="modelValue.locationId ?? ''"
+            :options="locationOptions"
+            placeholder="Все точки"
+            @update:model-value="(value) => update({ locationId: value || undefined })"
+          />
+        </UiField>
+        <UiField v-slot="{ id }" label="Важность">
+          <UiSelect
+            :id="id"
+            :model-value="modelValue.severity ?? ''"
+            :options="severityOptions"
+            placeholder="Любая важность"
+            @update:model-value="
+              (value) => update({ severity: (value || undefined) as RiskSeverity | undefined })
+            "
+          />
+        </UiField>
+        <UiField v-slot="{ id }" label="Тип риска">
+          <UiSelect
+            :id="id"
+            :model-value="modelValue.riskType ?? ''"
+            :options="typeOptions"
+            placeholder="Все типы"
+            @update:model-value="
+              (value) => update({ riskType: (value || undefined) as RiskType | undefined })
+            "
+          />
+        </UiField>
+        <UiButton v-if="hasFilters" variant="secondary" @click="emit('update:modelValue', {})"
+          >Сбросить фильтры</UiButton
+        >
+        <UiButton @click="panelOpen = false">Готово</UiButton>
+      </div>
+    </UiDialog>
   </div>
 </template>

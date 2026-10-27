@@ -28,9 +28,7 @@ test.describe('гость', () => {
   test('защищённый адрес ведёт на вход с путём возврата', async ({ page }) => {
     await page.goto('/radar?severity=HIGH')
     await expect(page).toHaveURL(/\/login\?redirect=\/radar\?severity=HIGH$/)
-    await expect(
-      page.getByRole('heading', { name: 'Войдите в своё рабочее пространство' }),
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Вход в LidRadar' })).toBeVisible()
     await expectNoAxeViolations(page)
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
@@ -90,12 +88,13 @@ test.describe('поток сигналов', () => {
     await page.goto('/radar')
     await expect(page.getByRole('heading', { name: 'Radar' })).toBeVisible()
     await expect(page.getByText('47 000 ₽')).toBeVisible()
-    // На телефоне индикатор живёт в меню, чтобы не вытеснять название организации из шапки.
-    const menu = page.getByRole('button', { name: 'Меню' })
-    if (await menu.isVisible()) await menu.click()
+    // Состояние потока — в доступном имени кнопки обновления и красной точке (Figma 256:2511).
     await expect(
-      page.getByRole('status').filter({ hasText: 'Обновления недоступны' }),
+      page.getByRole('button', { name: /Обновить Radar.*Автообновление недоступно/ }),
     ).toBeVisible()
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Автообновление недоступно' }),
+    ).toHaveCount(1)
     await expectNoAxeViolations(page)
   })
 })
@@ -116,16 +115,34 @@ test.describe('владелец организации', () => {
     await page.goto('/')
     await expect(page).toHaveURL(/\/radar$/)
     await expect(page.getByRole('heading', { name: 'Radar' })).toBeVisible()
-    // Название организации видно в шапке при любой ширине; боковая панель на телефоне скрыта.
-    await expect(page.getByRole('banner').getByText('Студия «Блик»')).toBeVisible()
+    // Название организации видно в контексте страницы при любой ширине (дизайн v2).
+    await expect(page.getByText('Студия «Блик»').filter({ visible: true }).first()).toBeVisible()
     await expect(page.getByText('47 000 ₽')).toBeVisible()
     await expect(page.getByText('12 000 ₽')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Дмитрий Соколов' })).toHaveCount(2)
     await expectNoAxeViolations(page)
 
-    await page.getByLabel('Важность').selectOption('CRITICAL')
+    // До 1024 px фильтры лежат в окне «Фильтры» (Figma 630:8248), от 1024 — в панели над лентой.
+    const narrow = (page.viewportSize()?.width ?? 0) < 1024
+    if (narrow) {
+      await page.getByRole('button', { name: 'Фильтры' }).click()
+      await page.getByRole('dialog').getByLabel('Важность').selectOption('CRITICAL')
+      await page.getByRole('button', { name: 'Готово' }).click()
+    } else {
+      await page.getByLabel('Важность').selectOption('CRITICAL')
+    }
     await expect(page).toHaveURL(/severity=CRITICAL/)
     await expect(page.getByRole('heading', { name: 'Дмитрий Соколов' })).toHaveCount(1)
+
+    // Представление ленты переключается без перезагрузки: список и плитки показывают ту же карточку.
+    await page.getByRole('button', { name: 'Список' }).click()
+    await expect(page.getByRole('button', { name: 'Список' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await expect(page.getByRole('heading', { name: 'Дмитрий Соколов' })).toHaveCount(1)
+    await page.getByRole('button', { name: 'Плитки' }).click()
+    await expect(page.getByRole('link', { name: /Разобрать риск: Дмитрий Соколов/ })).toBeVisible()
     expect(
       risksRequests.some((url) => url.includes('severity=CRITICAL') && url.includes('active=true')),
     ).toBe(true)
@@ -135,16 +152,197 @@ test.describe('владелец организации', () => {
     expect(new Set(tenantHeaders)).toEqual(new Set([TENANT_ID]))
   })
 
+  test('вкладки статуса фильтруют ленту без чисел и сохраняются в адресе', async ({ page }) => {
+    const feedRequests: string[] = []
+    const summaryRequests: string[] = []
+    page.on('request', (request) => {
+      const url = request.url()
+      if (/\/api\/v1\/risks\?/.test(url)) feedRequests.push(url)
+      if (url.includes('/api/v1/radar')) summaryRequests.push(url)
+    })
+    // Источник подключён: пустая вкладка говорит о вкладке, а не о подключении.
+    await page.route('**/api/v1/organization/onboarding', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          complete: true,
+          nextStep: null,
+          steps: [{ key: 'CHANNEL', required: true, done: true }],
+          facts: {
+            activeLocations: 1,
+            locationsWithSchedule: 1,
+            activeServices: 1,
+            connections: 1,
+            liveConnections: 1,
+            telegramLinked: false,
+          },
+          computedAt: '2026-10-23T12:00:00Z',
+        }),
+      }),
+    )
+    await page.goto('/radar')
+    const group = page.getByRole('group', { name: 'Статус рисков' }).filter({ visible: true })
+    await expect(group.getByRole('button', { name: 'Все риски' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    // Чисел у вкладок нет: сводка не отдаёт разбивку по статусам.
+    await expect(group).not.toContainText(/\d/)
+    await expect(page.getByRole('heading', { name: 'Дмитрий Соколов' })).toHaveCount(2)
+    expect(feedRequests.at(-1)).toContain('active=true')
+    expect(feedRequests.at(-1)).not.toContain('status=')
+
+    await expect(page.getByRole('heading', { name: 'Требуют внимания' })).toContainText('· 2')
+    await group.getByRole('button', { name: 'Новые' }).click()
+    await expect(page).toHaveURL(/status=OPEN/)
+    // Число из сводки относится ко всем активным рискам: на вкладке в заголовке его нет.
+    await expect(page.getByRole('heading', { name: 'Требуют внимания' })).not.toContainText('·')
+    await expect(page.getByText('Это все риски этой вкладки по выбранным фильтрам.')).toBeVisible()
+    await expect(group.getByRole('button', { name: 'Новые' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await expect.poll(() => feedRequests.at(-1)).toContain('status=OPEN')
+    expect(feedRequests.at(-1)).not.toContain('active=')
+
+    await group.getByRole('button', { name: 'В работе' }).click()
+    await expect(page).toHaveURL(/status=ACKNOWLEDGED/)
+    await expect(page.getByText('Нет рисков в работе')).toBeVisible()
+    await expect(page.getByText('Сейчас всё под контролем')).toHaveCount(0)
+
+    // Перезагрузка сохраняет вкладку, фильтры её не сбрасывают.
+    await page.reload()
+    await expect(
+      page
+        .getByRole('group', { name: 'Статус рисков' })
+        .filter({ visible: true })
+        .getByRole('button', { name: 'В работе' }),
+    ).toHaveAttribute('aria-pressed', 'true')
+    const narrow = (page.viewportSize()?.width ?? 0) < 1024
+    if (narrow) {
+      await page.getByRole('button', { name: 'Фильтры' }).click()
+      await page.getByRole('dialog').getByLabel('Важность').selectOption('CRITICAL')
+      await page.getByRole('button', { name: 'Готово' }).click()
+    } else {
+      await page.getByLabel('Важность').selectOption('CRITICAL')
+    }
+    await expect(page).toHaveURL(/status=ACKNOWLEDGED/)
+    await expect(page).toHaveURL(/severity=CRITICAL/)
+
+    // Сводка статус не получает.
+    expect(summaryRequests.every((url) => !url.includes('status='))).toBe(true)
+
+    // Возврат на «Все риски» убирает параметр и снова запрашивает active=true.
+    await page
+      .getByRole('group', { name: 'Статус рисков' })
+      .filter({ visible: true })
+      .getByRole('button', { name: 'Все риски' })
+      .click()
+    await expect(page).not.toHaveURL(/status=/)
+    await expect.poll(() => feedRequests.at(-1)).toContain('active=true')
+  })
+
+  test('Telegram в меню: подключён только при живом подключении, статус — из кэша', async ({
+    page,
+  }) => {
+    // Поток сигналов недоступен: его переподключение сверяет все активные запросы
+    // (realtime.ts), а здесь проверяется только поведение навигации.
+    await mockOwner(page, { events: 'unavailable' })
+    let onboardingRequests = 0
+    const status = (liveConnections: number) => ({
+      complete: true,
+      nextStep: null,
+      steps: [{ key: 'CHANNEL', required: true, done: liveConnections > 0 }],
+      facts: {
+        activeLocations: 1,
+        locationsWithSchedule: 1,
+        activeServices: 1,
+        connections: liveConnections,
+        liveConnections,
+        telegramLinked: true,
+      },
+      computedAt: '2026-10-23T12:00:00Z',
+    })
+    await page.route('**/api/v1/organization/onboarding', (route) => {
+      // Предзапросы CORS (OPTIONS) не считаются: читается только сам статус.
+      if (route.request().method() === 'GET') onboardingRequests += 1
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(status(1)),
+      })
+    })
+    await page.goto('/radar')
+    if ((page.viewportSize()?.width ?? 0) < 1024) {
+      await page.getByRole('button', { name: 'Меню' }).click()
+    }
+    const badge = page.getByRole('status').filter({ hasText: 'Telegram' })
+    await expect(badge.filter({ visible: true })).toContainText('Подключён')
+    // Подпись под организацией — число точек из списка точек.
+    await expect(page.getByText('1 точка').filter({ visible: true })).toBeVisible()
+    // Переходы между разделами, где статус не читается, новых запросов не создают: оболочка
+    // живёт всю сессию, а статус свежий в кэше.
+    const open = async (name: string, url: RegExp) => {
+      if (
+        (page.viewportSize()?.width ?? 0) < 1024 &&
+        !(await page.getByRole('dialog').isVisible())
+      ) {
+        await page.getByRole('button', { name: 'Меню' }).click()
+      }
+      await page.getByRole('link', { name, exact: true }).filter({ visible: true }).click()
+      await expect(page).toHaveURL(url)
+    }
+    await open('Диалоги', /\/conversations/)
+    await expect(page.getByRole('heading', { name: 'Диалоги' })).toBeVisible()
+    await expect.poll(() => onboardingRequests).toBeGreaterThan(0)
+    const afterFirstNavigation = onboardingRequests
+    await open('Аналитика', /\/analytics/)
+    await open('Диалоги', /\/conversations/)
+    await open('Аналитика', /\/analytics/)
+    expect(onboardingRequests).toBe(afterFirstNavigation)
+  })
+
+  test('Radar на телефоне: фильтры в окне, список показывает те же карточки, меню открывается', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/radar')
+    await expect(page.getByRole('heading', { name: 'Radar' })).toBeVisible()
+    // Боковая колонка скрыта: разделы открываются в меню, а «Фильтры» — в отдельном окне.
+    await expect(page.getByRole('navigation', { name: 'Разделы' })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Меню' }).click()
+    await expect(
+      page.getByRole('dialog').getByRole('navigation', { name: 'Разделы' }),
+    ).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Фильтры' }).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByLabel('Важность').selectOption('CRITICAL')
+    await dialog.getByRole('button', { name: 'Готово' }).click()
+    await expect(dialog).toBeHidden()
+    await expect(page).toHaveURL(/severity=CRITICAL/)
+    // На телефоне список — те же карточки (Figma 630:7726): ни горизонтальной прокрутки, ни потери ссылки.
+    await page.getByRole('button', { name: 'Список' }).click()
+    await expect(page.getByRole('link', { name: /Разобрать риск: Дмитрий Соколов/ })).toBeVisible()
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true)
+  })
+
   test('карточка риска: контекст, команды и история', async ({ page }) => {
     await page.goto('/radar?severity=CRITICAL')
     await page.getByRole('link', { name: 'Дмитрий Соколов' }).first().click()
     await expect(page).toHaveURL(new RegExp(`/risks/${RISK_ID}$`))
-    await expect(page.getByRole('heading', { level: 1, name: 'Дмитрий Соколов' })).toBeVisible()
+    // Дизайн v2: заголовок — тип риска, клиент — в подзаголовке.
+    await expect(page.getByRole('heading', { level: 1, name: 'Нет ответа клиенту' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Почему это риск' })).toBeVisible()
     await expect(
-      page.getByText('Бизнес не ответил клиенту в течение 60 рабочих минут'),
+      page.getByText('Бизнес не ответил клиенту в течение 60 рабочих минут').first(),
     ).toBeVisible()
-    await expect(page.getByText('Действий и исходов по этому риску ещё нет.')).toBeVisible()
+    await expect(page.getByText('Действий и исходов пока нет.')).toBeVisible()
     await expectNoAxeViolations(page)
 
     // Команды: взять в работу, получить рекомендацию, записать действие и исход.
@@ -155,7 +353,7 @@ test.describe('владелец организации', () => {
     await page.getByRole('button', { name: 'Получить рекомендацию' }).click()
     await expect(page.getByText('Ответьте клиенту и назовите цену.')).toBeVisible()
 
-    await page.getByLabel('Что сделано').selectOption('CALL')
+    await page.getByLabel('Что вы сделали').selectOption('CALL')
     await page.getByLabel('Заметка').first().fill('Договорились созвониться вечером')
     await page.getByRole('button', { name: 'Записать действие' }).click()
     await expect(page.getByText('Действие записано.')).toBeVisible()
@@ -170,7 +368,7 @@ test.describe('владелец организации', () => {
     await expectNoAxeViolations(page)
 
     // Возврат в Radar сохраняет фильтры, с которыми открыли карточку.
-    await page.getByRole('main').getByRole('link', { name: 'Radar', exact: true }).click()
+    await page.getByRole('main').getByRole('link', { name: 'К рискам', exact: true }).click()
     await expect(page).toHaveURL(/\/radar\?severity=CRITICAL$/)
   })
 
@@ -179,7 +377,7 @@ test.describe('владелец организации', () => {
   }) => {
     await page.goto(`/risks/${RISK_ID}`)
     // Доказательная цепочка: действие и исход «Оплатил».
-    await page.getByLabel('Что сделано').selectOption('CALL')
+    await page.getByLabel('Что вы сделали').selectOption('CALL')
     await page.getByRole('button', { name: 'Записать действие' }).click()
     await expect(page.getByText('Действие записано.')).toBeVisible()
     await page.getByLabel('Чем ответил клиент').selectOption('PAID')
@@ -200,7 +398,7 @@ test.describe('владелец организации', () => {
     await expect(dialog.getByText('31 000 ₽ · Возвращённая выручка')).toBeVisible()
     await dialog.getByRole('button', { name: 'Готово' }).click()
     await expect(dialog).toBeHidden()
-    await expect(page.getByRole('region', { name: 'Деньги' })).toContainText('31 000 ₽')
+    await expect(page.getByRole('region', { name: 'Потенциал сделки' })).toContainText('31 000 ₽')
 
     // Вторая оплата по возвращённой выручке: сервер отвечает 409. Повторить тот же платёж
     // нельзя: интерфейс просит сверить историю оплат и ничего не записывает.
@@ -219,7 +417,7 @@ test.describe('владелец организации', () => {
     await expectNoAxeViolations(page)
     await dialog.getByRole('button', { name: 'Отмена' }).click()
     await expect(dialog).toBeHidden()
-    await expect(page.getByRole('region', { name: 'Деньги' })).toContainText('31 000 ₽')
+    await expect(page.getByRole('region', { name: 'Потенциал сделки' })).toContainText('31 000 ₽')
 
     // Отдельный дополнительный платёж подтверждается в новой форме и по явному выбору связи.
     await page.getByRole('button', { name: 'Подтвердить оплату' }).click()
@@ -231,7 +429,7 @@ test.describe('владелец организации', () => {
     await expect(dialog.getByText('5 000 ₽ · Оплата без связи с риском')).toBeVisible()
     await dialog.getByRole('button', { name: 'Готово' }).click()
     await expect(dialog).toBeHidden()
-    await expect(page.getByRole('region', { name: 'Деньги' })).toContainText('31 000 ₽')
+    await expect(page.getByRole('region', { name: 'Потенциал сделки' })).toContainText('31 000 ₽')
   })
 
   test('оценка сигнала: подтверждение, затем ложное срабатывание с каскадом', async ({ page }) => {
@@ -254,7 +452,7 @@ test.describe('владелец организации', () => {
     await expect(dialog).toBeHidden()
     await expect(panel.getByText('Ложное срабатывание · Это не клиент')).toBeVisible()
     await expect(page.getByText('Риск закрыт: история доступна только для чтения.')).toBeVisible()
-    await expect(page.getByRole('region', { name: 'Переписка и сделка' })).toContainText('Потеряна')
+    await expect(page.getByRole('region', { name: 'Этап сделки' })).toContainText('Потеряна')
   })
 
   test('диалоги: поиск, фильтр по риску, переписка и более ранние сообщения', async ({ page }) => {
@@ -922,15 +1120,18 @@ test.describe('владелец организации', () => {
     page,
   }) => {
     await page.goto(`/risks/${RISK_ID}`)
-    const context = page.getByRole('region', { name: 'Переписка и сделка' })
+    const context = page.getByRole('region', { name: 'Этап сделки' })
     await expect(context.getByTestId('opportunity-stage')).toHaveText('Новая')
-    const timeline = context.getByRole('list', { name: 'История этапов' })
-    await expect(timeline.getByRole('listitem')).toHaveCount(1)
-    await expect(timeline).toContainText('Создана как «Новая»')
+    // Этапы входят в общую историю рядом с обнаружением риска (Figma 212:2623).
+    const timeline = page.getByRole('region', { name: 'История' }).getByRole('list', {
+      name: 'История',
+    })
+    await expect(timeline.getByRole('listitem')).toHaveCount(2)
+    await expect(timeline).toContainText('Сделка создана · Новая')
     await expect(timeline).toContainText('Правило')
 
     // Назад, тот же этап и преждевременный выигрыш не предлагаются.
-    const select = context.getByLabel('Перевести на этап')
+    const select = context.getByLabel('Новый этап')
     const values = await select
       .locator('option')
       .evaluateAll((options) =>
@@ -947,10 +1148,10 @@ test.describe('владелец организации', () => {
       'LOST',
     ])
     await select.selectOption('ENGAGED')
-    await context.getByRole('button', { name: 'Перевести' }).click()
+    await context.getByRole('button', { name: 'Изменить этап' }).click()
     await expect(context.getByTestId('opportunity-stage')).toHaveText('В диалоге')
-    await expect(timeline.getByRole('listitem')).toHaveCount(2)
-    await expect(timeline.getByRole('listitem').first()).toContainText('Новая → В диалоге')
+    await expect(timeline.getByRole('listitem')).toHaveCount(3)
+    await expect(timeline.getByRole('listitem').first()).toContainText('Этап: Новая → В диалоге')
     await expect(timeline.getByRole('listitem').first()).toContainText('Вручную')
 
     // Гонка: сервер уже перевёл сделку дальше. Либо интерфейс успевает отправить
@@ -958,7 +1159,7 @@ test.describe('владелец организации', () => {
     // перечитал сделку и сбросил выбор — в обоих случаях состояние сходится к серверному.
     setOpportunityStage(page, 'BOOKED')
     await select.selectOption('QUALIFYING')
-    const transfer = context.getByRole('button', { name: 'Перевести' })
+    const transfer = context.getByRole('button', { name: 'Изменить этап' })
     if (await transfer.isEnabled()) await transfer.click()
     // Итог одинаков: этап перечитан с сервера, а текст конфликта проверяет unit-тест.
     await expect(context.getByTestId('opportunity-stage')).toHaveText('Записан')
@@ -972,10 +1173,10 @@ test.describe('владелец организации', () => {
 
     // Закрытие требует подтверждения с последствиями; после него — только архив.
     await select.selectOption('LOST')
-    await context.getByRole('button', { name: 'Перевести' }).click()
+    await context.getByRole('button', { name: 'Изменить этап' }).click()
     const confirm = page.getByRole('dialog', { name: 'Перевести сделку в «Потеряна»?' })
     await expect(confirm).toContainText('вернуть её в работу нельзя')
-    await confirm.getByRole('button', { name: 'Перевести' }).click()
+    await confirm.getByRole('button', { name: 'Изменить этап' }).click()
     await expect(context.getByTestId('opportunity-stage')).toHaveText('Потеряна')
     const closed = await select
       .locator('option')
@@ -1022,9 +1223,7 @@ test.describe('владелец организации', () => {
     if (await menu.isVisible()) await menu.click()
     await page.getByRole('button', { name: 'Выйти' }).click()
     await expect(page).toHaveURL(/\/login$/)
-    await expect(
-      page.getByRole('heading', { name: 'Войдите в своё рабочее пространство' }),
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Вход в LidRadar' })).toBeVisible()
   })
 })
 
@@ -1042,9 +1241,13 @@ test.describe('менеджер организации', () => {
       page.getByRole('list', { name: 'Настройки по типам рисков' }).locator(':scope > li'),
     ).toHaveCount(5)
     await expectNoAxeViolations(page)
-    if ((page.viewportSize()?.width ?? 0) >= 768) {
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
       const sections = page.getByRole('navigation', { name: 'Разделы' })
-      await expect(sections.getByRole('link', { name: 'Настройки' })).toBeVisible()
+      await expect(
+        page.getByRole('navigation', { name: 'Настройки', exact: true }).getByRole('link', {
+          name: 'Настройки',
+        }),
+      ).toBeVisible()
       await expect(sections.getByRole('link', { name: 'Интеграции' })).toHaveCount(0)
     }
     // Согласие менеджер читает, но не меняет.

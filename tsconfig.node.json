@@ -8,5 +8,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["*.config.ts", "tests/e2e/**/*.ts"]
+  "include": ["*.config.ts", "tests/e2e/**/*.ts", "tooling/visual/**/*.ts"]
 }

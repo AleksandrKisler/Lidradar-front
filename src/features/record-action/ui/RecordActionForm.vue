@@ -79,7 +79,12 @@ async function retry(): Promise<void> {
 
 <template>
   <form class="flex flex-col gap-4" novalidate @submit.prevent="onSubmit">
-    <UiField v-slot="{ id, describedBy, invalid }" label="Что сделано" :error="errors.type">
+    <UiField
+      v-slot="{ id, describedBy, invalid }"
+      label="Что вы сделали"
+      label-style="compact"
+      :error="errors.type"
+    >
       <UiSelect
         :id="id"
         v-model="type"
@@ -93,15 +98,16 @@ async function retry(): Promise<void> {
     </UiField>
     <UiField
       v-slot="{ id, describedBy, invalid }"
-      label="Заметка"
-      description="Необязательно: что именно сказали или отправили клиенту."
+      label="Заметка · необязательно"
+      label-style="muted"
       :error="errors.note"
     >
       <UiTextarea
         :id="id"
         v-model="note"
         name="actionNote"
-        :rows="3"
+        class="h-[88px]"
+        placeholder="Что сказали или отправили"
         :maxlength="NOTE_MAX_LENGTH"
         :described-by="describedBy"
         :invalid="invalid"
@@ -128,11 +134,14 @@ async function retry(): Promise<void> {
 
     <UiButton
       type="submit"
+      :variant="type ? 'primary' : 'secondary'"
       block
-      :disabled="disabled || commandLocked"
+      aria-describedby="action-hint"
+      :disabled="disabled || commandLocked || !type"
       :loading="record.isPending.value"
     >
       Записать действие
     </UiButton>
+    <p id="action-hint" class="text-sm leading-5 text-muted">Только после выполненного действия.</p>
   </form>
 </template>

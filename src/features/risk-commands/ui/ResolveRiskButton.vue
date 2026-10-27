@@ -32,8 +32,14 @@ async function confirm(): Promise<void> {
 
 <template>
   <div>
-    <UiButton variant="secondary" block :disabled="disabled" @click="open = true">
-      Закрыть риск
+    <UiButton
+      variant="secondary"
+      class="bg-segment!"
+      block
+      :disabled="disabled"
+      @click="open = true"
+    >
+      Закрыть риск…
     </UiButton>
     <UiDialog
       v-model:open="open"

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * Кнопка действия по макету «Основы интерфейса»: высота 44, радиус 12,
+ * Кнопка действия по макету «Основы интерфейса»: высота 46, радиус 9,
  * варианты «основное», «вторичное», «опасное», «мягкое».
+ * Figma HIG / Button · Onboarding: 46 px, радиус 9, текст 17/20 medium.
  *
  * Состояние `loading` блокирует повторную отправку и объявляет занятость
  * (`aria-busy`), не меняя доступное имя кнопки.
@@ -30,7 +31,7 @@ const variants = {
 } as const
 
 const sizes = {
-  md: 'h-11 px-5 text-sm',
+  md: 'h-input px-6 text-field leading-5',
   sm: 'h-9 px-3.5 text-sm',
 } as const
 </script>
@@ -41,7 +42,8 @@ const sizes = {
     :disabled="disabled || loading"
     :aria-busy="loading || undefined"
     :class="[
-      'inline-flex items-center justify-center gap-2 rounded-control font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+      'inline-flex items-center justify-center gap-2 rounded-button font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed',
+      disabled && !loading ? 'opacity-45' : '',
       variants[variant],
       sizes[size],
       block ? 'w-full' : '',

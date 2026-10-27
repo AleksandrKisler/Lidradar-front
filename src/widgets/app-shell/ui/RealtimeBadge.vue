@@ -36,7 +36,7 @@ const classes = {
     v-if="view"
     role="status"
     :class="[
-      'inline-flex items-center gap-1.5 rounded-control border px-2.5 py-1 text-xs font-semibold whitespace-nowrap',
+      'inline-flex items-center gap-1.5 rounded-control border px-2.5 py-1 text-xs font-semibold',
       classes[view.tone],
     ]"
   >

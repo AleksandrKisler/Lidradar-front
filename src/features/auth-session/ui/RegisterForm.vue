@@ -9,7 +9,7 @@
  * неизвестен или запрос не удался, поле показано: решает сервер. Причина
  * отказа по коду не различается, сервер отвечает одинаково на любую.
  */
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { describeError, isApiError } from '@/shared/api'
@@ -25,7 +25,16 @@ const props = defineProps<{
 const emit = defineEmits<{ success: [] }>()
 
 const session = useSessionStore()
+/** Скринридеру отсчёт объявляется один раз при блокировке, а не каждую секунду. */
+const announcedSeconds = ref(0)
 const retry = useRetryAfter('lidradar.register.retryUntil')
+watch(
+  () => retry.active.value,
+  (active) => {
+    if (active) announcedSeconds.value = retry.secondsLeft.value
+  },
+  { immediate: true },
+)
 const registration = useRegistrationModeQuery()
 
 /**
@@ -110,7 +119,7 @@ const onSubmit = handleSubmit(async (values) => {
 </script>
 
 <template>
-  <form class="flex flex-col gap-5" novalidate @submit.prevent="onSubmit">
+  <form class="flex flex-col gap-4" novalidate @submit.prevent="onSubmit">
     <UiField
       v-if="showCode"
       v-slot="{ id, describedBy, invalid }"
@@ -179,19 +188,19 @@ const onSubmit = handleSubmit(async (values) => {
       {{ errorView.text }}
     </UiAlert>
     <p v-if="retry.active.value" class="sr-only" role="status">
-      Регистрация временно недоступна. Повторите попытку через {{ retry.secondsLeft.value }} секунд.
+      Регистрация временно недоступна. Повторите попытку через {{ announcedSeconds }} секунд.
     </p>
 
     <UiButton type="submit" block :loading="isSubmitting" :disabled="retry.active.value">
       {{ submitLabel }}
     </UiButton>
-    <p class="text-xs leading-5 text-muted" data-testid="register-legal">
+    <p class="text-xs leading-[18px] text-secondary" data-testid="register-legal">
       Создавая аккаунт, вы принимаете
       <a
         href="/legal/terms.html"
         target="_blank"
         rel="noopener"
-        class="font-semibold text-brand hover:underline"
+        class="font-medium text-link hover:underline"
         >Пользовательское соглашение</a
       >
       и подтверждаете, что ознакомились с
@@ -199,7 +208,7 @@ const onSubmit = handleSubmit(async (values) => {
         href="/legal/privacy.html"
         target="_blank"
         rel="noopener"
-        class="font-semibold text-brand hover:underline"
+        class="font-medium text-link hover:underline"
         >Политикой обработки персональных данных</a
       >.
     </p>

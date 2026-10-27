@@ -33,6 +33,13 @@ export interface RiskFilters {
   riskType?: RiskType | undefined
 }
 
+/**
+ * Вкладка статуса активной ленты: «Новые» — OPEN, «В работе» — ACKNOWLEDGED.
+ * Без значения лента показывает все активные статусы (в том числе ACTED).
+ */
+export type RiskFeedStatus = Extract<RiskStatus, 'OPEN' | 'ACKNOWLEDGED'>
+export const RISK_FEED_STATUSES: readonly RiskFeedStatus[] = ['OPEN', 'ACKNOWLEDGED']
+
 export const RISK_SEVERITIES: readonly RiskSeverity[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
 
 export const RISK_TYPES: readonly RiskType[] = [

@@ -1937,7 +1937,7 @@ test('UI: гонка при смене этапа сходится к серве
   await page.goto(`/risks/${candidate!.risk.id}`)
   const region = page.getByRole('region', { name: 'Переписка и сделка' })
   await expect(region.getByTestId('opportunity-stage')).toHaveText('Новая')
-  const select = region.getByLabel('Перевести на этап')
+  const select = region.getByLabel('Новый этап')
   await select.selectOption('ENGAGED')
   expect(
     (
@@ -1948,9 +1948,9 @@ test('UI: гонка при смене этапа сходится к серве
     ).status(),
   ).toBe(200)
   await region
-    .getByRole('button', { name: 'Перевести' })
+    .getByRole('button', { name: 'Изменить этап' })
     .click({ timeout: 5000 })
-    .catch(() => note('кнопка «Перевести» уже отключена: сигнал потока опередил клик'))
+    .catch(() => note('кнопка «Изменить этап» уже отключена: сигнал потока опередил клик'))
   await page.waitForTimeout(3000)
   const alerts = (await page.getByRole('alert').allTextContents())
     .map((t) => t.trim())

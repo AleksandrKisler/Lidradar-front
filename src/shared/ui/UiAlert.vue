@@ -17,10 +17,10 @@ withDefaults(
 )
 
 const tones = {
-  info: 'border-info/30 bg-info-pale text-ink',
-  success: 'border-success/30 bg-success-pale text-ink',
-  warning: 'border-warning/30 bg-warning-pale text-ink',
-  danger: 'border-danger/30 bg-danger-pale text-ink',
+  info: 'border-info/20 bg-info-pale text-ink',
+  success: 'border-success/20 bg-success-pale text-ink',
+  warning: 'border-warning/20 bg-warning-pale text-ink',
+  danger: 'border-danger/20 bg-danger-pale text-ink',
 } as const
 
 const icons = {
@@ -34,17 +34,17 @@ const titles = {
   info: 'text-info',
   success: 'text-success',
   warning: 'text-warning',
-  danger: 'text-danger',
+  danger: 'text-danger-ink',
 } as const
 </script>
 
 <template>
   <div
     :role="tone === 'danger' || tone === 'warning' ? 'alert' : 'status'"
-    :class="['rounded-control border px-4 py-3 text-sm', tones[tone]]"
+    :class="['rounded-field border px-[15px] py-[11px] text-sm leading-5', tones[tone]]"
   >
-    <div class="flex gap-3">
-      <UiIcon :name="icons[tone]" :class="['mt-0.5 size-5', titles[tone]]" />
+    <div class="flex items-start gap-3">
+      <UiIcon :name="icons[tone]" :class="['size-5', titles[tone]]" />
       <div class="min-w-0">
         <p v-if="title" :class="['font-medium', titles[tone]]">{{ title }}</p>
         <div :class="title ? 'mt-1' : ''"><slot /></div>

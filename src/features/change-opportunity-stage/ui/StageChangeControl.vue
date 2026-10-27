@@ -84,24 +84,28 @@ function start(): void {
 </script>
 
 <template>
-  <div v-if="options.length" class="flex flex-col gap-3">
-    <div class="flex flex-wrap items-end gap-3">
-      <UiField v-slot="{ id, describedBy, invalid }" label="Перевести на этап" class="w-64">
-        <UiSelect
-          :id="id"
-          v-model="target"
-          name="nextStage"
-          placeholder="Выберите этап"
-          :options="options"
-          :described-by="describedBy"
-          :invalid="invalid"
-          :disabled="change.isPending.value"
-        />
-      </UiField>
-      <UiButton :disabled="!target" :loading="change.isPending.value" @click="start">
-        Перевести
-      </UiButton>
-    </div>
+  <div v-if="options.length" class="flex flex-col gap-4">
+    <UiField v-slot="{ id, describedBy, invalid }" label="Новый этап" label-style="compact">
+      <UiSelect
+        :id="id"
+        v-model="target"
+        name="nextStage"
+        placeholder="Выберите этап"
+        :options="options"
+        :described-by="describedBy"
+        :invalid="invalid"
+        :disabled="change.isPending.value"
+      />
+    </UiField>
+    <UiButton
+      block
+      :variant="target ? 'primary' : 'secondary'"
+      :disabled="!target"
+      :loading="change.isPending.value"
+      @click="start"
+    >
+      Изменить этап
+    </UiButton>
     <UiAlert
       v-if="errorView && !confirmOpen"
       :tone="conflict ? 'warning' : 'danger'"
@@ -133,7 +137,7 @@ function start(): void {
           :loading="change.isPending.value"
           @click="submit"
         >
-          Перевести
+          Изменить этап
         </UiButton>
       </template>
     </UiDialog>

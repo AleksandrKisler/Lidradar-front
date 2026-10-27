@@ -1,23 +1,18 @@
 <script setup lang="ts">
 /**
- * Оболочка рабочего пространства: тёмное боковое меню (232 px на десктопе),
- * шапка с названием раздела и область содержимого. Меню и шапка «приклеены»
- * к окну: при длинной прокрутке они остаются в зоне видимости. На узких
+ * Оболочка рабочего пространства по Figma (Radar, 21:1983): светлая боковая
+ * колонка 240 px, область содержимого с отступом 40 px. Страницы дизайна v2
+ * (`meta.v2`) сами рисуют контекст и заголовок; верхняя полоса остаётся на
+ * узких экранах (меню, бренд) и на ещё не перенесённых страницах. На узких
  * экранах меню открывается на весь экран с ловушкой фокуса.
  */
 import { computed, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { UiDialog, UiIcon } from '@/shared/ui'
-import { roleLabel, useSessionStore } from '@/entities/session'
-import { useAdminMeQuery } from '@/entities/admin'
-import {
-  AccountDeletionBanner,
-  EmailVerificationBanner,
-  LogoutButton,
-} from '@/features/auth-session'
-import { WorkspaceSwitcher } from '@/features/select-workspace'
+import { AccountDeletionBanner, EmailVerificationBanner } from '@/features/auth-session'
 import RealtimeBadge from './RealtimeBadge.vue'
-import SidebarNav from './SidebarNav.vue'
+import SidebarBody from './SidebarBody.vue'
+import { useSessionStore } from '@/entities/session'
 
 const emit = defineEmits<{
   loggedOut: [result: { confirmed: boolean }]
@@ -29,9 +24,9 @@ const route = useRoute()
 const menuOpen = ref(false)
 
 const title = computed(() => route.meta.title ?? 'LidRadar')
-// Ссылка на администрирование появляется только по признаку сервера.
-const adminMe = useAdminMeQuery()
-const isPlatformAdmin = computed(() => adminMe.data.value?.platformAdmin === true)
+const v2 = computed(() => route.meta.v2 === true)
+/** Карточка риска — шапка с кнопкой «Меню» (Figma 220:3175 / 220:2960); Radar — бургер (630:6182 / 630:7204). */
+const textMenu = computed(() => route.name === 'risk')
 const organizationName = computed(() => session.membership?.organizationName ?? '')
 </script>
 
@@ -42,44 +37,63 @@ const organizationName = computed(() => session.membership?.organizationName ?? 
   >
     К основному содержимому
   </a>
-  <div class="min-h-dvh md:grid md:grid-cols-[var(--spacing-sidebar)_minmax(0,1fr)]">
+  <div class="min-h-dvh lg:grid lg:grid-cols-[var(--spacing-sidebar)_minmax(0,1fr)]">
     <aside
-      class="hidden bg-nav text-white md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:gap-8 md:self-start md:overflow-y-auto md:p-6"
+      class="hidden border-r border-hairline bg-panel lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:self-start lg:overflow-y-auto lg:p-6"
     >
-      <p class="flex items-center gap-2 text-xl font-bold tracking-tight">
-        <UiIcon name="radar" class="size-7" />LidRadar
-      </p>
-      <WorkspaceSwitcher @switched="(id) => emit('workspaceSwitched', id)" />
-      <SidebarNav />
-      <div class="mt-auto border-t border-nav-active pt-5">
-        <p class="truncate text-sm font-semibold text-white">{{ session.user?.displayName }}</p>
-        <p class="text-xs text-nav-text">{{ session.role ? roleLabel(session.role) : '' }}</p>
-        <RouterLink
-          v-if="isPlatformAdmin"
-          :to="{ name: 'admin-overview' }"
-          class="mt-2 block text-sm font-semibold text-brand-pale hover:underline"
-        >
-          Администрирование
-        </RouterLink>
-        <div class="mt-3">
-          <LogoutButton
-            variant="secondary"
-            block
-            @logged-out="(result) => emit('loggedOut', result)"
-          />
-        </div>
-      </div>
+      <SidebarBody
+        @logged-out="(result) => emit('loggedOut', result)"
+        @workspace-switched="(id) => emit('workspaceSwitched', id)"
+      />
     </aside>
 
     <div class="flex min-w-0 flex-col">
+      <!-- Страницы v2 на узких экранах: бренд слева, текстовая кнопка «Меню» справа (Figma 220:3175 / 220:2960). -->
       <header
-        class="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-line bg-paper px-5 py-3 md:px-12"
+        v-if="v2 && textMenu"
+        class="flex h-20 items-center justify-between gap-4 px-4 md:px-8 lg:hidden"
       >
-        <div class="min-w-0">
-          <p class="truncate text-xs font-semibold tracking-wide text-muted">
+        <div class="flex min-w-0 items-center gap-4">
+          <p class="flex shrink-0 items-center gap-2.5 text-xl leading-7 font-semibold text-ink">
+            <UiIcon name="radar" class="size-7" />LidRadar
+          </p>
+          <p class="hidden truncate text-sm leading-5 text-muted md:block">
             {{ organizationName }}
           </p>
-          <p class="truncate text-lg font-bold text-ink">{{ title }}</p>
+        </div>
+        <button
+          type="button"
+          class="h-[46px] w-24 shrink-0 rounded-button border border-line bg-paper text-field leading-5 font-medium text-ink hover:bg-canvas"
+          aria-haspopup="dialog"
+          @click="menuOpen = true"
+        >
+          Меню
+        </button>
+      </header>
+      <header
+        v-else-if="v2"
+        class="flex h-20 items-center gap-4 border-b border-hairline bg-paper px-4 md:px-8 lg:hidden"
+      >
+        <button
+          type="button"
+          class="-ml-1 flex size-10 items-center justify-center rounded-full text-ink hover:bg-canvas"
+          aria-label="Меню"
+          aria-haspopup="dialog"
+          @click="menuOpen = true"
+        >
+          <UiIcon name="menu" class="size-6" />
+        </button>
+        <p class="flex items-center gap-2 text-xl leading-7 font-semibold text-ink">
+          <UiIcon name="radar" class="size-7" />LidRadar
+        </p>
+      </header>
+      <header
+        v-else
+        class="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-line bg-paper px-5 py-3 lg:px-10"
+      >
+        <div class="min-w-0">
+          <p class="truncate text-xs leading-[18px] text-muted">{{ organizationName }}</p>
+          <p class="truncate text-lg leading-6 font-semibold text-ink">{{ title }}</p>
         </div>
         <div class="flex shrink-0 items-center gap-3">
           <!-- Обёртка, а не класс на бейдже: утилита display компонента не должна спорить с `hidden`. -->
@@ -88,7 +102,7 @@ const organizationName = computed(() => session.membership?.organizationName ?? 
           </div>
           <button
             type="button"
-            class="-mr-2 flex size-10 items-center justify-center rounded-full text-ink hover:bg-canvas md:hidden"
+            class="-mr-2 flex size-10 items-center justify-center rounded-full text-ink hover:bg-canvas lg:hidden"
             aria-label="Меню"
             aria-haspopup="dialog"
             @click="menuOpen = true"
@@ -99,42 +113,25 @@ const organizationName = computed(() => session.membership?.organizationName ?? 
       </header>
       <EmailVerificationBanner />
       <AccountDeletionBanner />
-      <main id="main" class="flex-1 px-5 py-6 md:px-12 md:py-10">
+      <main id="main" class="flex-1 px-4 py-6 md:px-8 lg:px-10 lg:py-8">
         <slot />
       </main>
     </div>
   </div>
 
-  <UiDialog v-model:open="menuOpen" title="Меню" size="full" tone="dark">
-    <div class="mb-4"><RealtimeBadge /></div>
-    <div class="flex flex-col gap-6">
-      <WorkspaceSwitcher
-        @switched="
+  <UiDialog v-model:open="menuOpen" title="Меню" size="full" tone="panel">
+    <div class="flex min-h-[calc(100dvh-8rem)] flex-col gap-4">
+      <RealtimeBadge />
+      <SidebarBody
+        @navigate="menuOpen = false"
+        @logged-out="(result) => emit('loggedOut', result)"
+        @workspace-switched="
           (id) => {
             menuOpen = false
             emit('workspaceSwitched', id)
           }
         "
       />
-      <SidebarNav @navigate="menuOpen = false" />
-      <div class="border-t border-nav-active pt-4">
-        <p class="text-sm font-semibold">{{ session.user?.displayName }}</p>
-        <RouterLink
-          v-if="isPlatformAdmin"
-          :to="{ name: 'admin-overview' }"
-          class="mt-2 block text-sm font-semibold text-brand-pale hover:underline"
-          @click="menuOpen = false"
-        >
-          Администрирование
-        </RouterLink>
-        <div class="mt-3">
-          <LogoutButton
-            variant="secondary"
-            block
-            @logged-out="(result) => emit('loggedOut', result)"
-          />
-        </div>
-      </div>
     </div>
   </UiDialog>
 </template>

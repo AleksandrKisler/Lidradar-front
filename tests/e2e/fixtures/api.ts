@@ -291,10 +291,16 @@ export async function mockOwner(page: Page, options: OwnerMockOptions = {}): Pro
   await page.route('**/api/v1/radar**', (route) => json(route, 200, summary))
   await page.route('**/api/v1/risks**', (route) => {
     const url = new URL(route.request().url())
-    const items =
+    // Контракт: `active` и `status` несовместимы.
+    if (url.searchParams.has('active') && url.searchParams.has('status')) {
+      return json(route, 400, errorBody('INVALID_ARGUMENT', 'active и status несовместимы'))
+    }
+    const statuses = url.searchParams.getAll('status')
+    const all =
       url.searchParams.get('severity') === 'CRITICAL'
         ? [currentDetail()]
         : [currentDetail(), second()]
+    const items = statuses.length ? all.filter((item) => statuses.includes(item.risk.status)) : all
     return json(route, 200, { items, nextCursor: null })
   })
 

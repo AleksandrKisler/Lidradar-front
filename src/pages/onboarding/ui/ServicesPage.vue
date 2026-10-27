@@ -94,7 +94,7 @@ const locationName = (locationId: string | null) =>
       <div class="flex gap-3">
         <RouterLink
           :to="{ name: 'onboarding-location' }"
-          class="inline-flex h-11 items-center rounded-control border border-line px-5 text-sm font-semibold text-ink hover:bg-canvas"
+          class="inline-flex h-input items-center rounded-control border border-line px-5 text-sm font-semibold text-ink hover:bg-canvas"
         >
           Назад
         </RouterLink>

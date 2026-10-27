@@ -128,10 +128,10 @@ async function continueToServices(): Promise<void> {
 
       <div class="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
         <p class="text-sm text-muted">Настройки можно изменить позже в разделе «Настройки».</p>
-        <div class="ml-auto flex gap-3">
+        <div class="ml-auto flex flex-wrap justify-end gap-3">
           <RouterLink
             :to="{ name: 'onboarding-company' }"
-            class="inline-flex h-11 items-center rounded-control border border-line px-5 text-sm font-semibold text-ink hover:bg-canvas"
+            class="inline-flex h-input items-center rounded-control border border-line px-5 text-sm font-semibold text-ink hover:bg-canvas"
           >
             Назад
           </RouterLink>

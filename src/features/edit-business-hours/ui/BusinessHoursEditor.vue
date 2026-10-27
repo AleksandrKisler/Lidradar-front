@@ -224,7 +224,7 @@ const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === week
       {{ errorView.description }}
     </UiAlert>
 
-    <div v-if="!hideSubmit" class="flex items-center justify-between gap-4">
+    <div v-if="!hideSubmit" class="flex flex-wrap items-center justify-between gap-4">
       <p class="text-xs text-muted">Неделя сохраняется целиком, одним запросом.</p>
       <UiButton
         type="submit"

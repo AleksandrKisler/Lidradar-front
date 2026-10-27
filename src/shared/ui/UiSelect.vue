@@ -19,8 +19,17 @@ withDefaults(
     invalid?: boolean | undefined
     describedBy?: string | undefined
     disabled?: boolean | undefined
+    /** `filter` — компактный фильтр ленты (Figma HIG / Filter): 36 px, текст 14/20. */
+    size?: 'md' | 'filter' | undefined
   }>(),
-  { id: undefined, placeholder: '', invalid: false, describedBy: undefined, disabled: false },
+  {
+    id: undefined,
+    placeholder: '',
+    invalid: false,
+    describedBy: undefined,
+    disabled: false,
+    size: 'md',
+  },
 )
 
 const model = defineModel<string | undefined>({ default: '' })
@@ -35,7 +44,11 @@ const model = defineModel<string | undefined>({ default: '' })
     :aria-invalid="invalid || undefined"
     :aria-describedby="describedBy"
     :class="[
-      'h-input w-full appearance-none rounded-field border bg-paper bg-[url(\'data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 -960 960 960%22 fill=%22%2363718A%22><path d=%22M480-344 240-584l43-43 197 197 197-197 43 43-240 240Z%22/></svg>\')] bg-[length:24px_24px] bg-[position:right_0.625rem_center] bg-no-repeat pr-10 pl-3.5 text-base text-ink disabled:cursor-not-allowed disabled:bg-canvas',
+      'appearance-none rounded-field border bg-paper ui-select-chevron bg-no-repeat disabled:cursor-not-allowed disabled:opacity-70',
+      model ? 'text-ink' : 'text-muted',
+      size === 'filter'
+        ? 'h-9 bg-[length:18px_18px] bg-[position:right_0.5rem_center] pr-[26px] pl-2 text-sm leading-5'
+        : 'h-input w-full bg-[length:24px_24px] bg-[position:right_0.625rem_center] pr-10 pl-3.5 text-base',
       invalid ? 'border-danger' : 'border-line hover:border-muted/60',
     ]"
   >

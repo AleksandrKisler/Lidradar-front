@@ -16,3 +16,19 @@ describe('фильтр типов риска', () => {
     wrapper.unmount()
   })
 })
+
+describe('фильтры Radar: окно «Фильтры» на узких экранах', () => {
+  it('открывается по кнопке, применяет выбор сразу (закрытие по «Готово» проверяет e2e)', async () => {
+    const wrapper = mount(RiskFilters, {
+      props: { modelValue: {}, locations: [], variant: 'panel' },
+      attachTo: document.body,
+    })
+    expect(document.body.textContent).not.toContain('Готово')
+    await wrapper.get('button').trigger('click')
+    const select = document.body.querySelector<HTMLSelectElement>('select')!
+    select.value = 'CRITICAL'
+    select.dispatchEvent(new Event('change'))
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([{ severity: 'CRITICAL' }])
+    wrapper.unmount()
+  })
+})

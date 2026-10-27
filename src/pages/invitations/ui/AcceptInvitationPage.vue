@@ -24,7 +24,7 @@ async function openWorkspace(): Promise<void> {
 </script>
 
 <template>
-  <UiCard>
+  <UiCard :padded="false" class="p-[23px] md:p-[31px]">
     <template v-if="accepted">
       <h1 class="text-2xl font-bold text-ink">Вы в команде</h1>
       <p class="mt-2 text-sm leading-6 text-muted">
@@ -36,7 +36,7 @@ async function openWorkspace(): Promise<void> {
         <RouterLink
           v-if="session.memberships.length > 1"
           :to="{ name: 'workspaces' }"
-          class="inline-flex h-11 items-center rounded-control border border-line px-5 text-sm font-semibold text-ink hover:bg-canvas"
+          class="inline-flex h-input items-center rounded-control border border-line px-5 text-sm font-semibold text-ink hover:bg-canvas"
         >
           Все пространства
         </RouterLink>

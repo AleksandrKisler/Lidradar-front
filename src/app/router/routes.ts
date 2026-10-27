@@ -191,13 +191,13 @@ export const routes: RouteRecordRaw[] = [
         path: 'radar',
         name: 'radar',
         component: () => import('@/pages/radar').then((m) => m.RadarPage),
-        meta: { access: 'tenant', permission: 'risks.read', title: 'Radar' },
+        meta: { access: 'tenant', permission: 'risks.read', title: 'Radar', v2: true },
       },
       {
         path: 'risks/:riskId',
         name: 'risk',
         component: () => import('@/pages/risk').then((m) => m.RiskPage),
-        meta: { access: 'tenant', permission: 'risks.read', title: 'Риск' },
+        meta: { access: 'tenant', permission: 'risks.read', title: 'Риск', v2: true },
       },
       {
         path: 'conversations',

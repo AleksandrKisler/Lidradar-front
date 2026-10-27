@@ -12,8 +12,10 @@ const props = withDefaults(
     description?: string | undefined
     error?: string | undefined
     required?: boolean | undefined
+    /** `compact` — подпись 14/20 для форм внутри карточек; `muted` — необязательное поле. */
+    labelStyle?: 'default' | 'compact' | 'muted' | undefined
   }>(),
-  { description: '', error: '', required: false },
+  { description: '', error: '', required: false, labelStyle: 'default' },
 )
 
 const id = useId()
@@ -30,14 +32,22 @@ const describedBy = computed(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-1.5">
-    <label :for="id" class="text-sm font-medium text-ink">
+  <div class="flex flex-col gap-2">
+    <label
+      :for="id"
+      :class="[
+        'leading-5',
+        labelStyle === 'default' ? 'text-base font-medium text-ink' : 'text-sm',
+        labelStyle === 'compact' ? 'font-medium text-ink' : '',
+        labelStyle === 'muted' ? 'text-muted' : '',
+      ]"
+    >
       {{ label }}
       <span v-if="required" class="text-danger" aria-hidden="true">*</span>
     </label>
     <slot :id="id" :described-by="describedBy" :invalid="Boolean(error)" />
-    <p v-if="description" :id="descriptionId" class="text-xs text-muted">{{ description }}</p>
-    <p :id="errorId" class="min-h-0 text-xs text-danger" aria-live="polite">
+    <p v-if="description" :id="descriptionId" class="text-xs text-secondary">{{ description }}</p>
+    <p :id="errorId" class="min-h-0 text-xs text-danger empty:-mt-2" aria-live="polite">
       <template v-if="error">{{ error }}</template>
     </p>
   </div>

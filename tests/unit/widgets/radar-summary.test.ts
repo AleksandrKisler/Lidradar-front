@@ -50,3 +50,15 @@ describe('Radar summary unknown amounts', () => {
     wrapper.unmount()
   })
 })
+
+describe('Radar summary: неудачное обновление', () => {
+  it('оставляет прежние значения и честно помечает, что обновить не удалось', () => {
+    const wrapper = mount(RadarSummary, {
+      props: { summary, currency: 'RUB', loading: false, error: new Error('offline') },
+    })
+    expect(wrapper.text()).toContain('Не удалось обновить сводку: показаны прежние значения.')
+    expect(wrapper.text()).toContain('Активных рисков')
+    expect(wrapper.text()).toMatch(/1\s*000/)
+    wrapper.unmount()
+  })
+})

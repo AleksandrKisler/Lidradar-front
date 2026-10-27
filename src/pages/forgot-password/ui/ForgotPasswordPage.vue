@@ -9,7 +9,7 @@ import { ForgotPasswordForm } from '@/features/auth-session'
 
 <template>
   <div>
-    <UiCard class="shadow-sm">
+    <UiCard :padded="false" class="p-[23px] md:p-[31px]">
       <p class="text-xs font-semibold tracking-wide text-muted">Восстановление доступа</p>
       <h1 class="mt-2 text-2xl font-bold text-ink">Забыли пароль?</h1>
       <p class="mt-2 text-sm text-muted">

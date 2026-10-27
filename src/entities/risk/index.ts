@@ -4,6 +4,7 @@ export type {
   RiskSeverity,
   RiskType,
   RiskStatus,
+  RiskFeedStatus,
   RadarSummary,
   RiskFilters,
   Recommendation,
@@ -24,6 +25,7 @@ export type {
 export {
   RISK_SEVERITIES,
   RISK_TYPES,
+  RISK_FEED_STATUSES,
   ACTIVE_RISK_STATUSES,
   MANUAL_ACTION_TYPES,
   OUTCOME_STATUSES,

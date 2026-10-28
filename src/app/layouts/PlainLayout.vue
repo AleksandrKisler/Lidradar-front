@@ -1,8 +1,10 @@
 <script setup lang="ts">
 /**
  * Layout для авторизованного пользователя без выбранной организации:
- * выбор пространства и создание организации. Бокового меню нет — данных
- * организации ещё нет.
+ * выбор пространства, приглашение и создание организации. Бокового меню нет —
+ * данных организации ещё нет. Шапка по макетам «Рабочие пространства»:
+ * бренд слева, справа имя, «Аккаунт» и «Выйти». `loading` — первая загрузка:
+ * сессия ещё неизвестна, остаётся только бренд.
  */
 import { UiIcon } from '@/shared/ui'
 import { RouterLink, useRouter } from 'vue-router'
@@ -11,9 +13,12 @@ import { useSessionStore } from '@/entities/session'
 import { useAdminMeQuery } from '@/entities/admin'
 import { AccountDeletionBanner, LogoutButton } from '@/features/auth-session'
 
+const props = defineProps<{ loading?: boolean }>()
+
 const session = useSessionStore()
 const router = useRouter()
-const adminMe = useAdminMeQuery()
+// Пока сессия неизвестна (каркас первой загрузки), право администратора не запрашивается.
+const adminMe = useAdminMeQuery(() => !props.loading)
 const isPlatformAdmin = computed(() => adminMe.data.value?.platformAdmin === true)
 
 function onLoggedOut({ confirmed }: { confirmed: boolean }): void {
@@ -23,34 +28,33 @@ function onLoggedOut({ confirmed }: { confirmed: boolean }): void {
 
 <template>
   <div class="min-h-dvh">
-    <header
-      class="flex items-center justify-between gap-4 border-b border-line bg-paper px-5 py-3 md:px-12"
-    >
-      <p class="flex items-center gap-2 text-lg font-bold tracking-tight text-ink">
+    <header class="flex h-20 items-center justify-between gap-4 px-4 md:px-8 lg:px-12">
+      <p class="flex items-center gap-2.5 text-xl leading-7 font-semibold text-ink">
         <UiIcon name="radar" class="size-7" />LidRadar
       </p>
-      <div class="flex items-center gap-3">
+      <div v-if="!loading" class="flex items-center gap-6 text-sm leading-5">
         <RouterLink
           v-if="isPlatformAdmin"
           :to="{ name: 'admin-overview' }"
-          class="text-sm font-semibold text-brand-dark hover:underline"
+          class="text-link hover:underline"
         >
           Администрирование
         </RouterLink>
+        <p class="hidden text-secondary md:block">{{ session.user?.displayName }}</p>
         <RouterLink
           :to="{ name: 'account' }"
-          class="text-sm font-semibold text-brand-dark hover:underline"
+          class="text-link hover:underline"
           data-testid="account-link"
         >
           Аккаунт
         </RouterLink>
-        <p class="hidden text-sm text-muted sm:block">{{ session.user?.displayName }}</p>
-        <LogoutButton variant="secondary" @logged-out="onLoggedOut" />
+        <span class="hidden h-4 w-px bg-line md:block" aria-hidden="true" />
+        <LogoutButton variant="plain" size="sm" class="md:-ml-2.5" @logged-out="onLoggedOut" />
       </div>
     </header>
-    <AccountDeletionBanner />
-    <main id="main" class="mx-auto w-full max-w-xl px-5 py-10 md:px-12">
-      <RouterView />
+    <AccountDeletionBanner v-if="!loading" />
+    <main id="main" class="mx-auto w-full max-w-[760px] px-4 pt-10 pb-10 md:px-0 md:pt-[129px]">
+      <slot><RouterView /></slot>
     </main>
   </div>
 </template>

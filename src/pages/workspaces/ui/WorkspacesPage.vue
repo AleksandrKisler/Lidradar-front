@@ -1,51 +1,61 @@
 <script setup lang="ts">
 /**
- * Выбор рабочего пространства при нескольких членствах. Показывается
- * автоматически, если запомненный выбор недействителен, и по прямому
+ * Выбор рабочего пространства по макету «Рабочие пространства» (Figma 477:8415 и состояния).
+ * Показывается автоматически, если запомненный выбор недействителен, и по прямому
  * переходу для смены организации.
  */
-import { useRoute, useRouter } from 'vue-router'
+import { isNavigationFailure, NavigationFailureType, useRoute, useRouter } from 'vue-router'
 import { sanitizeReturnPath } from '@/shared/lib'
-import { UiCard } from '@/shared/ui'
+import { UiPageIntro } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
 import { WorkspaceList } from '@/features/select-workspace'
+
+defineProps<{
+  /** Первичная загрузка: каркас списка без данных (Figma «Первичная загрузка»). */
+  loading?: boolean
+}>()
 
 const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 
-function onSelected(): void {
-  void router.replace(sanitizeReturnPath(route.query.redirect) ?? { name: 'radar' })
+async function openTarget(): Promise<void> {
+  const failure = await router.replace(
+    sanitizeReturnPath(route.query.redirect) ?? { name: 'radar' },
+  )
+  // Переход, который не состоялся, — неудача открытия; «уже там» (duplicated) неудачей не считается.
+  if (
+    isNavigationFailure(failure) &&
+    !isNavigationFailure(failure, NavigationFailureType.duplicated)
+  ) {
+    throw new Error('navigation failed')
+  }
 }
 </script>
 
 <template>
-  <UiCard>
-    <h1 class="text-2xl font-bold text-ink">Выберите рабочее пространство</h1>
-    <p class="mt-2 text-sm text-muted">
-      У вас несколько организаций. Данные каждой из них разделены: выберите, с какой работать
-      сейчас.
-    </p>
-    <div class="mt-6">
-      <WorkspaceList @selected="onSelected" />
+  <div>
+    <UiPageIntro
+      narrow
+      title="Выберите рабочее пространство"
+      description="Данные организаций разделены. Выберите пространство, с которым хотите работать сейчас."
+    />
+    <WorkspaceList :loading="loading" :open="openTarget" />
+    <div
+      class="mt-[26px] flex flex-col items-center gap-2 border-t border-hairline pt-6 text-center text-sm leading-5 text-secondary md:mt-9 md:gap-0 md:pt-[27px]"
+    >
+      <p v-if="session.canCreateOrganization && !loading" class="mb-2">
+        Нужно новое пространство?
+        <RouterLink :to="{ name: 'onboarding-company' }" class="text-link hover:underline">
+          Создать организацию
+        </RouterLink>
+      </p>
+      <p class="flex flex-col items-center gap-5 md:flex-row md:gap-2.5">
+        Получили код от владельца?
+        <RouterLink :to="{ name: 'invitations-accept' }" class="text-link hover:underline">
+          Принять приглашение
+        </RouterLink>
+      </p>
     </div>
-    <p v-if="session.canCreateOrganization" class="mt-6 text-sm text-muted">
-      Нужно новое пространство?
-      <RouterLink
-        :to="{ name: 'onboarding-company' }"
-        class="font-semibold text-brand-dark hover:underline"
-      >
-        Создать организацию
-      </RouterLink>
-    </p>
-    <p class="mt-2 text-sm text-muted">
-      Получили код от владельца?
-      <RouterLink
-        :to="{ name: 'invitations-accept' }"
-        class="font-semibold text-brand-dark hover:underline"
-      >
-        Принять приглашение
-      </RouterLink>
-    </p>
-  </UiCard>
+  </div>
 </template>

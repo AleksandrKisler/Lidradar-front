@@ -606,6 +606,198 @@
         "y0": 0,
         "y1": 844
       }
+    },
+    {
+      "stage": "F03",
+      "name": "workspaces-desktop",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "workspaces-desktop-error",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "workspaces-desktop-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "workspaces-desktop-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "workspaces-tablet",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "workspaces-tablet-error",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "workspaces-tablet-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "workspaces-tablet-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "workspaces-phone",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "workspaces-phone-error",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "workspaces-phone-busy",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "workspaces-phone-loading",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invitation-desktop",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invitation-desktop-error",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invitation-desktop-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invitation-desktop-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invitation-tablet",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invitation-tablet-error",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invitation-tablet-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invitation-tablet-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invitation-phone",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invitation-phone-error",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invitation-phone-busy",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invitation-phone-loading",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
     }
   ],
   "geometry": [

@@ -19,6 +19,8 @@ const props = withDefaults(
      * подсказка остаётся: она может нести смысл, которого нет в тексте ошибки.
      */
     errorReplacesDescription?: boolean | undefined
+    /** Просторная подача (макеты «Принять приглашение»): подпись 16/22, подсказка 14/20, отступы 12 px. */
+    roomy?: boolean | undefined
   }>(),
   {
     description: '',
@@ -26,6 +28,7 @@ const props = withDefaults(
     required: false,
     labelStyle: 'default',
     errorReplacesDescription: false,
+    roomy: false,
   },
 )
 
@@ -48,11 +51,11 @@ const describedBy = computed(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-2">
+  <div :class="['flex flex-col', roomy ? 'gap-2.5' : 'gap-2']">
     <label
       :for="id"
       :class="[
-        'leading-5',
+        roomy ? 'leading-[22px]' : 'leading-5',
         labelStyle === 'default' ? 'text-base font-medium text-ink' : 'text-sm',
         labelStyle === 'compact' ? 'font-medium text-ink' : '',
         labelStyle === 'muted' ? 'text-muted' : '',
@@ -62,10 +65,23 @@ const describedBy = computed(() => {
       <span v-if="required" class="text-danger" aria-hidden="true">*</span>
     </label>
     <slot :id="id" :described-by="describedBy" :invalid="Boolean(error)" />
-    <p v-if="showDescription" :id="descriptionId" class="text-xs text-secondary">
+    <p
+      v-if="showDescription"
+      :id="descriptionId"
+      :class="[
+        'text-secondary',
+        roomy ? 'text-sm leading-5' : 'text-xs',
+        // Макет «Принять приглашение · Ошибка»: на десктопе ошибка заменяет подсказку, на планшете и телефоне обе строки.
+        roomy && error ? 'lg:hidden' : '',
+      ]"
+    >
       {{ description }}
     </p>
-    <p :id="errorId" class="min-h-0 text-sm leading-5 text-danger empty:-mt-2" aria-live="polite">
+    <p
+      :id="errorId"
+      :class="['min-h-0 text-sm leading-5 text-danger', roomy ? 'empty:-mt-2.5' : 'empty:-mt-2']"
+      aria-live="polite"
+    >
       <template v-if="error">{{ error }}</template>
     </p>
   </div>

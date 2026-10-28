@@ -44,6 +44,15 @@ const errorView = computed(() => {
       text: `Повторите через ${formatWait(retry.secondsLeft.value)}.`,
     }
   }
+  // Ответа нет (сеть, таймаут): сервер мог применить сброс, а мог не получить запрос. Ни успех, ни
+  // отсутствие изменения не утверждаются; повторную отправку выполняет только пользователь.
+  if (isApiError(error) && error.httpStatus === 0) {
+    return {
+      tone: 'warning' as const,
+      title: 'Результат неизвестен',
+      text: 'Мы не получили ответ сервера. Пароль мог измениться, а мог остаться прежним. Отправьте форму ещё раз или войдите, используя новый пароль.',
+    }
+  }
   const described = describeError(error)
   return { tone: 'danger' as const, title: described.title, text: described.description }
 })

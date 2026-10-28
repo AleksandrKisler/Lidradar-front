@@ -350,7 +350,114 @@ const accessFlows: AccessFlow[] = [
   },
 ]
 
-for (const flow of accessFlows) {
+/* ---------- F03 S3: выбор рабочего пространства, приглашение ---------- */
+
+/** Код приглашения из макета «Сохранение и проверка»: 43 символа. */
+const INVITE_CODE = `example_invite_${'0'.repeat(28)}`
+
+const plainFlows: AccessFlow[] = [
+  {
+    name: 'workspaces',
+    path: '/workspaces',
+    states: {
+      '': async (page) => {
+        await mockOwner(page)
+        await page.goto('/workspaces')
+        await page.getByRole('button', { name: /Студия «Блик»/ }).waitFor()
+      },
+      // Страница Radar не загрузилась: выбор остаётся в списке, предлагается повтор.
+      error: async (page) => {
+        await mockOwner(page)
+        await page.route('**/assets/radar-*.js', (route) => route.abort('failed'))
+        await page.goto('/workspaces')
+        await page.getByRole('button', { name: /Студия «Блик»/ }).click()
+        await page.getByText('Не удалось загрузить пространства').waitFor()
+      },
+      busy: async (page) => {
+        await mockOwner(page)
+        await page.route('**/assets/radar-*.js', () => new Promise(() => {}))
+        await page.goto('/workspaces')
+        await page.getByRole('button', { name: /Студия «Блик»/ }).click()
+        await page.getByText('Открываем пространство…').waitFor()
+      },
+      loading: async (page) => {
+        await page.route('**/api/v1/auth/me', () => new Promise(() => {}))
+        await page.goto('/workspaces')
+        await page.getByRole('heading', { level: 1 }).waitFor()
+      },
+    },
+  },
+  {
+    name: 'invitation',
+    path: '/invitations/accept',
+    states: {
+      '': async (page) => {
+        await mockOwner(page)
+        await page.goto('/invitations/accept')
+        await page.getByLabel('Код приглашения').waitFor()
+      },
+      error: async (page) => {
+        await mockOwner(page)
+        await page.route('**/api/v1/invitations/accept', (route) =>
+          json(route, failure('INVITATION_NOT_FOUND'), 404),
+        )
+        await page.goto('/invitations/accept')
+        await page.getByLabel('Код приглашения').fill(EXAMPLE_CODE)
+        await page.getByRole('button', { name: 'Присоединиться' }).click()
+        await page.getByText('Код недействителен или срок его действия истёк').waitFor()
+      },
+      busy: async (page) => {
+        await mockOwner(page)
+        await page.route('**/api/v1/invitations/accept', () => new Promise(() => {}))
+        await page.goto('/invitations/accept')
+        await page.getByLabel('Код приглашения').fill(INVITE_CODE)
+        await page.getByRole('button', { name: 'Присоединиться' }).click()
+        await page.locator('button[aria-busy="true"]').waitFor()
+      },
+      loading: async (page) => {
+        await page.route('**/api/v1/auth/me', () => new Promise(() => {}))
+        await page.goto('/invitations/accept')
+        await page.getByRole('heading', { level: 1 }).waitFor()
+      },
+    },
+  },
+]
+
+/** Состояния без кадров Figma: результат сброса при действующей сессии (решение владельца 28.10). */
+for (const [device, width, height] of registerDevices) {
+  test(`F03 reset-done-signed-in-${device}`, async ({ page }) => {
+    await page.setViewportSize({ width, height })
+    await page.route('**/api/v1/auth/me', (route) =>
+      json(route, {
+        canCreateOrganization: true,
+        user: {
+          id: '01990000-0000-7000-8000-000000000f01',
+          email: 'owner@example.test',
+          displayName: 'Мария',
+          status: 'ACTIVE',
+          emailVerifiedAt: '2026-10-13T08:00:00Z',
+          deletionDueAt: null,
+          createdAt: '2026-10-13T00:00:00Z',
+          updatedAt: '2026-10-13T00:00:00Z',
+        },
+        memberships: [],
+      }),
+    )
+    await page.route('**/api/v1/auth/password/reset', (route) => route.fulfill({ status: 204 }))
+    await page.goto(`/reset-password#token=${TOKEN}`)
+    await page.getByLabel('Новый пароль').fill('password-123')
+    await page.getByLabel('Повторите пароль').fill('password-123')
+    await page.getByRole('button', { name: 'Сменить пароль' }).click()
+    await page.getByText('В этом браузере вы вошли как').waitFor()
+    await settle(page)
+    await page.screenshot({
+      path: `${OUT}/F03/actual/reset-done-signed-in-${device}.png`,
+      fullPage: true,
+    })
+  })
+}
+
+for (const flow of [...accessFlows, ...plainFlows]) {
   for (const [device, width, height] of registerDevices) {
     for (const [state, prepare] of Object.entries(flow.states)) {
       const file = `${flow.name}-${device}${state ? `-${state}` : ''}`

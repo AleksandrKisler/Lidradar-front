@@ -412,8 +412,15 @@ test.describe('новый пароль по ссылке', () => {
   })
 })
 
-test.describe('новый пароль при открытой сессии', () => {
-  test('после смены пароля сервер завершил все сессии: открывается вход с «Пароль изменён», а не Radar', async ({
+test.describe('новый пароль при открытой сессии: исходы после подтверждённого сброса', () => {
+  async function submitNewPassword(page: Page) {
+    await page.goto(`/reset-password#token=${TOKEN}`)
+    await page.getByLabel('Новый пароль').fill('another-secure-password')
+    await page.getByLabel('Повторите пароль').fill('another-secure-password')
+    await page.getByRole('button', { name: 'Сменить пароль' }).click()
+  }
+
+  test('/auth/me вернул 401: сессия и кэш очищены, открывается вход с «Пароль изменён», а не Radar', async ({
     page,
   }) => {
     let ended = false
@@ -424,12 +431,145 @@ test.describe('новый пароль при открытой сессии', ()
       ended = true
       return route.fulfill({ status: 204 })
     })
-    await page.goto(`/reset-password#token=${TOKEN}`)
-    await page.getByLabel('Новый пароль').fill('another-secure-password')
-    await page.getByLabel('Повторите пароль').fill('another-secure-password')
-    await page.getByRole('button', { name: 'Сменить пароль' }).click()
+    await submitNewPassword(page)
     await expect(page).toHaveURL(/\/login\?reset=done/)
     await expect(page.getByText('Пароль изменён')).toBeVisible()
+    await expect(page.getByText('На всех устройствах вы вышли из аккаунта.')).toBeVisible()
+  })
+
+  test('/auth/me вернул действующую сессию: результат виден, сессия сохранена, автоматического выхода нет', async ({
+    page,
+  }) => {
+    let resets = 0
+    await page.route('**/api/v1/auth/me', (route) => json(route, 200, NEW_USER))
+    await page.route('**/api/v1/auth/password/reset', (route) => {
+      resets += 1
+      return route.fulfill({ status: 204 })
+    })
+    await submitNewPassword(page)
+    const done = page.getByTestId('reset-done-signed-in')
+    await expect(done).toContainText('Пароль изменён')
+    // Форма размонтирована: фокус на заголовке результата, а не на удалённой кнопке.
+    await expect(page.getByRole('heading', { level: 1, name: 'Пароль изменён' })).toBeFocused()
+    await expect(done).toContainText(
+      'Пароль по ссылке успешно изменён. В этом браузере вы вошли как maria@example.test.',
+    )
+    // Гостевой вход не перехватил результат, переходов нет.
+    await expect(page).toHaveURL(/\/reset-password$/)
+    await expect(page.getByRole('button', { name: 'Продолжить работу' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Выйти и войти в другой аккаунт' })).toBeVisible()
+    expect(resets).toBe(1)
+    await page.getByRole('button', { name: 'Продолжить работу' }).click()
+    await expect(page).toHaveURL(/\/onboarding\/company$/) // текущий аккаунт без организации
+  })
+
+  const LONG_EMAIL = 'longlocallonglocallonglocallonglocallonglocallonglocallonglocal@example.test'
+
+  for (const width of [320, 390, 834, 1440]) {
+    test(`длинный адрес переносится внутри карточки без прокрутки страницы (${width} px)`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await page.route('**/api/v1/auth/me', (route) =>
+        json(route, 200, {
+          ...NEW_USER,
+          user: { ...NEW_USER.user, email: LONG_EMAIL },
+        }),
+      )
+      await page.route('**/api/v1/auth/password/reset', (route) => route.fulfill({ status: 204 }))
+      await submitNewPassword(page)
+      const description = page.getByTestId('auth-card-description')
+      await expect(description).toContainText(LONG_EMAIL)
+      await expect(page.getByRole('heading', { level: 1, name: 'Пароль изменён' })).toBeFocused()
+      const geometry = await page.evaluate(() => {
+        const text = document.querySelector('[data-testid="auth-card-description"]')!
+        const card = text.closest('[data-slot="card"]') ?? text.parentElement!.parentElement!
+        const t = text.getBoundingClientRect()
+        const c = card.getBoundingClientRect()
+        return {
+          scroll: document.documentElement.scrollWidth,
+          client: document.documentElement.clientWidth,
+          textRight: t.right,
+          cardRight: c.right,
+          textLeft: t.left,
+          cardLeft: c.left,
+        }
+      })
+      expect(geometry.scroll).toBeLessThanOrEqual(geometry.client)
+      expect(geometry.textRight).toBeLessThanOrEqual(geometry.cardRight)
+      expect(geometry.textLeft).toBeGreaterThanOrEqual(geometry.cardLeft)
+      await expect(page.getByRole('button', { name: 'Продолжить работу' })).toBeInViewport()
+      await expect(
+        page.getByRole('button', { name: 'Выйти и войти в другой аккаунт' }),
+      ).toBeVisible()
+      // Подпись не шире своей кнопки: узкий экран переносит её, а не выпускает за рамку.
+      for (const name of ['Продолжить работу', 'Выйти и войти в другой аккаунт']) {
+        const button = page.getByRole('button', { name })
+        const overflow = await button.evaluate((el) => el.scrollWidth - el.clientWidth)
+        expect(overflow, name).toBeLessThanOrEqual(0)
+      }
+      await page.screenshot({
+        path: `artifacts/frontend-v2/F03/actual/reset-long-email-${width}.png`,
+        fullPage: true,
+      })
+    })
+  }
+
+  test('«Выйти и войти в другой аккаунт»: существующий выход, затем вход', async ({ page }) => {
+    let loggedOut = false
+    await page.route('**/api/v1/auth/me', (route) =>
+      loggedOut ? json(route, 401, failure('UNAUTHENTICATED')) : json(route, 200, NEW_USER),
+    )
+    await page.route('**/api/v1/auth/logout', (route) => {
+      loggedOut = true
+      return route.fulfill({ status: 204 })
+    })
+    await page.route('**/api/v1/auth/password/reset', (route) => route.fulfill({ status: 204 }))
+    await submitNewPassword(page)
+    await page.getByRole('button', { name: 'Выйти и войти в другой аккаунт' }).click()
+    await expect(page).toHaveURL(/\/login$/)
+    await expect(page.getByRole('heading', { level: 1, name: 'Вход в LidRadar' })).toBeVisible()
+  })
+
+  test('перечитать сессию не удалось: успех сохраняется, сессия завершена локально, вход говорит об этом отдельным текстом', async ({
+    page,
+  }) => {
+    let resets = 0
+    let reset = false
+    await page.route('**/api/v1/auth/me', (route) =>
+      reset ? json(route, 500, failure('INTERNAL_ERROR')) : json(route, 200, NEW_USER),
+    )
+    await page.route('**/api/v1/auth/password/reset', (route) => {
+      resets += 1
+      reset = true
+      return route.fulfill({ status: 204 })
+    })
+    await submitNewPassword(page)
+    await expect(page).toHaveURL(/\/login\?reset=local/)
+    await expect(page.getByText('Пароль изменён')).toBeVisible()
+    await expect(page.getByText('завершили её здесь локально')).toBeVisible()
+    // Отзыв сессии сервером здесь не утверждается.
+    await expect(page.getByText('На всех устройствах вы вышли из аккаунта.')).toHaveCount(0)
+    expect(resets).toBe(1)
+  })
+
+  test('нет ответа на сам сброс: результат неизвестен — без заявлений об успехе и об отсутствии изменений', async ({
+    page,
+  }) => {
+    let resets = 0
+    await page.route('**/api/v1/auth/me', (route) => json(route, 200, NEW_USER))
+    await page.route('**/api/v1/auth/password/reset', (route) => {
+      resets += 1
+      return route.abort('failed')
+    })
+    await submitNewPassword(page)
+    const alert = page.getByRole('alert')
+    await expect(alert).toContainText('Результат неизвестен')
+    await expect(alert).toContainText('Пароль мог измениться, а мог остаться прежним')
+    await expect(alert).not.toContainText(/не изменены|успешно/)
+    await expect(page.getByTestId('reset-done-signed-in')).toHaveCount(0)
+    await expect(page).toHaveURL(/\/reset-password$/)
+    expect(resets).toBe(1)
   })
 })
 

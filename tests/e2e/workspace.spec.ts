@@ -1615,6 +1615,8 @@ test.describe('новый сотрудник', () => {
     await code.fill(`  ${INVITATION_CODE}  `)
     await page.keyboard.press('Enter')
     await expect(page.getByRole('heading', { name: 'Вы в команде' })).toBeVisible()
+    // Форма исчезла вместе с полем: фокус на заголовке результата.
+    await expect(page.getByRole('heading', { name: 'Вы в команде' })).toBeFocused()
     await expect(page.getByText(/Организация «Студия «Блик»» добавлена/)).toBeVisible()
     await expectNoAxeViolations(page)
     await page.getByRole('button', { name: 'Открыть рабочее пространство' }).click()

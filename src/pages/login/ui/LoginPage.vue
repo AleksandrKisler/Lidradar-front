@@ -23,6 +23,8 @@ const expired = computed(() => session.signOutReason === 'expired')
 const logoutUnconfirmed = computed(() => route.query.signout === 'unconfirmed')
 // После сброса пароля (ADR 0058) сервер завершил все сессии: вход выполняется новым паролем.
 const passwordReset = computed(() => route.query.reset === 'done')
+// Пароль изменён, но состояние сессии в этом браузере узнать не удалось: сессия завершена локально.
+const passwordResetLocal = computed(() => route.query.reset === 'local')
 
 function onSuccess(): void {
   void router.replace(sanitizeReturnPath(route.query.redirect) ?? { name: 'radar' })
@@ -43,6 +45,10 @@ function onSuccess(): void {
       </UiAlert>
       <UiAlert v-if="passwordReset" tone="success" title="Пароль изменён">
         Войдите с новым паролем. На всех устройствах вы вышли из аккаунта.
+      </UiAlert>
+      <UiAlert v-if="passwordResetLocal" tone="success" title="Пароль изменён">
+        Войдите с новым паролем. Не удалось проверить состояние сессии в этом браузере, поэтому мы
+        завершили её здесь локально.
       </UiAlert>
       <UiAlert v-if="logoutUnconfirmed" tone="warning" title="Выход выполнен локально">
         Сервер не подтвердил завершение сессии. Если устройство общее, войдите и выйдите ещё раз при

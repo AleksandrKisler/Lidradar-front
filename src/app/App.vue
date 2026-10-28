@@ -22,7 +22,14 @@ const ResetPasswordPage = defineAsyncComponent(() =>
 const VerifyEmailPage = defineAsyncComponent(() =>
   import('@/pages/verify-email').then((m) => m.VerifyEmailPage),
 )
+const WorkspacesPage = defineAsyncComponent(() =>
+  import('@/pages/workspaces').then((m) => m.WorkspacesPage),
+)
+const AcceptInvitationPage = defineAsyncComponent(() =>
+  import('@/pages/invitations').then((m) => m.AcceptInvitationPage),
+)
 const AuthLayout = defineAsyncComponent(() => import('./layouts/AuthLayout.vue'))
+const PlainLayout = defineAsyncComponent(() => import('./layouts/PlainLayout.vue'))
 import { useSessionStore } from '@/entities/session'
 
 const session = useSessionStore()
@@ -40,6 +47,13 @@ const skeletonPages = {
   '/verify-email': VerifyEmailPage,
 } as const
 const skeletonPage = skeletonPages[window.location.pathname as keyof typeof skeletonPages] ?? null
+/** Страницы без боковой панели: при первой загрузке — шапка с брендом и каркас страницы. */
+const plainSkeletonPages = {
+  '/workspaces': WorkspacesPage,
+  '/invitations/accept': AcceptInvitationPage,
+} as const
+const plainSkeletonPage =
+  plainSkeletonPages[window.location.pathname as keyof typeof plainSkeletonPages] ?? null
 
 async function retry(): Promise<void> {
   retrying.value = true
@@ -56,6 +70,9 @@ async function retry(): Promise<void> {
   <AuthLayout v-if="!session.booted && skeletonPage">
     <component :is="skeletonPage" loading />
   </AuthLayout>
+  <PlainLayout v-else-if="!session.booted && plainSkeletonPage" loading>
+    <component :is="plainSkeletonPage" loading />
+  </PlainLayout>
   <div v-else-if="!session.booted" class="flex min-h-dvh items-center justify-center" role="status">
     <UiSpinner class="size-8 text-brand" label="Загрузка приложения" />
   </div>

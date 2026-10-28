@@ -9,10 +9,10 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { UiButton } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
 
-withDefaults(defineProps<{ variant?: 'secondary' | 'ghost'; block?: boolean }>(), {
-  variant: 'ghost',
-  block: false,
-})
+withDefaults(
+  defineProps<{ variant?: 'secondary' | 'ghost' | 'plain'; block?: boolean; size?: 'sm' | 'md' }>(),
+  { variant: 'ghost', block: false, size: 'sm' },
+)
 
 const emit = defineEmits<{ loggedOut: [result: { confirmed: boolean }] }>()
 
@@ -34,7 +34,7 @@ async function onClick(): Promise<void> {
 </script>
 
 <template>
-  <UiButton :variant="variant" size="sm" :block="block" :loading="pending" @click="onClick"
-    >Выйти</UiButton
+  <UiButton :variant="variant" :size="size" :block="block" :loading="pending" @click="onClick"
+    ><slot>Выйти</slot></UiButton
   >
 </template>

@@ -12,7 +12,7 @@ const session = useSessionStore()
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
+  <div class="mx-auto flex max-w-xl flex-col gap-6">
     <UiCard as="section" aria-labelledby="account-title">
       <h1 id="account-title" class="text-2xl font-bold text-ink">Аккаунт и данные</h1>
       <p class="mt-2 text-sm break-all text-muted" data-testid="account-email">

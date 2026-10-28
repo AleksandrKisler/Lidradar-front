@@ -7,6 +7,7 @@ import { ApiError } from '@/shared/api'
 import { routes } from '@/app/router/routes'
 import {
   fetchMe,
+  logout,
   resendEmailVerification,
   resetPassword,
   useSessionStore,
@@ -98,7 +99,7 @@ describe('страница нового пароля', () => {
     expect(wrapper.find('input[name="new-password"]').exists()).toBe(true)
     expect(wrapper.get('h1').text()).toBe('Новый пароль')
     expect(wrapper.text()).toContain(
-      'Все сеансы будут завершены. После смены войдите с новым паролем.',
+      'Сеансы восстанавливаемого аккаунта будут завершены. Для входа используйте новый пароль.',
     )
     expect(router.currentRoute.value.hash).toBe('')
     expect(router.currentRoute.value.fullPath).not.toContain(TOKEN)
@@ -304,7 +305,8 @@ describe('страницы по ссылкам: красный признак о
     withToken.unmount()
     const without = await mountAtLoading(ResetPasswordPage, '')
     expect(without.get('h1').text()).toBe('Проверяем ссылку…')
-    expect(without.text()).toContain('Проверяем срок действия ссылки восстановления.')
+    expect(without.text()).toContain('Загружаем форму восстановления…')
+    expect(without.text()).not.toContain('срок действия')
     expect(without.find('button').exists()).toBe(false)
     without.unmount()
     expect(resetPassword).not.toHaveBeenCalled()
@@ -338,7 +340,7 @@ describe('вошедший пользователь на страницах сб
     await wrapper.get('form').trigger('submit')
     await settle()
   }
-  const unauthenticated = Object.assign(new Error('401'), { httpStatus: 401 })
+  const unauthenticated = apiError(401, 'UNAUTHENTICATED')
 
   it('после смены пароля сервер вернул 401: сессия и кэш очищены, вход открывается с «Пароль изменён», а не Radar', async () => {
     vi.mocked(resetPassword).mockResolvedValue(undefined)
@@ -360,28 +362,154 @@ describe('вошедший пользователь на страницах сб
     wrapper.unmount()
   })
 
-  it('нет ответа сервера о сессии: завершение считается состоявшимся, локальная сессия очищается', async () => {
+  it('перечитать сессию не удалось: успех сброса сохраняется, сессия завершается локально, вход говорит об этом отдельным текстом', async () => {
     vi.mocked(resetPassword).mockResolvedValue(undefined)
     await signIn('2026-10-13T08:00:00Z')
-    const { wrapper, router } = await mountAt(ResetPasswordPage, `/reset-password#token=${TOKEN}`)
+    const { wrapper, router, queryClient } = await mountAt(
+      ResetPasswordPage,
+      `/reset-password#token=${TOKEN}`,
+    )
+    queryClient.setQueryData(['tenant', 'tenant-a', 'risks'], { secret: 'прежняя сессия' })
     vi.mocked(fetchMe).mockRejectedValue(new Error('network'))
     await submitReset(wrapper)
+    expect(resetPassword).toHaveBeenCalledTimes(1) // повторная отправка автоматически не уходит
     expect(useSessionStore().isAuthenticated).toBe(false)
+    expect(queryClient.getQueryData(['tenant', 'tenant-a', 'risks'])).toBeUndefined()
     expect(router.currentRoute.value.name).toBe('login')
+    expect(router.currentRoute.value.query.reset).toBe('local') // не «done»: отзыв сервером не утверждается
     wrapper.unmount()
   })
 
-  it('ссылка пришла на другой аккаунт: живая сессия этой вкладки не трогается и кэш остаётся', async () => {
+  it('сброс успешен, /auth/me вернул действующую сессию: сессия и кэш целы, результат виден без редиректа', async () => {
+    vi.mocked(resetPassword).mockResolvedValue(undefined)
+    await signIn('2026-10-13T08:00:00Z')
+    const { wrapper, router, queryClient } = await mountAt(
+      ResetPasswordPage,
+      `/reset-password#token=${TOKEN}`,
+    )
+    queryClient.setQueryData(['tenant', 'tenant-a', 'risks'], { keep: true })
+    await submitReset(wrapper) // fetchMe по-прежнему отдаёт текущего пользователя
+    const done = wrapper.get('[data-testid="reset-done-signed-in"]')
+    expect(done.text()).toContain('Пароль изменён')
+    expect(done.text()).toContain(
+      'Пароль по ссылке успешно изменён. В этом браузере вы вошли как owner@example.test.',
+    )
+    expect(wrapper.find('form').exists()).toBe(false)
+    expect(useSessionStore().isAuthenticated).toBe(true)
+    expect(queryClient.getQueryData(['tenant', 'tenant-a', 'risks'])).toEqual({ keep: true })
+    // Гостевой маршрут не перехватил результат: автоматического выхода и перехода нет.
+    expect(router.currentRoute.value.name).toBe('reset-password')
+    expect(resetPassword).toHaveBeenCalledTimes(1)
+    const labels = wrapper.findAll('button').map((button) => button.text())
+    expect(labels).toEqual(['Продолжить работу', 'Выйти и войти в другой аккаунт'])
+    wrapper.unmount()
+  })
+
+  it('«Продолжить работу» остаётся в текущем аккаунте', async () => {
+    vi.mocked(resetPassword).mockResolvedValue(undefined)
+    await signIn('2026-10-13T08:00:00Z')
+    const { wrapper, router } = await mountAt(ResetPasswordPage, `/reset-password#token=${TOKEN}`)
+    await submitReset(wrapper)
+    await wrapper.findAll('button')[0]!.trigger('click')
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('radar'), { timeout: 3000 })
+    expect(useSessionStore().isAuthenticated).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('«Выйти и войти в другой аккаунт» использует существующий выход, чистит кэш и открывает вход', async () => {
+    vi.mocked(resetPassword).mockResolvedValue(undefined)
+    vi.mocked(logout).mockResolvedValue(undefined)
+    await signIn('2026-10-13T08:00:00Z')
+    const { wrapper, router, queryClient } = await mountAt(
+      ResetPasswordPage,
+      `/reset-password#token=${TOKEN}`,
+    )
+    queryClient.setQueryData(['tenant', 'tenant-a', 'risks'], { secret: 'до выхода' })
+    await submitReset(wrapper)
+    await wrapper.findAll('button')[1]!.trigger('click')
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('login'), { timeout: 3000 })
+    expect(logout).toHaveBeenCalledTimes(1)
+    expect(useSessionStore().isAuthenticated).toBe(false)
+    expect(queryClient.getQueryData(['tenant', 'tenant-a', 'risks'])).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('нет ответа на сам сброс: результат неизвестен — ни успеха, ни «данные не изменены»; повтор только по действию человека', async () => {
+    vi.mocked(resetPassword).mockRejectedValue(
+      new ApiError({ httpStatus: 0, code: 'NETWORK_ERROR' }),
+    )
+    await signIn('2026-10-13T08:00:00Z')
+    const { wrapper } = await mountAt(ResetPasswordPage, `/reset-password#token=${TOKEN}`)
+    await submitReset(wrapper)
+    const text = wrapper.get('[role="alert"]').text()
+    expect(text).toContain('Результат неизвестен')
+    expect(text).toContain('Пароль мог измениться, а мог остаться прежним')
+    expect(text).not.toMatch(/не изменены|успешно/i)
+    expect(wrapper.find('[data-testid="reset-done-signed-in"]').exists()).toBe(false)
+    expect(useSessionStore().isAuthenticated).toBe(true) // сессия не тронута: сброс не подтверждён
+    expect(resetPassword).toHaveBeenCalledTimes(1)
+    await settle()
+    expect(resetPassword).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('в соседней вкладке вошёл другой пользователь: кэш прежнего очищается, сообщение называет текущую почту', async () => {
     vi.mocked(resetPassword).mockResolvedValue(undefined)
     await signIn('2026-10-13T08:00:00Z')
     const { wrapper, queryClient } = await mountAt(
       ResetPasswordPage,
       `/reset-password#token=${TOKEN}`,
     )
-    queryClient.setQueryData(['tenant', 'tenant-a', 'risks'], { keep: true })
-    await submitReset(wrapper) // fetchMe по-прежнему отдаёт этого пользователя
-    expect(useSessionStore().isAuthenticated).toBe(true)
-    expect(queryClient.getQueryData(['tenant', 'tenant-a', 'risks'])).toEqual({ keep: true })
+    queryClient.setQueryData(['account'], { owner: 'A' })
+    vi.mocked(fetchMe).mockResolvedValue({
+      canCreateOrganization: false,
+      user: {
+        id: 'user-2',
+        email: 'second@example.test',
+        displayName: 'Иван',
+        status: 'ACTIVE',
+        createdAt: '2026-10-13T00:00:00Z',
+        updatedAt: '2026-10-13T00:00:00Z',
+        emailVerifiedAt: '2026-10-13T08:00:00Z',
+        deletionDueAt: null,
+      },
+      memberships: [{ tenantId: 'tenant-a', organizationName: 'Студия', role: 'OWNER' }],
+    })
+    await submitReset(wrapper)
+    expect(wrapper.get('[data-testid="reset-done-signed-in"]').text()).toContain(
+      'вы вошли как second@example.test',
+    )
+    expect(queryClient.getQueryData(['account'])).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('«Выйти…» без подтверждения сервера: вход предупреждает, что сессия могла остаться', async () => {
+    vi.mocked(resetPassword).mockResolvedValue(undefined)
+    vi.mocked(logout).mockRejectedValue(new Error('network'))
+    await signIn('2026-10-13T08:00:00Z')
+    const { wrapper, router } = await mountAt(ResetPasswordPage, `/reset-password#token=${TOKEN}`)
+    await submitReset(wrapper)
+    await wrapper.findAll('button')[1]!.trigger('click')
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('login'), { timeout: 3000 })
+    expect(router.currentRoute.value.query.signout).toBe('unconfirmed')
+    expect(useSessionStore().isAuthenticated).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('после смены состояния фокус на заголовке результата, а не на удалённой кнопке', async () => {
+    vi.mocked(resetPassword).mockResolvedValue(undefined)
+    await signIn('2026-10-13T08:00:00Z')
+    const router = createRouter({ history: createMemoryHistory(), routes })
+    await router.push(`/reset-password#token=${TOKEN}`)
+    await router.isReady()
+    const wrapper = mount(ResetPasswordPage, {
+      attachTo: document.body,
+      global: { plugins: [router, [VueQueryPlugin, { queryClient: new QueryClient() }]] },
+    })
+    await settle()
+    await submitReset(wrapper)
+    expect(document.activeElement?.tagName).toBe('H1')
+    expect(document.activeElement?.textContent?.trim()).toBe('Пароль изменён')
     wrapper.unmount()
   })
 
@@ -432,6 +560,15 @@ describe('вход и восстановление', () => {
     const { wrapper } = await mountAt(LoginPage, '/login?reset=done')
     expect(wrapper.text()).toContain('Пароль изменён')
     expect(wrapper.text()).toContain('Войдите с новым паролем')
+    wrapper.unmount()
+  })
+
+  it('после локального завершения сессии вход говорит об этом и не утверждает отзыв сервером', async () => {
+    vi.mocked(fetchMe).mockRejectedValue(Object.assign(new Error('401'), { httpStatus: 401 }))
+    const { wrapper } = await mountAt(LoginPage, '/login?reset=local')
+    expect(wrapper.text()).toContain('Пароль изменён')
+    expect(wrapper.text()).toContain('завершили её здесь локально')
+    expect(wrapper.text()).not.toContain('На всех устройствах вы вышли из аккаунта')
     wrapper.unmount()
   })
 

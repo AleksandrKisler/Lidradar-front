@@ -11,7 +11,7 @@ import UiSpinner from './UiSpinner.vue'
 
 withDefaults(
   defineProps<{
-    variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
+    variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'plain'
     size?: 'md' | 'sm'
     type?: 'button' | 'submit' | 'reset'
     disabled?: boolean
@@ -28,6 +28,8 @@ const variants = {
   danger: 'bg-danger text-white hover:bg-[#b32420]',
   // Тёмный оттенок: на серой канве и в подсветках контраст остаётся не ниже 4.5:1.
   ghost: 'bg-transparent text-brand-dark hover:bg-brand-pale',
+  // Тихое действие в шапке без рамки («Выйти» в макетах Рабочих пространств).
+  plain: 'bg-transparent font-normal! text-secondary hover:text-ink',
 } as const
 
 const sizes = {

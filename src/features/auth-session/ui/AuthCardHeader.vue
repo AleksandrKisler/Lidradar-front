@@ -17,8 +17,17 @@ defineProps<{
     <p :class="['text-meta font-medium', danger ? 'text-danger' : 'text-secondary']">
       {{ eyebrow }}
     </p>
-    <h1 class="text-metric font-semibold text-ink md:text-4xl md:leading-10">{{ title }}</h1>
-    <p v-if="description" class="text-note text-secondary" data-testid="auth-card-description">
+    <h1
+      tabindex="-1"
+      class="text-metric font-semibold text-ink focus:outline-none md:text-4xl md:leading-10"
+    >
+      {{ title }}
+    </h1>
+    <p
+      v-if="description"
+      class="text-note break-words text-secondary"
+      data-testid="auth-card-description"
+    >
       {{ description }}
     </p>
     <slot />

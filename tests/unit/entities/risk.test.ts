@@ -188,8 +188,28 @@ describe('запросы Radar', () => {
     const url = new URL((fetchMock.mock.calls[0]![0] as Request).url)
     expect(url.searchParams.getAll('status')).toEqual(['OPEN'])
     expect(url.searchParams.has('active')).toBe(false)
-    expect(riskKeys.activeFeed('t', {}, 'ACKNOWLEDGED')[3]).toEqual({ status: 'ACKNOWLEDGED' })
+    expect(riskKeys.activeFeed('t', {}, 'OPEN')[3]).toEqual({ status: ['OPEN'] })
     expect(riskKeys.activeFeed('t', {}, null)[3]).toEqual({ active: true })
+  })
+
+  it('группа «В работе» запрашивает ACKNOWLEDGED и ACTED без active', async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ items: [], nextCursor: null }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    await fetchActiveRisks('tenant-a', {}, 'c1', undefined, 'ACKNOWLEDGED')
+    const url = new URL((fetchMock.mock.calls[0]![0] as Request).url)
+    expect(url.searchParams.getAll('status')).toEqual(['ACKNOWLEDGED', 'ACTED'])
+    expect(url.searchParams.has('active')).toBe(false)
+    expect(url.searchParams.get('cursor')).toBe('c1')
+    expect(riskKeys.activeFeed('t', {}, 'ACKNOWLEDGED')[3]).toEqual({
+      status: ['ACKNOWLEDGED', 'ACTED'],
+    })
   })
 })
 

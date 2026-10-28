@@ -126,6 +126,486 @@
         "y1": 844
       },
       "note": "видимый viewport эталона 220:2970"
+    },
+    {
+      "stage": "F03",
+      "name": "register-desktop",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "register-desktop-error",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "register-desktop-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "register-desktop-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "register-tablet",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "register-tablet-error",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "register-tablet-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "register-tablet-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "register-phone",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "register-phone-error",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "register-phone-busy",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "register-phone-loading",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "forgot-desktop",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "forgot-desktop-error",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "forgot-desktop-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "forgot-desktop-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "forgot-tablet",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "forgot-tablet-error",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "forgot-tablet-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "forgot-tablet-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "forgot-phone",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "forgot-phone-error",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "forgot-phone-busy",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "forgot-phone-loading",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "reset-desktop",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "reset-desktop-error",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "reset-desktop-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "reset-desktop-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "reset-tablet",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "reset-tablet-error",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "reset-tablet-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "reset-tablet-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "reset-phone",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "reset-phone-error",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "reset-phone-busy",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "reset-phone-loading",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invalid-desktop",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invalid-desktop-error",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invalid-desktop-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invalid-desktop-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invalid-tablet",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invalid-tablet-error",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invalid-tablet-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invalid-tablet-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invalid-phone",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invalid-phone-error",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invalid-phone-busy",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "invalid-phone-loading",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "verify-desktop",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "verify-desktop-error",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "verify-desktop-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "verify-desktop-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "verify-tablet",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "verify-tablet-error",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "verify-tablet-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "verify-tablet-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "verify-phone",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "verify-phone-error",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "verify-phone-busy",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "verify-phone-loading",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
     }
   ],
   "geometry": [

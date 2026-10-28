@@ -34,7 +34,7 @@ export function parseRiskFilters(query: LocationQuery): RiskFilters {
   return filters
 }
 
-/** Вкладка статуса: только OPEN и ACKNOWLEDGED; прочее — общая активная лента. */
+/** Вкладка статуса: OPEN и «В работе» (ACKNOWLEDGED в URL); прочее — общая активная лента. */
 export function parseRiskFeedStatus(query: LocationQuery): RiskFeedStatus | null {
   const status = single(query.status)
   return status && (RISK_FEED_STATUSES as readonly string[]).includes(status)

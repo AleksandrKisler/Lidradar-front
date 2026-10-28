@@ -164,7 +164,7 @@ onScopeDispose(() => clearInterval(timer))
       :class="
         view === 'tiles'
           ? 'grid gap-x-4 gap-y-5 @[560px]:grid-cols-2 @[900px]:grid-cols-3'
-          : 'flex flex-col gap-4'
+          : 'flex flex-col gap-5'
       "
       role="status"
       aria-label="Загрузка рисков"
@@ -238,7 +238,7 @@ onScopeDispose(() => clearInterval(timer))
         :class="
           cardView === 'tiles'
             ? 'grid gap-x-4 gap-y-5 @[560px]:grid-cols-2 @[900px]:grid-cols-3'
-            : 'flex flex-col gap-4'
+            : 'flex flex-col gap-5'
         "
         aria-label="Список активных рисков"
       >

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 /**
- * Регистрация. Утверждённого макета нет (GAP-DESIGN-014): страница собрана
- * из тех же примитивов, что и вход. После успеха — общий boot-поток, который
+ * Регистрация по утверждённому макету Access «Регистрация» (Figma 462:5559 и состояния). После успеха — общий boot-поток, который
  * приведёт нового пользователя к созданию организации (если код платформы дал
  * такое право), в рабочее пространство (код сотрудника) или к вводу кода.
  *
@@ -13,6 +12,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { UiCard } from '@/shared/ui'
 import { useRegistrationModeQuery } from '@/entities/session'
 import { RegisterForm } from '@/features/auth-session'
+
+defineProps<{
+  /** Первичная загрузка сессии: каркас формы без динамики (Figma «Регистрация · Первичная загрузка»). */
+  loading?: boolean
+}>()
 
 const router = useRouter()
 const route = useRoute()
@@ -44,7 +48,7 @@ function onSuccess(): void {
       <h1 class="text-metric font-semibold text-ink md:text-4xl md:leading-10">Создать аккаунт</h1>
       <p class="text-note text-secondary">{{ subtitle }}</p>
     </div>
-    <RegisterForm :initial-code="initialCode" @success="onSuccess" />
+    <RegisterForm :initial-code="initialCode" :loading="loading" @success="onSuccess" />
     <p class="flex h-[46px] items-center justify-center text-center text-sm text-secondary">
       <span
         >Уже есть аккаунт?

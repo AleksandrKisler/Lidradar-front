@@ -59,7 +59,7 @@ function onSuccess(): void {
           <p class="flex h-[46px] items-center justify-end text-sm text-link">Забыли пароль?</p>
         </div>
         <div
-          class="flex h-[46px] items-center justify-center rounded-button bg-line text-field leading-5 font-medium text-secondary"
+          class="flex h-[46px] items-center justify-center rounded-button bg-line text-field leading-5 font-medium text-muted"
         >
           Войти
         </div>

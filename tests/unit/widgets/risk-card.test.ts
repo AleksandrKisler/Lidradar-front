@@ -44,6 +44,26 @@ describe('карточка риска: представления v2', () => {
     },
   }
 
+  it('статусы группы «В работе» (ACKNOWLEDGED и ACTED) выделяются акцентом, прочие — нет', () => {
+    const accent = (status: 'OPEN' | 'ACKNOWLEDGED' | 'ACTED') => {
+      const wrapper = mount(RiskCard, {
+        props: {
+          ...props,
+          card: toRiskCard({ ...riskDetailFixture, risk: { ...riskDetailFixture.risk, status } }),
+        },
+        global,
+      })
+      const label = wrapper.findAll('span').find((node) => node.classes().includes('font-medium'))
+      const result = wrapper.html().includes('text-brand')
+      wrapper.unmount()
+      void label
+      return result
+    }
+    expect(accent('ACKNOWLEDGED')).toBe(true)
+    expect(accent('ACTED')).toBe(true)
+    expect(accent('OPEN')).toBe(false)
+  })
+
   it('плитка и строка списка ведут в один и тот же риск и называют его в ссылке разбора', () => {
     for (const view of ['tiles', 'list'] as const) {
       const wrapper = mount(RiskCard, { props: { ...props, view }, global })
@@ -63,8 +83,13 @@ describe('карточка риска: представления v2', () => {
       props: { ...props, card: { ...props.card, externalUrl: 'tg://user?id=1' } },
       global,
     })
-    expect(wrapper.get('dl.sr-only').text()).toContain('Ожидание с')
-    expect(wrapper.get('dl.sr-only').text()).toContain('Обнаружен')
+    const spokenDates = wrapper.get('dl.sr-only').text()
+    expect(spokenDates).toContain('Срок по правилу')
+    expect(spokenDates).toContain('Риск обнаружен')
+    expect(spokenDates).not.toContain('Ожидание с')
+    // Однозначная дата с годом, временем и поясом организации.
+    expect(spokenDates).toMatch(/\d{4} · \d{2}:\d{2}/)
+    expect(wrapper.get('dl.sr-only time').attributes('datetime')).toBe(props.card.dueAt)
     expect(wrapper.html()).not.toContain('tg://user')
     wrapper.unmount()
   })

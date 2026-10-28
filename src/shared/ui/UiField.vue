@@ -14,18 +14,34 @@ const props = withDefaults(
     required?: boolean | undefined
     /** `compact` — подпись 14/20 для форм внутри карточек; `muted` — необязательное поле. */
     labelStyle?: 'default' | 'compact' | 'muted' | undefined
+    /**
+     * Ошибка заменяет подсказку, а не дополняет её (макеты Access «Ошибка»). Для остальных форм
+     * подсказка остаётся: она может нести смысл, которого нет в тексте ошибки.
+     */
+    errorReplacesDescription?: boolean | undefined
   }>(),
-  { description: '', error: '', required: false, labelStyle: 'default' },
+  {
+    description: '',
+    error: '',
+    required: false,
+    labelStyle: 'default',
+    errorReplacesDescription: false,
+  },
 )
 
 const id = useId()
 const descriptionId = `${id}-description`
 const errorId = `${id}-error`
 
+/** Подсказка показывается всегда; в формах Access (`errorReplacesDescription`) пока нет ошибки. */
+const showDescription = computed(
+  () => Boolean(props.description) && !(props.errorReplacesDescription && props.error),
+)
+
 /** Идентификаторы пояснений, которые нужно объявить у элемента управления. */
 const describedBy = computed(() => {
   const ids: string[] = []
-  if (props.description) ids.push(descriptionId)
+  if (showDescription.value) ids.push(descriptionId)
   if (props.error) ids.push(errorId)
   return ids.length ? ids.join(' ') : undefined
 })
@@ -46,8 +62,10 @@ const describedBy = computed(() => {
       <span v-if="required" class="text-danger" aria-hidden="true">*</span>
     </label>
     <slot :id="id" :described-by="describedBy" :invalid="Boolean(error)" />
-    <p v-if="description" :id="descriptionId" class="text-xs text-secondary">{{ description }}</p>
-    <p :id="errorId" class="min-h-0 text-xs text-danger empty:-mt-2" aria-live="polite">
+    <p v-if="showDescription" :id="descriptionId" class="text-xs text-secondary">
+      {{ description }}
+    </p>
+    <p :id="errorId" class="min-h-0 text-sm leading-5 text-danger empty:-mt-2" aria-live="polite">
       <template v-if="error">{{ error }}</template>
     </p>
   </div>

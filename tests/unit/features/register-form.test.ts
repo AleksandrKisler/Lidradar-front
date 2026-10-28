@@ -190,4 +190,148 @@ describe('RegisterForm', () => {
     expect(wrapper.text()).not.toContain('Код не подходит')
     wrapper.unmount()
   })
+
+  describe('макет Access «Регистрация» (Figma 462:5559) и негативные проверки US-M01-01/02', () => {
+    it('отправка: поля заблокированы, кнопка «Создаём аккаунт…» сохраняет доступное имя «Создать аккаунт»', async () => {
+      modeIs('invite_only')
+      let release: (value: never) => void = () => {}
+      vi.mocked(register).mockImplementation(() => new Promise((resolve) => (release = resolve)))
+      const wrapper = mountForm()
+      await settle()
+      await fillAndSubmit(wrapper, CODE)
+      const button = wrapper.get('button[type="submit"]')
+      expect(button.attributes('aria-busy')).toBe('true')
+      expect(button.text()).toContain('Создаём аккаунт…')
+      expect(button.get('.sr-only').text()).toBe('Создать аккаунт')
+      for (const name of ['invite-code', 'name', 'email', 'new-password']) {
+        expect(wrapper.get(`input[name="${name}"]`).attributes('disabled')).toBeDefined()
+      }
+      release({ user: { id: 'u' } } as never)
+      wrapper.unmount()
+    })
+
+    it('первичная загрузка: подписи и подсказки на месте, полей и отправки нет', async () => {
+      modeIs('invite_only')
+      const wrapper = mount(RegisterForm, {
+        props: { loading: true },
+        global: {
+          plugins: [
+            [
+              VueQueryPlugin,
+              { queryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+            ],
+          ],
+        },
+      })
+      const text = wrapper.text()
+      for (const label of [
+        'Код приглашения',
+        'Имя',
+        'Электронная почта',
+        'Пароль',
+        'Создать аккаунт',
+      ]) {
+        expect(text).toContain(label)
+      }
+      expect(text).toContain('43 символа')
+      expect(text).toContain('Не меньше 12 символов')
+      expect(wrapper.find('input').exists()).toBe(false)
+      expect(wrapper.find('button').exists()).toBe(false)
+      expect(wrapper.get('[role="status"]').attributes('aria-label')).toBe('Загрузка')
+      wrapper.unmount()
+    })
+
+    it('ошибка поля заменяет его подсказку и связана с полем', async () => {
+      modeIs('invite_only')
+      const wrapper = mountForm()
+      await settle()
+      await fillAndSubmit(wrapper, 'LDR-2026')
+      const code = wrapper.get('input[name="invite-code"]')
+      expect(wrapper.text()).toContain('Код состоит из 43 символов')
+      expect(wrapper.text()).not.toContain('43 символа. Код платформы')
+      expect(code.attributes('aria-invalid')).toBe('true')
+      expect(code.attributes('aria-describedby')).toMatch(/-error$/)
+      wrapper.unmount()
+    })
+
+    it('пароль из 11 символов не отправляется, у поля ошибка; 12 проходит', async () => {
+      modeIs('invite_only')
+      const wrapper = mountForm()
+      await settle()
+      await wrapper.get('input[name="invite-code"]').setValue(CODE)
+      await wrapper.get('input[name="name"]').setValue('Мария')
+      await wrapper.get('input[name="email"]').setValue('maria@example.test')
+      await wrapper.get('input[name="new-password"]').setValue('12345678901')
+      await wrapper.get('form').trigger('submit')
+      await settle()
+      expect(register).not.toHaveBeenCalled()
+      expect(wrapper.text()).toContain('Не меньше 12 символов')
+      expect(wrapper.get('input[name="new-password"]').attributes('aria-invalid')).toBe('true')
+      wrapper.unmount()
+    })
+
+    it('адрес без @ — ошибка у почты, запрос не уходит', async () => {
+      modeIs('invite_only')
+      const wrapper = mountForm()
+      await settle()
+      await wrapper.get('input[name="invite-code"]').setValue(CODE)
+      await wrapper.get('input[name="name"]').setValue('Мария')
+      await wrapper.get('input[name="email"]').setValue('maria.example.test')
+      await wrapper.get('input[name="new-password"]').setValue('very-secure-password')
+      await wrapper.get('form').trigger('submit')
+      await settle()
+      expect(register).not.toHaveBeenCalled()
+      expect(wrapper.get('input[name="email"]').attributes('aria-invalid')).toBe('true')
+      wrapper.unmount()
+    })
+
+    it('имя из 200 букв принимается, из 201 — нет', async () => {
+      modeIs('invite_only')
+      vi.mocked(register).mockResolvedValue({ user: { id: 'u' } } as never)
+      const submitWith = async (name: string) => {
+        const wrapper = mountForm()
+        await settle()
+        await wrapper.get('input[name="invite-code"]').setValue(CODE)
+        await wrapper.get('input[name="name"]').setValue(name)
+        await wrapper.get('input[name="email"]').setValue('maria@example.test')
+        await wrapper.get('input[name="new-password"]').setValue('very-secure-password')
+        await wrapper.get('form').trigger('submit')
+        await settle()
+        const invalid = wrapper.get('input[name="name"]').attributes('aria-invalid')
+        wrapper.unmount()
+        return invalid
+      }
+      expect(await submitWith('я'.repeat(201))).toBe('true')
+      expect(register).not.toHaveBeenCalled()
+      expect(await submitWith('я'.repeat(200))).toBeUndefined()
+      expect(register).toHaveBeenCalledTimes(1)
+    })
+
+    it('после ошибки сервера фокус возвращается к полю с ошибкой, а не остаётся на документе', async () => {
+      modeIs('invite_only')
+      vi.mocked(register).mockRejectedValue(
+        new ApiError({ httpStatus: 409, code: 'EMAIL_ALREADY_REGISTERED' }),
+      )
+      const wrapper = mount(RegisterForm, {
+        attachTo: document.body,
+        global: {
+          plugins: [
+            [
+              VueQueryPlugin,
+              { queryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+            ],
+          ],
+        },
+      })
+      await settle()
+      await fillAndSubmit(wrapper, CODE)
+      expect(document.activeElement).toBe(wrapper.get('input[name="email"]').element)
+      // Клиентская ошибка: фокус на первом невалидном поле (код неверного формата).
+      await wrapper.get('input[name="invite-code"]').setValue('short')
+      await wrapper.get('form').trigger('submit')
+      await settle()
+      expect(document.activeElement).toBe(wrapper.get('input[name="invite-code"]').element)
+      wrapper.unmount()
+    })
+  })
 })

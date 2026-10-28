@@ -147,7 +147,7 @@ function editAgain(): void {
   </div>
 
   <form v-else class="grid gap-4 md:grid-cols-2 md:gap-x-6" novalidate @submit.prevent="onSubmit">
-    <fieldset class="flex flex-col gap-3">
+    <fieldset class="flex flex-col gap-3 max-md:mb-1">
       <legend class="sr-only">Что было на самом деле</legend>
       <label
         v-for="value in RISK_VERDICTS"
@@ -234,7 +234,7 @@ function editAgain(): void {
         {{ errorView.description }}
       </UiAlert>
 
-      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
+      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <p class="text-sm leading-5 text-muted">Подтверждение риска не закрывает его.</p>
         <!-- Без перехода цвета: смена варианта в движении мешает проверкам контраста. -->
         <UiButton

@@ -7,7 +7,7 @@
  * решение принимает сервер: после каждой команды карточка перечитывается и
  * кнопки пересчитываются. Ошибка одной команды не скрывает контекст.
  */
-import { computed, toRef } from 'vue'
+import { computed, nextTick, onBeforeUnmount, shallowRef, toRef } from 'vue'
 import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import { hasPendingCommand, useRealtimeState } from '@/shared/api'
 import { formatDateTime, formatDayTime } from '@/shared/lib'
@@ -68,6 +68,82 @@ const locationName = computed(() => {
   const id = vm.value?.locationId
   return id ? (locations.data.value?.find((location) => location.id === id)?.name ?? null) : null
 })
+
+// Раскладка: от lg (Tailwind, 64rem) — две колонки, уже — один столбец в порядке экрана.
+const wideQuery =
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(min-width: 64rem)')
+    : null
+const wide = shallowRef(wideQuery?.matches ?? true)
+// Перенос узла между контейнерами (и display:none у прежнего) снимает фокус ещё до события
+// смены ширины, поэтому последний сфокусированный элемент запоминается заранее; щелчок мимо
+// полей забывает его, чтобы не отнимать фокус у пользователя.
+let lastFocused: HTMLElement | null = null
+const rememberFocus = (event: FocusEvent) => {
+  lastFocused = event.target instanceof HTMLElement ? event.target : null
+}
+const forgetFocus = () => {
+  lastFocused = null
+}
+function syncWide(event: MediaQueryListEvent): void {
+  wide.value = event.matches
+  void nextTick(() => {
+    const active = document.activeElement
+    if (lastFocused?.isConnected && (!active || active === document.body)) {
+      lastFocused.focus({ preventScroll: true })
+    }
+  })
+}
+if (typeof document !== 'undefined') {
+  document.addEventListener('focusin', rememberFocus)
+  document.addEventListener('pointerdown', forgetFocus, true)
+}
+wideQuery?.addEventListener('change', syncWide)
+onBeforeUnmount(() => {
+  wideQuery?.removeEventListener('change', syncWide)
+  document.removeEventListener('focusin', rememberFocus)
+  document.removeEventListener('pointerdown', forgetFocus, true)
+})
+
+type SectionName =
+  | 'conversation'
+  | 'recommendation'
+  | 'work'
+  | 'money'
+  | 'stage'
+  | 'history'
+  | 'assessment'
+  | 'close'
+const flatEl = shallowRef<HTMLElement | null>(null)
+const leftEl = shallowRef<HTMLElement | null>(null)
+const asideTopEl = shallowRef<HTMLElement | null>(null)
+const asideRestEl = shallowRef<HTMLElement | null>(null)
+const bottomEl = shallowRef<HTMLElement | null>(null)
+const asNode = (value: unknown): HTMLElement | null => (value instanceof HTMLElement ? value : null)
+const setFlat = (value: unknown) => (flatEl.value = asNode(value))
+const setLeft = (value: unknown) => (leftEl.value = asNode(value))
+const setAsideTop = (value: unknown) => (asideTopEl.value = asNode(value))
+const setAsideRest = (value: unknown) => (asideRestEl.value = asNode(value))
+const setBottom = (value: unknown) => (bottomEl.value = asNode(value))
+const layoutReady = computed(() =>
+  [flatEl, leftEl, asideTopEl, asideRestEl, bottomEl].every((target) => target.value !== null),
+)
+/** Куда секция попадает сейчас; порядок в шаблоне задаёт порядок внутри контейнера. */
+function targetFor(name: SectionName): HTMLElement {
+  if (!wide.value) return flatEl.value!
+  switch (name) {
+    case 'conversation':
+    case 'work':
+    case 'history':
+      return leftEl.value!
+    case 'money':
+      return asideTopEl.value!
+    case 'assessment':
+      return bottomEl.value!
+    default:
+      return asideRestEl.value!
+  }
+}
 
 const canManage = computed(() => session.can('risks.manage'))
 const canAct = computed(() => session.can('action.manage'))
@@ -151,7 +227,7 @@ const stageNote = computed(() => {
     right.createdAt.localeCompare(left.createdAt),
   )[0]
   if (!latest) return null
-  const when = absolute(latest.createdAt)
+  const when = dayTime(latest.createdAt)
   return latest.fromStage ? `Изменена ${when}` : `Создана ${when}`
 })
 
@@ -314,235 +390,251 @@ const unavailableText = computed(() =>
         </p>
       </section>
 
-      <div
-        class="grid grid-cols-[minmax(0,1fr)] gap-6 max-lg:contents lg:grid-cols-[minmax(0,1fr)_392px] lg:items-start"
-      >
-        <div class="flex min-w-0 flex-col gap-6 max-lg:contents">
-          <section
-            class="flex flex-col gap-4 rounded-card border border-line bg-paper p-5 md:p-6 max-lg:order-1"
-            aria-labelledby="risk-context-title"
-          >
-            <h2 id="risk-context-title" class="text-[17px] leading-6 font-semibold text-ink">
-              Переписка
-            </h2>
-            <div
-              class="flex flex-col gap-2 text-sm leading-5 text-muted md:flex-row md:items-center md:justify-between md:gap-4"
-            >
-              <p>
-                {{ vm.channelName ?? 'Канал не определён'
-                }}<template v-if="locationName"> · {{ locationName }}</template>
-              </p>
-              <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-                <RouterLink
-                  v-if="vm.conversationId && canReadConversation"
-                  :to="{ name: 'conversation', params: { conversationId: vm.conversationId } }"
-                  class="text-sm font-medium text-link hover:underline"
-                >
-                  Открыть переписку
-                </RouterLink>
-                <p class="text-meta">Только чтение</p>
-              </div>
-            </div>
-            <blockquote
-              v-if="vm.lastMessage"
-              class="flex flex-col gap-2 rounded-control bg-canvas p-4 text-ink"
-            >
-              <p class="text-sm leading-5 text-muted">
-                {{ messageAuthor }} ·
-                <time :datetime="vm.lastMessage.sentAt">{{ dayTime(vm.lastMessage.sentAt) }}</time>
-              </p>
-              <p class="text-base leading-6">
-                <template v-if="vm.lastMessage.preview">{{ vm.lastMessage.preview }}</template>
-                <span v-else class="text-muted">сообщение без текста</span>
-              </p>
-            </blockquote>
-            <p v-else class="text-sm text-muted">Последнее сообщение недоступно.</p>
-
-            <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
-              <OpenConversationButton
-                v-if="vm.externalUrl"
-                :url="vm.externalUrl"
-                :risk-id="vm.id"
-                :can-record="canAct && vm.isActive"
-              />
-              <template v-else>
-                <UiButton
-                  variant="secondary"
-                  class="md:w-[252px]"
-                  disabled
-                  :aria-describedby="unavailableText ? 'telegram-unavailable' : undefined"
-                >
-                  Открыть в Telegram
-                </UiButton>
-                <p
-                  v-if="unavailableText"
-                  id="telegram-unavailable"
-                  class="max-w-sm text-sm leading-5 text-muted"
-                >
-                  {{ unavailableText }}. Читайте переписку в LidRadar.
-                </p>
-              </template>
-            </div>
-          </section>
-
-          <section
-            v-if="
-              (canAct && (vm.isActive || pendingCommand('action', vm.id))) ||
-              (canRecordOutcome &&
-                vm.opportunityId &&
-                (vm.isActive || pendingCommand('outcome', vm.opportunityId)))
-            "
-            class="flex flex-col gap-4 rounded-card border border-line bg-paper p-5 md:p-6 max-lg:order-3"
-            aria-labelledby="risk-work-title"
-          >
-            <h2 id="risk-work-title" class="text-[17px] leading-6 font-semibold text-ink">
-              Работа по риску
-            </h2>
-            <p class="text-sm leading-5 text-muted">
-              Запишите выполненное действие, затем — реакцию клиента.
-            </p>
-            <div class="grid gap-6 md:grid-cols-2">
-              <section
-                v-if="canAct && (vm.isActive || pendingCommand('action', vm.id))"
-                aria-labelledby="risk-action-title"
-              >
-                <h3 id="risk-action-title" class="sr-only">
-                  {{ vm.isActive ? 'Записать действие' : 'Проверить незавершённое действие' }}
-                </h3>
-                <RecordActionForm :risk-id="vm.id" :disabled="!vm.isActive" />
-              </section>
-              <section
-                v-if="
-                  canRecordOutcome &&
-                  vm.opportunityId &&
-                  (vm.isActive || pendingCommand('outcome', vm.opportunityId))
-                "
-                aria-labelledby="risk-outcome-title"
-              >
-                <h3 id="risk-outcome-title" class="sr-only">Записать исход</h3>
-                <RecordOutcomeForm
-                  :risk-id="vm.id"
-                  :opportunity-id="vm.opportunityId"
-                  :disabled="!vm.isActive"
-                />
-              </section>
-            </div>
-          </section>
-
-          <section
-            class="rounded-card border border-line bg-paper p-5 md:p-6 max-lg:order-6"
-            aria-labelledby="risk-history-title"
-          >
-            <RiskHistory :entries="timeline" :time-zone="timeZone" />
-          </section>
-        </div>
-
-        <aside class="flex flex-col gap-6 max-lg:contents" aria-label="Действия по риску">
-          <section
-            class="flex flex-col gap-4 rounded-card border border-line bg-paper p-5 md:p-6 max-lg:order-4"
-            aria-labelledby="risk-money-title"
-          >
-            <h2
-              id="risk-money-title"
-              class="flex items-center gap-2 text-[17px] leading-6 font-semibold text-ink"
-            >
-              <UiGlyph name="banknote" class="size-[18px]" />Потенциал сделки
-            </h2>
-            <div class="flex flex-col gap-4">
-              <p class="text-[28px] leading-[34px] font-semibold text-ink tabular-nums">
-                {{ vm.money?.potential ?? 'Сумма не определена' }}
-              </p>
-              <p class="text-sm leading-5 text-muted">Оценка сделки под риском</p>
-            </div>
-            <div class="h-px bg-line" aria-hidden="true" />
-            <dl class="flex flex-col gap-1">
-              <dt class="text-sm leading-5 text-muted">Подтверждённо возвращено</dt>
-              <dd class="text-base leading-6 font-medium text-ink tabular-nums">
-                {{ vm.money?.confirmedRecovered ?? 'Нет подтверждений' }}
-              </dd>
-            </dl>
-            <div v-if="canConfirmRevenue && revenueEvidence">
-              <ConfirmRevenueButton :evidence="revenueEvidence" />
-            </div>
-            <p class="text-sm leading-5 text-muted">
-              Исход «Оплатил» сам по себе не подтверждает оплату.
-            </p>
-          </section>
-
-          <section
-            class="flex flex-col gap-4 rounded-card border border-line bg-paper p-5 md:p-6 max-lg:order-2"
-            aria-labelledby="risk-recommendation-title"
-          >
-            <h2 id="risk-recommendation-title" class="text-[17px] leading-6 font-semibold text-ink">
-              Рекомендация
-            </h2>
-            <p v-if="vm.recommendation" class="text-base leading-6 text-ink">
-              {{ vm.recommendation }}
-            </p>
-            <template v-else>
-              <p class="text-sm leading-5 text-muted">
-                {{
-                  canManage && vm.isActive
-                    ? 'Получите следующий шаг на основе переписки и причины риска.'
-                    : 'Рекомендации по этому риску пока нет.'
-                }}
-              </p>
-              <EnsureRecommendationButton v-if="canManage && vm.isActive" :risk-id="vm.id" />
-            </template>
-          </section>
-
-          <section
-            v-if="vm.opportunityId && canManageOpportunity"
-            class="flex flex-col gap-4 rounded-card border border-line bg-paper p-5 md:p-6 max-lg:order-5"
-            aria-labelledby="stages-title"
-          >
-            <h2 id="stages-title" class="text-[17px] leading-6 font-semibold text-ink">
-              Этап сделки
-            </h2>
-            <div v-if="opportunity.isPending.value" role="status" aria-label="Загрузка этапов">
-              <UiSkeleton class="h-10 w-full" />
-            </div>
-            <UiErrorState
-              v-else-if="opportunity.isError.value"
-              :error="opportunity.error.value"
-              title="Не удалось загрузить историю этапов"
-              @retry="opportunity.refetch()"
-            />
-            <template v-else-if="opportunity.data.value">
-              <p class="flex items-baseline justify-between gap-3 text-sm leading-5">
-                <span class="text-muted">Сейчас</span>
-                <span class="text-base font-semibold text-ink" data-testid="opportunity-stage">{{
-                  currentStage ? opportunityStageLabel(currentStage) : 'сделка не создана'
-                }}</span>
-              </p>
-              <StageChangeControl
-                :risk-id="vm.id"
-                :opportunity-id="vm.opportunityId"
-                :current-stage="opportunity.data.value.opportunity.stage"
-              />
-              <p v-if="stageNote" class="text-sm leading-5 text-muted">{{ stageNote }}</p>
-            </template>
-          </section>
-
-          <div v-if="vm.isActive && canManage" class="max-lg:order-8">
-            <ResolveRiskButton :risk-id="vm.id" />
-          </div>
+      <!--
+        Порядок DOM = порядок фокуса. Секции рендерятся один раз и «переезжают» между
+        контейнерами (Teleport сохраняет экземпляры, черновики форм не теряются):
+        узко — один столбец в порядке экрана, от lg — две колонки и оценка под ними.
+      -->
+      <div class="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_392px] lg:items-start">
+        <div :ref="setFlat" data-slot="flat" class="contents lg:hidden" />
+        <div :ref="setLeft" data-slot="left" class="hidden min-w-0 flex-col gap-6 lg:flex" />
+        <aside class="hidden flex-col gap-6 lg:flex" aria-label="Действия по риску">
+          <div :ref="setAsideTop" class="contents" />
+          <div :ref="setAsideRest" class="contents" />
         </aside>
       </div>
+      <div :ref="setBottom" class="hidden lg:contents" />
 
-      <section
-        v-if="canManage"
-        class="flex flex-col gap-4 rounded-card border border-line bg-paper p-5 md:p-6 max-lg:order-7"
-        aria-labelledby="risk-feedback-title"
-      >
-        <h2 id="risk-feedback-title" class="text-[17px] leading-6 font-semibold text-ink">
-          Оценка сигнала
-        </h2>
-        <p class="text-sm leading-5 text-muted">
-          Верно ли Radar определил ситуацию? Оценка помогает уточнять правила.
-        </p>
-        <RiskFeedbackPanel :risk-id="vm.id" :is-active="vm.isActive" />
-      </section>
+      <Teleport v-if="layoutReady" :to="targetFor('conversation')">
+        <section
+          class="flex flex-col gap-4 rounded-card border border-line bg-paper p-5 md:p-6"
+          aria-labelledby="risk-context-title"
+        >
+          <h2 id="risk-context-title" class="text-[17px] leading-6 font-semibold text-ink">
+            Переписка
+          </h2>
+          <div
+            class="flex flex-col gap-2 text-sm leading-5 text-muted md:flex-row md:items-center md:justify-between md:gap-4"
+          >
+            <p>
+              {{ vm.channelName ?? 'Канал не определён'
+              }}<template v-if="locationName"> · {{ locationName }}</template>
+            </p>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <RouterLink
+                v-if="vm.conversationId && canReadConversation"
+                :to="{ name: 'conversation', params: { conversationId: vm.conversationId } }"
+                class="text-sm font-medium text-link hover:underline"
+              >
+                Открыть переписку
+              </RouterLink>
+              <p class="text-meta">Только чтение</p>
+            </div>
+          </div>
+          <blockquote
+            v-if="vm.lastMessage"
+            class="flex flex-col gap-2 rounded-control bg-canvas p-4 text-ink"
+          >
+            <p class="text-sm leading-5 text-muted">
+              {{ messageAuthor }} ·
+              <time :datetime="vm.lastMessage.sentAt">{{ dayTime(vm.lastMessage.sentAt) }}</time>
+            </p>
+            <p class="text-base leading-6">
+              <template v-if="vm.lastMessage.preview">{{ vm.lastMessage.preview }}</template>
+              <span v-else class="text-muted">сообщение без текста</span>
+            </p>
+          </blockquote>
+          <p v-else class="text-sm text-muted">Последнее сообщение недоступно.</p>
+
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+            <OpenConversationButton
+              v-if="vm.externalUrl"
+              :url="vm.externalUrl"
+              :risk-id="vm.id"
+              :can-record="canAct && vm.isActive"
+            />
+            <template v-else>
+              <UiButton
+                variant="secondary"
+                class="md:w-[252px]"
+                disabled
+                :aria-describedby="unavailableText ? 'telegram-unavailable' : undefined"
+              >
+                Открыть в Telegram
+              </UiButton>
+              <p
+                v-if="unavailableText"
+                id="telegram-unavailable"
+                class="max-w-sm text-sm leading-5 text-muted"
+              >
+                {{ unavailableText }}. Читайте переписку в LidRadar.
+              </p>
+            </template>
+          </div>
+        </section>
+      </Teleport>
+      <Teleport v-if="layoutReady" :to="targetFor('recommendation')">
+        <section
+          class="flex flex-col gap-4 rounded-card border border-line bg-paper p-5 md:p-6"
+          aria-labelledby="risk-recommendation-title"
+        >
+          <h2 id="risk-recommendation-title" class="text-[17px] leading-6 font-semibold text-ink">
+            Рекомендация
+          </h2>
+          <p v-if="vm.recommendation" class="text-base leading-6 text-ink">
+            {{ vm.recommendation }}
+          </p>
+          <template v-else>
+            <p class="text-sm leading-5 text-muted">
+              {{
+                canManage && vm.isActive
+                  ? 'Получите следующий шаг на основе переписки и причины риска.'
+                  : 'Рекомендации по этому риску пока нет.'
+              }}
+            </p>
+            <EnsureRecommendationButton v-if="canManage && vm.isActive" :risk-id="vm.id" />
+          </template>
+        </section>
+      </Teleport>
+      <Teleport v-if="layoutReady" :to="targetFor('work')">
+        <section
+          v-if="
+            (canAct && (vm.isActive || pendingCommand('action', vm.id))) ||
+            (canRecordOutcome &&
+              vm.opportunityId &&
+              (vm.isActive || pendingCommand('outcome', vm.opportunityId)))
+          "
+          class="flex flex-col gap-4 rounded-card border border-line bg-paper p-5 md:p-6"
+          aria-labelledby="risk-work-title"
+        >
+          <h2 id="risk-work-title" class="text-[17px] leading-6 font-semibold text-ink">
+            Работа по риску
+          </h2>
+          <p class="text-sm leading-5 text-muted">
+            Запишите выполненное действие, затем — реакцию клиента.
+          </p>
+          <div class="grid gap-6 md:grid-cols-2">
+            <section
+              v-if="canAct && (vm.isActive || pendingCommand('action', vm.id))"
+              aria-labelledby="risk-action-title"
+            >
+              <h3 id="risk-action-title" class="sr-only">
+                {{ vm.isActive ? 'Записать действие' : 'Проверить незавершённое действие' }}
+              </h3>
+              <RecordActionForm :risk-id="vm.id" :disabled="!vm.isActive" />
+            </section>
+            <section
+              v-if="
+                canRecordOutcome &&
+                vm.opportunityId &&
+                (vm.isActive || pendingCommand('outcome', vm.opportunityId))
+              "
+              aria-labelledby="risk-outcome-title"
+            >
+              <h3 id="risk-outcome-title" class="sr-only">Записать исход</h3>
+              <RecordOutcomeForm
+                :risk-id="vm.id"
+                :opportunity-id="vm.opportunityId"
+                :disabled="!vm.isActive"
+              />
+            </section>
+          </div>
+        </section>
+      </Teleport>
+      <Teleport v-if="layoutReady" :to="targetFor('money')">
+        <section
+          class="flex flex-col gap-4 rounded-card border border-line bg-paper p-5 md:p-6"
+          aria-labelledby="risk-money-title"
+        >
+          <h2
+            id="risk-money-title"
+            class="flex items-center gap-2 text-[17px] leading-6 font-semibold text-ink"
+          >
+            <UiGlyph name="banknote" class="size-[18px]" />Потенциал сделки
+          </h2>
+          <div class="flex flex-col gap-4">
+            <p class="text-[28px] leading-[34px] font-semibold text-ink tabular-nums">
+              {{ vm.money?.potential ?? 'Сумма не определена' }}
+            </p>
+            <p class="text-sm leading-5 text-muted">Оценка сделки под риском</p>
+          </div>
+          <div class="h-px bg-line" aria-hidden="true" />
+          <dl class="flex flex-col gap-1">
+            <dt class="text-sm leading-5 text-muted">Подтверждённо возвращено</dt>
+            <dd class="text-base leading-6 font-medium text-ink tabular-nums">
+              {{ vm.money?.confirmedRecovered ?? 'Нет подтверждений' }}
+            </dd>
+          </dl>
+          <div v-if="canConfirmRevenue && revenueEvidence">
+            <ConfirmRevenueButton :evidence="revenueEvidence" />
+          </div>
+          <p class="text-sm leading-5 text-muted">
+            Исход «Оплатил» сам по себе не подтверждает оплату.
+          </p>
+        </section>
+      </Teleport>
+      <Teleport v-if="layoutReady" :to="targetFor('stage')">
+        <section
+          v-if="vm.opportunityId && canManageOpportunity"
+          class="flex flex-col gap-4 rounded-card border border-line bg-paper p-5 md:p-6"
+          aria-labelledby="stages-title"
+        >
+          <h2 id="stages-title" class="text-[17px] leading-6 font-semibold text-ink">
+            Этап сделки
+          </h2>
+          <div v-if="opportunity.isPending.value" role="status" aria-label="Загрузка этапов">
+            <UiSkeleton class="h-10 w-full" />
+          </div>
+          <UiErrorState
+            v-else-if="opportunity.isError.value"
+            :error="opportunity.error.value"
+            title="Не удалось загрузить историю этапов"
+            @retry="opportunity.refetch()"
+          />
+          <template v-else-if="opportunity.data.value">
+            <p class="flex items-baseline justify-between gap-3 text-sm leading-5">
+              <span class="text-muted">Сейчас</span>
+              <span class="text-base font-semibold text-ink" data-testid="opportunity-stage">{{
+                currentStage ? opportunityStageLabel(currentStage) : 'сделка не создана'
+              }}</span>
+            </p>
+            <StageChangeControl
+              :risk-id="vm.id"
+              :opportunity-id="vm.opportunityId"
+              :current-stage="opportunity.data.value.opportunity.stage"
+            />
+            <p v-if="stageNote" class="text-sm leading-5 text-muted">{{ stageNote }}</p>
+          </template>
+        </section>
+      </Teleport>
+      <Teleport v-if="layoutReady" :to="targetFor('history')">
+        <section
+          class="rounded-card border border-line bg-paper p-5 md:p-6"
+          aria-labelledby="risk-history-title"
+        >
+          <RiskHistory :entries="timeline" :time-zone="timeZone" />
+        </section>
+      </Teleport>
+      <Teleport v-if="layoutReady" :to="targetFor('assessment')">
+        <section
+          v-if="canManage"
+          class="flex flex-col gap-4 rounded-card border border-line bg-paper p-5 md:p-6"
+          aria-labelledby="risk-feedback-title"
+        >
+          <h2 id="risk-feedback-title" class="text-[17px] leading-6 font-semibold text-ink">
+            Оценка сигнала
+          </h2>
+          <p class="text-sm leading-5 text-muted">
+            Верно ли Radar определил ситуацию? Оценка помогает уточнять правила.
+          </p>
+          <RiskFeedbackPanel :risk-id="vm.id" :is-active="vm.isActive" />
+        </section>
+      </Teleport>
+      <Teleport v-if="layoutReady" :to="targetFor('close')">
+        <div v-if="vm.isActive && canManage" class="max-lg:order-8">
+          <ResolveRiskButton :risk-id="vm.id" />
+        </div>
+      </Teleport>
     </article>
   </div>
 </template>

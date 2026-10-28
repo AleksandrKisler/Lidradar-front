@@ -15,6 +15,7 @@ import { describeError, isApiError } from '@/shared/api'
 import { useRetryAfter } from '@/shared/lib'
 import { UiAlert, UiButton, UiField, UiInput, UiPasswordInput } from '@/shared/ui'
 import { login, useSessionStore } from '@/entities/session'
+import { focusFirstProblem } from '../lib/focus-problem'
 import { loginSchema } from '../model/schemas'
 
 const emit = defineEmits<{ success: [] }>()
@@ -39,6 +40,7 @@ const [email] = defineField('email')
 const [password] = defineField('password')
 
 /** Ошибка последней отправки; сбрасывается при следующей попытке. */
+const formEl = ref<HTMLFormElement | null>(null)
 const submitError = ref<unknown>(null)
 
 const errorView = computed(() => {
@@ -75,23 +77,32 @@ const submitLabel = computed(() =>
   retry.active.value ? `Войти через ${retry.secondsLeft.value} с` : 'Войти',
 )
 
-const onSubmit = handleSubmit(async (values) => {
+let succeeded = false
+const submitValues = handleSubmit(async (values) => {
   if (retry.active.value) return
   submitError.value = null
   try {
     await login({ email: values.email, password: values.password })
     resetField('password', { value: '' })
     await session.refresh()
+    succeeded = true
     emit('success')
   } catch (error) {
     submitError.value = error
     if (isApiError(error) && error.isRateLimited) retry.start(error.retryAfterSeconds ?? 60)
   }
 })
+
+/** Поля были заблокированы на время запроса: после неудачи фокус — на поле с ошибкой или на пароле. */
+async function onSubmit(event?: Event): Promise<void> {
+  succeeded = false
+  await submitValues(event)
+  if (!succeeded) await focusFirstProblem(formEl.value, 'input[name="password"]')
+}
 </script>
 
 <template>
-  <form class="flex flex-col gap-4" novalidate @submit.prevent="onSubmit">
+  <form ref="formEl" class="flex flex-col gap-4" novalidate @submit.prevent="onSubmit">
     <UiField v-slot="{ id, describedBy, invalid }" label="Электронная почта" :error="errors.email">
       <UiInput
         :id="id"

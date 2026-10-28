@@ -1,8 +1,10 @@
 <script setup lang="ts">
 /**
  * История рабочего пространства (Figma 212:2623): обнаружение риска, этапы
- * сделки, действия и исход по убыванию времени. Записи не редактируются и не
- * удаляются — только дополняются. Время — в часовом поясе организации.
+ * сделки и действия по убыванию времени. Последний исход сделки показан
+ * отдельным блоком: API отдаёт только его, а не журнал всех исходов, и заметок
+ * повторно не отдаёт — полным журналом этот список не называется. Время — в
+ * часовом поясе организации.
  */
 import { computed } from 'vue'
 import { dayKey, formatDay, formatTime, plural } from '@/shared/lib'
@@ -18,18 +20,19 @@ export interface RiskTimelineEntry {
 
 const props = defineProps<{ entries: RiskTimelineEntry[]; timeZone: string }>()
 
+const newestFirst = (left: RiskTimelineEntry, right: RiskTimelineEntry) =>
+  Date.parse(right.createdAt) - Date.parse(left.createdAt)
 const rows = computed(() =>
-  [...props.entries].sort(
-    (left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt),
-  ),
+  props.entries.filter((entry) => entry.kind !== 'outcome').sort(newestFirst),
+)
+const lastOutcome = computed(
+  () => props.entries.filter((entry) => entry.kind === 'outcome').sort(newestFirst)[0] ?? null,
 )
 /** Дата показывается, когда события лежат в разных днях организации. */
 const spansDays = computed(
   () => new Set(rows.value.map((entry) => dayKey(entry.createdAt, props.timeZone))).size > 1,
 )
-const recorded = computed(
-  () => rows.value.filter((entry) => entry.kind === 'action' || entry.kind === 'outcome').length,
-)
+const recorded = computed(() => rows.value.filter((entry) => entry.kind === 'action').length)
 </script>
 
 <template>
@@ -39,6 +42,21 @@ const recorded = computed(
       <p class="text-sm leading-5 text-muted">
         {{ rows.length }} {{ plural(rows.length, 'событие', 'события', 'событий') }}
       </p>
+    </div>
+    <div
+      class="flex flex-col gap-1 rounded-field bg-canvas px-4 py-3 text-sm leading-5"
+      role="group"
+      aria-labelledby="risk-last-outcome-title"
+    >
+      <p id="risk-last-outcome-title" class="text-muted">Последний исход сделки</p>
+      <template v-if="lastOutcome">
+        <p class="font-medium text-ink">{{ lastOutcome.title }}</p>
+        <time :datetime="lastOutcome.createdAt" class="text-muted"
+          >{{ formatDay(lastOutcome.createdAt, timeZone) }},
+          {{ formatTime(lastOutcome.createdAt, timeZone) }}</time
+        >
+      </template>
+      <p v-else class="font-medium text-ink">Исход не записан</p>
     </div>
     <ol class="flex flex-col divide-y divide-line" aria-label="История">
       <li
@@ -58,6 +76,10 @@ const recorded = computed(
         </div>
       </li>
     </ol>
-    <p v-if="!recorded" class="-mt-4 text-sm leading-5 text-muted">Действий и исходов пока нет.</p>
+    <p v-if="!recorded" class="-mt-4 text-sm leading-5 text-muted">Действий пока нет.</p>
+    <p class="text-xs leading-[18px] text-muted">
+      Здесь показаны этапы и действия, доступные в карточке. Прежние исходы и заметки отсюда не
+      читаются.
+    </p>
   </div>
 </template>

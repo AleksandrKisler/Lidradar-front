@@ -3,7 +3,7 @@ set -euo pipefail
 
 frontend_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd -- "$frontend_root"
-backend_docs="${LIDRADAR_BACKEND_DOCS:-$HOME/Develop/Lidradar/docs}"
+backend_docs="${LIDRADAR_BACKEND_DOCS:-$(dirname -- "$frontend_root")/Lidradar/docs}"
 design_root="${LIDRADAR_DESIGN_ROOT:-$HOME/Documents/LidRadar_MVP_v1.1_package/design}"
 mode="${1:-start}"
 case "$mode" in
@@ -61,6 +61,9 @@ if [[ ! -x "$claude_bin" ]]; then
   printf 'Claude Code not found. Open/update Claude Desktop or install the official CLI.\n' >&2
   exit 1
 fi
+if [[ "$mode" == login ]]; then
+  exec "$claude_bin" auth login
+fi
 for source_dir in "$backend_docs" "$design_root"; do
   if [[ ! -d "$source_dir" ]]; then
     printf 'Source directory missing: %s\n' "$source_dir" >&2
@@ -95,9 +98,6 @@ JS
   exit 0
 fi
 
-if [[ "$mode" == login ]]; then
-  exec "$claude_bin" auth login
-fi
 if [[ ! -t 0 || ! -t 1 ]]; then
   printf 'Start/resume requires an interactive terminal for login and workspace trust.\n' >&2
   exit 1

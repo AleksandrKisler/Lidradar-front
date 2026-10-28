@@ -106,3 +106,60 @@ describe('лента Radar: пустое состояние', () => {
     wrapper.unmount()
   })
 })
+
+describe('лента Radar: подвал после исчерпания пагинации', () => {
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    vi.mocked(fetchMe).mockResolvedValue({
+      canCreateOrganization: false,
+      user: {
+        emailVerifiedAt: null,
+        deletionDueAt: null,
+        id: 'u',
+        email: 'a@b.c',
+        displayName: 'A',
+        status: 'ACTIVE',
+        createdAt: '',
+        updatedAt: '',
+      },
+      memberships: [{ tenantId: 'tenant-a', organizationName: 'A', role: 'OWNER' }],
+    })
+    await useSessionStore().bootstrap()
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('без числа: общая лента и вкладка статуса называют себя исчерпанными по-разному', async () => {
+    const all = await mountFeed([riskDetailFixture])
+    expect(all.text()).toContain('Это все активные риски по выбранным фильтрам.')
+    expect(all.text()).not.toMatch(/Все \d+ активных/)
+    expect(all.text()).not.toContain('Показать ещё')
+    all.unmount()
+    const tab = await mountFeed([riskDetailFixture], { status: 'ACKNOWLEDGED' })
+    expect(tab.text()).toContain('Это все риски этой вкладки по выбранным фильтрам.')
+    tab.unmount()
+  })
+
+  it('пока сервер отдаёт курсор, подвал не показывается, есть «Показать ещё»', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(jsonResponse({ items: [riskDetailFixture], nextCursor: 'page-2' })),
+      ),
+    )
+    const wrapper = mount(RiskFeed, {
+      props: { tenantId: 'tenant-a', filters: {}, timeZone: 'UTC' },
+      global: {
+        plugins: [
+          [
+            VueQueryPlugin,
+            { queryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+          ],
+        ],
+        stubs: { RouterLink: { props: ['to'], template: '<a><slot /></a>' } },
+      },
+    })
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Показать ещё'), { timeout: 2000 })
+    expect(wrapper.text()).not.toContain('Это все')
+    wrapper.unmount()
+  })
+})

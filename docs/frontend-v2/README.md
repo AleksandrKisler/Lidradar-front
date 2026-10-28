@@ -3,7 +3,7 @@
 В терминале:
 
 ```sh
-cd /Users/aleksandrkisler/WebstormProjects/Lidradar
+cd /Users/aleksandrkisler/Develop/LidradarWorksapce/Lidradar-front
 bash scripts/claude-frontend.sh doctor
 bash scripts/claude-frontend.sh login
 bash scripts/claude-frontend.sh start
@@ -13,6 +13,15 @@ bash scripts/claude-frontend.sh start
 через штатный браузер Claude; пароль/код/токен не передавайте в чат.
 Launcher использует существующий Claude Code из PATH или установленного Desktop
 bundle; глобальная установка и изменение shell profile не нужны.
+
+По умолчанию backend docs берутся из соседнего `../Lidradar/docs`. Если backend
+расположен отдельно, перед запуском задайте `LIDRADAR_BACKEND_DOCS`:
+
+```sh
+export LIDRADAR_BACKEND_DOCS="/путь/к/Lidradar/docs"
+```
+
+Команда `login` не требует наличия каталогов документации и дизайна.
 
 При первом старте подтвердите доверие этому frontend-каталогу. В `/mcp` подключите
 сервер `figma` и пройдите его OAuth, если запрошен. Это штатная авторизация клиента,

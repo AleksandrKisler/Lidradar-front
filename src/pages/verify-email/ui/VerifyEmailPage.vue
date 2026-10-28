@@ -1,9 +1,10 @@
 <script setup lang="ts">
 /**
- * Подтверждение почты по ссылке из письма (ADR 0058). Подтверждение мягкое: страница ничего не
- * блокирует. Токен берётся из фрагмента адреса и сразу убирается из него; открыть ссылку можно в
- * любом браузере, поэтому сессия не нужна. Если сессия есть, после успеха она перечитывается, чтобы
- * напоминание о неподтверждённой почте исчезло.
+ * Подтверждение почты по ссылке из письма (ADR 0058) по макету Access «Подтверждение почты»
+ * (Figma 462:5966 и состояния). Подтверждение мягкое: страница ничего не блокирует. Токен берётся из
+ * фрагмента адреса и сразу убирается из него; открыть ссылку можно в любом браузере, поэтому сессия не
+ * нужна. Если сессия есть, после успеха она перечитывается, чтобы напоминание о неподтверждённой почте
+ * исчезло.
  */
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -11,14 +12,20 @@ import { describeError, isApiError } from '@/shared/api'
 import { readFragmentToken } from '@/shared/lib'
 import { UiAlert, UiButton, UiCard, UiSpinner } from '@/shared/ui'
 import { useSessionStore, verifyEmail } from '@/entities/session'
-import { ResendVerificationButton } from '@/features/auth-session'
+import { AuthCardHeader, ResendVerificationButton } from '@/features/auth-session'
+
+const props = defineProps<{
+  /** Первичная загрузка сессии: каркас страницы без запроса подтверждения. */
+  loading?: boolean
+}>()
 
 const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 
-const token = readFragmentToken(route.hash)
-if (route.hash !== '') {
+// При первой загрузке маршрут ещё не разобран: токен берётся из адреса окна и из адреса не убирается.
+const token = readFragmentToken(props.loading ? window.location.hash : route.hash)
+if (!props.loading && route.hash !== '') {
   void router.replace({ path: route.path, query: route.query, hash: '' })
 }
 
@@ -47,7 +54,21 @@ async function confirm(): Promise<void> {
   }
 }
 
-onMounted(() => void confirm())
+onMounted(() => {
+  if (!props.loading) void confirm()
+})
+
+/** Нет связи с сервером: подпись макета «Нет соединения» (Figma 462:7724); прочие ошибки — общие. */
+function failureView(): { title: string; description: string } {
+  const error = failure.value
+  if (isApiError(error) && error.httpStatus === 0) {
+    return {
+      title: 'Нет соединения',
+      description: 'Не удалось связаться с сервером. Проверьте подключение.',
+    }
+  }
+  return describeError(error)
+}
 
 function proceed(): void {
   void router.replace(session.isAuthenticated ? { name: 'radar' } : { name: 'login' })
@@ -55,62 +76,83 @@ function proceed(): void {
 </script>
 
 <template>
-  <div>
-    <UiCard :padded="false" class="p-[23px] md:p-[31px]">
-      <p class="text-xs font-semibold tracking-wide text-muted">Подтверждение почты</p>
-
-      <template v-if="state === 'loading'">
-        <h1 class="mt-2 text-2xl font-bold text-ink">Подтверждаем адрес…</h1>
-        <p class="mt-4 flex items-center gap-3 text-sm text-muted" role="status">
-          <UiSpinner class="size-5" />Это займёт несколько секунд.
+  <UiCard :padded="false" class="flex flex-col gap-6 p-[23px] md:p-[31px]">
+    <!-- Первичная загрузка сессии (Figma «Первичная загрузка») -->
+    <template v-if="loading">
+      <AuthCardHeader
+        eyebrow="Подтверждение почты"
+        title="Подтверждаем почту…"
+        description="Проверяем ссылку подтверждения."
+      >
+        <p class="mt-4 text-sm text-secondary" role="status">
+          Результат появится здесь автоматически.
         </p>
-      </template>
+      </AuthCardHeader>
+      <!-- Каркас: кнопка недоступна, пока страница не загрузилась (Figma «Первичная загрузка»). -->
+      <div
+        class="-mt-2 flex h-[46px] items-center justify-center rounded-button border border-line bg-paper text-field leading-5 font-medium text-muted"
+      >
+        Вернуться ко входу
+      </div>
+    </template>
 
-      <template v-else-if="state === 'done'">
-        <h1 class="mt-2 text-2xl font-bold text-ink">Почта подтверждена</h1>
-        <p class="mt-2 text-sm text-muted" data-testid="verify-done">
-          Спасибо. Теперь мы знаем, что письма о безопасности аккаунта дойдут до вас.
+    <!-- Запрос подтверждения идёт (Figma «Отправка») -->
+    <template v-else-if="state === 'loading'">
+      <AuthCardHeader eyebrow="Подтверждение почты" title="Подтверждаем почту…" />
+      <p class="flex items-center gap-3 text-sm text-secondary" role="status">
+        <UiSpinner class="size-4 text-brand" />Проверка выполняется…
+      </p>
+    </template>
+
+    <template v-else-if="state === 'done'">
+      <AuthCardHeader
+        data-testid="verify-done"
+        eyebrow="Подтверждение почты"
+        title="Почта подтверждена"
+        description="Спасибо. Теперь мы знаем, что письма о безопасности аккаунта дойдут до вас."
+      />
+      <UiButton block @click="proceed">
+        {{ session.isAuthenticated ? 'Продолжить работу' : 'Войти' }}
+      </UiButton>
+    </template>
+
+    <template v-else-if="state === 'invalid'">
+      <AuthCardHeader
+        data-testid="verify-invalid"
+        eyebrow="Подтверждение почты"
+        title="Ссылка недействительна"
+        description="Ссылка устарела, уже использована или скопирована не полностью."
+      >
+        <p v-if="!session.isAuthenticated" class="mt-4 text-sm text-secondary">
+          Войдите и запросите новое письмо в разделе «Настройки → Аккаунт».
         </p>
-        <div class="mt-6">
-          <UiButton block @click="proceed">
-            {{ session.isAuthenticated ? 'Продолжить работу' : 'Войти' }}
+        <p
+          v-else-if="!session.emailUnverified"
+          class="mt-4 text-sm text-ink"
+          data-testid="verify-already"
+        >
+          Ваш адрес уже подтверждён: ничего делать не нужно.
+        </p>
+      </AuthCardHeader>
+      <div class="-mt-2 flex flex-col gap-3">
+        <template v-if="session.isAuthenticated">
+          <ResendVerificationButton v-if="session.emailUnverified" variant="primary" />
+          <UiButton :variant="session.emailUnverified ? 'secondary' : 'primary'" @click="proceed">
+            Продолжить работу
           </UiButton>
-        </div>
-      </template>
+        </template>
+        <UiButton v-else @click="proceed">Войти</UiButton>
+      </div>
+    </template>
 
-      <template v-else-if="state === 'invalid'">
-        <h1 class="mt-2 text-2xl font-bold text-ink">Ссылка недействительна</h1>
-        <p class="mt-2 text-sm text-muted" data-testid="verify-invalid">
-          Ссылка устарела, уже использована или скопирована не полностью.
-        </p>
-        <div class="mt-6 flex flex-col gap-3">
-          <template v-if="session.isAuthenticated">
-            <p v-if="!session.emailUnverified" class="text-sm text-ink">
-              Ваш адрес уже подтверждён: ничего делать не нужно.
-            </p>
-            <ResendVerificationButton v-else variant="primary" />
-            <UiButton variant="secondary" @click="proceed">Продолжить работу</UiButton>
-          </template>
-          <p v-else class="text-sm text-muted">
-            Войдите и запросите новое письмо в разделе «Настройки → Аккаунт».
-          </p>
-          <UiButton v-if="!session.isAuthenticated" variant="secondary" @click="proceed"
-            >Войти</UiButton
-          >
-        </div>
-      </template>
-
-      <template v-else>
-        <h1 class="mt-2 text-2xl font-bold text-ink">Не удалось подтвердить</h1>
-        <div class="mt-4">
-          <UiAlert tone="danger" :title="describeError(failure).title">
-            {{ describeError(failure).description }}
-          </UiAlert>
-        </div>
-        <div class="mt-6">
-          <UiButton block @click="confirm">Повторить</UiButton>
-        </div>
-      </template>
-    </UiCard>
-  </div>
+    <template v-else>
+      <AuthCardHeader eyebrow="Подтверждение почты" title="Подтверждение почты" />
+      <div class="flex flex-col gap-4">
+        <UiAlert tone="danger" :title="failureView().title">
+          {{ failureView().description }}
+        </UiAlert>
+        <UiButton block @click="confirm">Повторить проверку</UiButton>
+      </div>
+    </template>
+  </UiCard>
 </template>

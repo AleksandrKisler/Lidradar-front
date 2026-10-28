@@ -34,7 +34,7 @@ export interface RiskFilters {
 }
 
 /**
- * Вкладка статуса активной ленты: «Новые» — OPEN, «В работе» — ACKNOWLEDGED.
+ * Вкладка статуса активной ленты: «Новые» — OPEN, «В работе» — группа ACKNOWLEDGED + ACTED (см. feedGroupStatuses).
  * Без значения лента показывает все активные статусы (в том числе ACTED).
  */
 export type RiskFeedStatus = Extract<RiskStatus, 'OPEN' | 'ACKNOWLEDGED'>

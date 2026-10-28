@@ -41,9 +41,38 @@ const json = (route: Route, body: unknown, status = 200) =>
 async function settle(page: Page): Promise<void> {
   await page.mouse.move(0, 0)
   await page.evaluate(() => document.fonts.ready)
+  // Переходы (например, после переключения «Список/Плитки») должны закончиться: кадр — только в конечном состоянии.
+  // Бесконечные анимации (спиннер состояния «отправка») не ждём: только конечные переходы.
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+        .map((animation) => animation.finished.catch(() => undefined)),
+    ),
+  )
   await page.evaluate(
     () => document.activeElement instanceof HTMLElement && document.activeElement.blur(),
   )
+}
+
+/**
+ * Полный кадр по высоте документа, измеренной в этот же момент. Боковая панель — `sticky` высотой
+ * окна (`h-dvh`): при прокрутке пользователь видит её залитой до низа (проверено e2e «боковая
+ * панель залита на всю высоту»), но в одном кадре на всю страницу она оборвалась бы на высоте окна.
+ * Только для съёмки панели задаётся высота документа; на остальную раскладку это не влияет.
+ */
+async function fullShot(page: Page, file: string): Promise<void> {
+  const height = await page.evaluate(() => document.documentElement.scrollHeight)
+  const width = page.viewportSize()!.width
+  await page.addStyleTag({
+    content: `aside[class*="lg:sticky"] { height: ${height}px !important; }`,
+  })
+  const after = await page.evaluate(() => document.documentElement.scrollHeight)
+  if (after !== height) {
+    throw new Error(`Высота документа изменилась при растяжении панели: ${height} → ${after}`)
+  }
+  await page.screenshot({ path: file, fullPage: true, clip: { x: 0, y: 0, width, height } })
 }
 
 /* ---------- F01: Доступ ---------- */
@@ -112,6 +141,228 @@ test('F01 register-phone', async ({ page }) => {
   await settle(page)
   await page.screenshot({ path: `${OUT}/F01/actual/register-phone.png`, fullPage: true })
 })
+
+/* ---------- F03: Регистрация (US-M01-01/02/04) ---------- */
+
+const registerDevices = [
+  ['desktop', 1440, 1000],
+  ['tablet', 834, 1194],
+  ['phone', 390, 844],
+] as const
+
+/** Код из 43 допустимых символов, как в макете «Отправка» (EXAMPLE_aaa…). */
+const EXAMPLE_CODE = `EXAMPLE_${'a'.repeat(35)}`
+
+async function openRegister(page: Page, width: number, height: number): Promise<void> {
+  await page.setViewportSize({ width, height })
+  await mockGuest(page)
+  await page.route('**/api/v1/auth/registration', (route) => json(route, { mode: 'invite' }))
+}
+
+for (const [device, width, height] of registerDevices) {
+  const shot = (state: string) =>
+    `${OUT}/F03/actual/register-${device}${state ? `-${state}` : ''}.png`
+  test(`F03 register-${device}`, async ({ page }) => {
+    await openRegister(page, width, height)
+    await page.goto('/register')
+    await page.getByLabel('Код приглашения').waitFor()
+    await settle(page)
+    await page.screenshot({ path: shot(''), fullPage: true })
+  })
+  test(`F03 register-${device}: ошибка`, async ({ page }) => {
+    await openRegister(page, width, height)
+    await page.goto('/register')
+    await page.getByLabel('Код приглашения').fill('LDR-2026')
+    await page.getByLabel('Имя').fill('Мария')
+    await page.getByLabel('Электронная почта').fill('owner@example.test')
+    await page.getByLabel('Пароль', { exact: true }).fill('password-123')
+    await page.getByRole('button', { name: 'Создать аккаунт' }).click()
+    await page.getByText('Код состоит из 43 символов').waitFor()
+    await settle(page)
+    await page.screenshot({ path: shot('error'), fullPage: true })
+  })
+  test(`F03 register-${device}: отправка`, async ({ page }) => {
+    await openRegister(page, width, height)
+    await page.route('**/api/v1/auth/register', () => new Promise(() => {}))
+    await page.goto('/register')
+    await page.getByLabel('Код приглашения').fill(EXAMPLE_CODE)
+    await page.getByLabel('Имя').fill('Мария')
+    await page.getByLabel('Электронная почта').fill('owner@example.test')
+    await page.getByLabel('Пароль', { exact: true }).fill('password-123')
+    await page.getByRole('button', { name: 'Создать аккаунт' }).click()
+    await page.locator('button[aria-busy="true"]').waitFor()
+    await settle(page)
+    await page.screenshot({ path: shot('busy'), fullPage: true })
+  })
+  test(`F03 register-${device}: первичная загрузка`, async ({ page }) => {
+    await page.setViewportSize({ width, height })
+    await page.route('**/api/v1/auth/me', () => new Promise(() => {}))
+    await page.goto('/register')
+    await page.getByRole('heading', { level: 1 }).waitFor()
+    await settle(page)
+    await page.screenshot({ path: shot('loading'), fullPage: true })
+  })
+}
+
+/* ---------- F03: восстановление пароля, новый пароль, ссылка, подтверждение почты ---------- */
+
+const TOKEN = 'T'.repeat(43)
+const failure = (code: string) => ({ error: { code, message: '', traceId: 'visual' } })
+
+type AccessFlow = {
+  name: string
+  path: string
+  /** Состояние → подготовка и ожидание готового кадра. */
+  states: Record<string, (page: Page) => Promise<void>>
+}
+
+const accessFlows: AccessFlow[] = [
+  {
+    name: 'forgot',
+    path: '/forgot-password',
+    states: {
+      '': async (page) => {
+        await mockGuest(page)
+        await page.goto('/forgot-password')
+        await page.getByLabel('Электронная почта').fill('owner@example.test')
+      },
+      error: async (page) => {
+        await mockGuest(page)
+        await page.route('**/api/v1/auth/password/forgot', (route) => route.abort('failed'))
+        await page.goto('/forgot-password')
+        await page.getByLabel('Электронная почта').fill('owner@example.test')
+        await page.getByRole('button', { name: 'Отправить ссылку' }).click()
+        await page.getByText('Не удалось отправить письмо').waitFor()
+      },
+      busy: async (page) => {
+        await mockGuest(page)
+        await page.route('**/api/v1/auth/password/forgot', () => new Promise(() => {}))
+        await page.goto('/forgot-password')
+        await page.getByLabel('Электронная почта').fill('owner@example.test')
+        await page.getByRole('button', { name: 'Отправить ссылку' }).click()
+        await page.locator('button[aria-busy="true"]').waitFor()
+      },
+      loading: async (page) => {
+        await page.route('**/api/v1/auth/me', () => new Promise(() => {}))
+        await page.goto('/forgot-password')
+        await page.getByRole('heading', { level: 1 }).waitFor()
+      },
+    },
+  },
+  {
+    name: 'reset',
+    path: `/reset-password#token=${TOKEN}`,
+    states: {
+      '': async (page) => {
+        await mockGuest(page)
+        await page.goto(`/reset-password#token=${TOKEN}`)
+        await page.getByLabel('Новый пароль').waitFor()
+      },
+      error: async (page) => {
+        await mockGuest(page)
+        await page.goto(`/reset-password#token=${TOKEN}`)
+        await page.getByLabel('Новый пароль').fill('password-123')
+        await page.getByLabel('Повторите пароль').fill('password-1')
+        await page.getByRole('button', { name: 'Сменить пароль' }).click()
+        await page.getByText('Пароли не совпадают').waitFor()
+      },
+      busy: async (page) => {
+        await mockGuest(page)
+        await page.route('**/api/v1/auth/password/reset', () => new Promise(() => {}))
+        await page.goto(`/reset-password#token=${TOKEN}`)
+        await page.getByLabel('Новый пароль').fill('password-123')
+        await page.getByLabel('Повторите пароль').fill('password-123')
+        await page.getByRole('button', { name: 'Сменить пароль' }).click()
+        await page.locator('button[aria-busy="true"]').waitFor()
+      },
+      loading: async (page) => {
+        await page.route('**/api/v1/auth/me', () => new Promise(() => {}))
+        await page.goto(`/reset-password#token=${TOKEN}`)
+        await page.getByRole('heading', { level: 1 }).waitFor()
+      },
+    },
+  },
+  {
+    name: 'invalid',
+    path: '/reset-password',
+    states: {
+      '': async (page) => {
+        await mockGuest(page)
+        await page.goto('/reset-password')
+        await page.getByText('Ссылка недействительна').waitFor()
+      },
+      error: async (page) => {
+        await mockGuest(page)
+        await page.route('**/api/v1/auth/password/reset', (route) =>
+          json(route, failure('RESET_TOKEN_INVALID'), 400),
+        )
+        await page.goto(`/reset-password#token=${TOKEN}`)
+        await page.getByLabel('Новый пароль').fill('password-123')
+        await page.getByLabel('Повторите пароль').fill('password-123')
+        await page.getByRole('button', { name: 'Сменить пароль' }).click()
+        await page.getByText('Ссылка недействительна').waitFor()
+      },
+      busy: async (page) => {
+        await mockGuest(page)
+        // Код страницы запроса подгружается: пока он не пришёл, кнопка занята («Открываем форму…»).
+        await page.route('**/assets/forgot-password-*.js', () => new Promise(() => {}))
+        await page.goto('/reset-password')
+        await page.getByRole('button', { name: 'Запросить новую ссылку' }).click()
+        await page.locator('button[aria-busy="true"]').waitFor()
+      },
+      loading: async (page) => {
+        await page.route('**/api/v1/auth/me', () => new Promise(() => {}))
+        await page.goto('/reset-password')
+        await page.getByRole('heading', { level: 1 }).waitFor()
+      },
+    },
+  },
+  {
+    name: 'verify',
+    path: `/verify-email#token=${TOKEN}`,
+    states: {
+      '': async (page) => {
+        await mockGuest(page)
+        await page.route('**/api/v1/auth/email/verify', (route) =>
+          json(route, failure('VERIFICATION_TOKEN_INVALID'), 400),
+        )
+        await page.goto(`/verify-email#token=${TOKEN}`)
+        await page.getByText('Ссылка недействительна').waitFor()
+      },
+      error: async (page) => {
+        await mockGuest(page)
+        await page.route('**/api/v1/auth/email/verify', (route) => route.abort('failed'))
+        await page.goto(`/verify-email#token=${TOKEN}`)
+        await page.getByText('Нет соединения').waitFor()
+      },
+      busy: async (page) => {
+        await mockGuest(page)
+        await page.route('**/api/v1/auth/email/verify', () => new Promise(() => {}))
+        await page.goto(`/verify-email#token=${TOKEN}`)
+        await page.getByText('Проверка выполняется…').waitFor()
+      },
+      loading: async (page) => {
+        await page.route('**/api/v1/auth/me', () => new Promise(() => {}))
+        await page.goto(`/verify-email#token=${TOKEN}`)
+        await page.getByText('Результат появится здесь автоматически.').waitFor()
+      },
+    },
+  },
+]
+
+for (const flow of accessFlows) {
+  for (const [device, width, height] of registerDevices) {
+    for (const [state, prepare] of Object.entries(flow.states)) {
+      const file = `${flow.name}-${device}${state ? `-${state}` : ''}`
+      test(`F03 ${file}`, async ({ page }) => {
+        await page.setViewportSize({ width, height })
+        await prepare(page)
+        await settle(page)
+        await page.screenshot({ path: `${OUT}/F03/actual/${file}.png`, fullPage: true })
+      })
+    }
+  }
+}
 
 /* ---------- F02: Radar и деталь риска ---------- */
 
@@ -405,12 +656,11 @@ for (const [device, width, height] of sizes) {
         .first()
         .waitFor()
       await waitRealtimeSettled(page)
+      // Подвал ленты — признак того, что список дочитан и больше не меняет высоту.
+      await page.getByText('Это все активные риски по выбранным фильтрам.').waitFor()
       if (view === 'list') await page.getByRole('button', { name: 'Список' }).click()
       await settle(page)
-      await page.screenshot({
-        path: `${OUT}/F02/actual/radar-${view}-${device}.png`,
-        fullPage: true,
-      })
+      await fullShot(page, `${OUT}/F02/actual/radar-${view}-${device}.png`)
     })
   }
   test(`F02 risk-detail-${device}`, async ({ page }) => {
@@ -426,7 +676,7 @@ for (const [device, width, height] of sizes) {
       .waitFor()
     await waitRealtimeSettled(page)
     await settle(page)
-    await page.screenshot({ path: `${OUT}/F02/actual/risk-detail-${device}.png`, fullPage: true })
+    await fullShot(page, `${OUT}/F02/actual/risk-detail-${device}.png`)
 
     // Замеры блоков документа для сверки с позициями Figma (эталон обрезан viewport).
     const blocks: Record<string, string> = {

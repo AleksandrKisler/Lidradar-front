@@ -32,6 +32,7 @@ export interface RiskCardViewModel {
   typeLabel: string
   typeTone: Tone
   statusLabel: string
+  status: RiskStatus
   /** Причина риска — недоверенный текст, выводится только как текст. */
   reason: string
   contactName: string
@@ -101,6 +102,7 @@ export function toRiskCard(detail: RiskDetail): RiskCardViewModel {
     typeLabel: riskTypeLabel(risk.type),
     typeTone: riskTypeTone(risk.type),
     statusLabel: riskStatusLabel(risk.status),
+    status: risk.status,
     reason: risk.reason,
     contactName: contact?.displayName?.trim() || UNNAMED_CONTACT,
     serviceName: service?.name ?? null,

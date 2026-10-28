@@ -30,7 +30,7 @@ const tabs: { value: RiskFeedStatus | null; label: string }[] = [
       :class="[
         'h-8 rounded-field px-4 text-sm leading-5 font-medium max-lg:h-11 max-lg:flex-1 max-lg:px-2 max-lg:text-base',
         modelValue === tab.value
-          ? 'border border-line bg-paper text-brand'
+          ? 'border border-transparent bg-paper text-brand lg:border-line lg:text-ink'
           : 'text-secondary hover:text-ink',
       ]"
       @click="emit('update:modelValue', tab.value)"

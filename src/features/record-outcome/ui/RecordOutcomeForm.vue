@@ -112,6 +112,7 @@ async function retry(): Promise<void> {
       v-slot="{ id, describedBy, invalid }"
       label="Заметка · необязательно"
       label-style="muted"
+      description="Повторный просмотр заметок пока недоступен"
       :error="errors.note"
     >
       <UiTextarea

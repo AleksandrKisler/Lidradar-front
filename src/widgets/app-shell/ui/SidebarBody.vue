@@ -2,8 +2,8 @@
 /**
  * Содержимое бокового меню (Figma 21:1983): бренд, рабочее пространство,
  * разделы, «Настройки» и профиль. Общее для боковой колонки и мобильного
- * меню. Статус Telegram берётся из кэша статуса настройки и виден только
- * ролям с правом настройки (см. SidebarTelegramStatus).
+ * меню. Статуса подключения источников здесь нет: достоверного состояния
+ * конкретного источника оболочка не читает.
  */
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
@@ -13,7 +13,6 @@ import { useAdminMeQuery } from '@/entities/admin'
 import { LogoutButton } from '@/features/auth-session'
 import { WorkspaceSwitcher } from '@/features/select-workspace'
 import SidebarNav from './SidebarNav.vue'
-import SidebarTelegramStatus from './SidebarTelegramStatus.vue'
 
 const emit = defineEmits<{
   navigate: []
@@ -38,7 +37,6 @@ const isPlatformAdmin = computed(() => adminMe.data.value?.platformAdmin === tru
       <SidebarNav @navigate="emit('navigate')" />
     </div>
     <div class="flex flex-col gap-3">
-      <SidebarTelegramStatus />
       <SidebarNav group="bottom" @navigate="emit('navigate')" />
       <div class="h-px bg-line" aria-hidden="true" />
       <div class="flex flex-col gap-1">

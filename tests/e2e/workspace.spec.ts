@@ -4,6 +4,7 @@ import {
   CONVERSATION_ID,
   mockGuest,
   mockOwner,
+  OPPORTUNITY_ID,
   RISK_ID,
   TENANT_ID,
   confirmTelegramLink,
@@ -208,6 +209,10 @@ test.describe('владелец организации', () => {
 
     await group.getByRole('button', { name: 'В работе' }).click()
     await expect(page).toHaveURL(/status=ACKNOWLEDGED/)
+    await expect
+      .poll(() => feedRequests.at(-1))
+      .toMatch(/status=ACKNOWLEDGED&status=ACTED|status=ACTED&status=ACKNOWLEDGED/)
+    expect(feedRequests.at(-1)).not.toContain('active=')
     await expect(page.getByText('Нет рисков в работе')).toBeVisible()
     await expect(page.getByText('Сейчас всё под контролем')).toHaveCount(0)
 
@@ -243,64 +248,43 @@ test.describe('владелец организации', () => {
     await expect.poll(() => feedRequests.at(-1)).toContain('active=true')
   })
 
-  test('Telegram в меню: подключён только при живом подключении, статус — из кэша', async ({
+  test('Telegram в меню: статус подключения не показывается ни по какому агрегату', async ({
     page,
   }) => {
-    // Поток сигналов недоступен: его переподключение сверяет все активные запросы
-    // (realtime.ts), а здесь проверяется только поведение навигации.
+    // Агрегат liveConnections считает и источники в ERROR, telegramLinked — личные уведомления:
+    // ни то ни другое не доказывает исправность конкретного источника переписки.
     await mockOwner(page, { events: 'unavailable' })
-    let onboardingRequests = 0
-    const status = (liveConnections: number) => ({
-      complete: true,
-      nextStep: null,
-      steps: [{ key: 'CHANNEL', required: true, done: liveConnections > 0 }],
-      facts: {
-        activeLocations: 1,
-        locationsWithSchedule: 1,
-        activeServices: 1,
-        connections: liveConnections,
-        liveConnections,
-        telegramLinked: true,
-      },
-      computedAt: '2026-10-23T12:00:00Z',
-    })
     await page.route('**/api/v1/organization/onboarding', (route) => {
-      // Предзапросы CORS (OPTIONS) не считаются: читается только сам статус.
-      if (route.request().method() === 'GET') onboardingRequests += 1
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(status(1)),
+        body: JSON.stringify({
+          complete: true,
+          nextStep: null,
+          steps: [{ key: 'CHANNEL', required: true, done: true }],
+          facts: {
+            activeLocations: 1,
+            locationsWithSchedule: 1,
+            activeServices: 1,
+            connections: 1,
+            liveConnections: 1,
+            telegramLinked: true,
+          },
+          computedAt: '2026-10-23T12:00:00Z',
+        }),
       })
     })
     await page.goto('/radar')
     if ((page.viewportSize()?.width ?? 0) < 1024) {
       await page.getByRole('button', { name: 'Меню' }).click()
     }
-    const badge = page.getByRole('status').filter({ hasText: 'Telegram' })
-    await expect(badge.filter({ visible: true })).toContainText('Подключён')
-    // Подпись под организацией — число точек из списка точек.
     await expect(page.getByText('1 точка').filter({ visible: true })).toBeVisible()
-    // Переходы между разделами, где статус не читается, новых запросов не создают: оболочка
-    // живёт всю сессию, а статус свежий в кэше.
-    const open = async (name: string, url: RegExp) => {
-      if (
-        (page.viewportSize()?.width ?? 0) < 1024 &&
-        !(await page.getByRole('dialog').isVisible())
-      ) {
-        await page.getByRole('button', { name: 'Меню' }).click()
-      }
-      await page.getByRole('link', { name, exact: true }).filter({ visible: true }).click()
-      await expect(page).toHaveURL(url)
-    }
-    await open('Диалоги', /\/conversations/)
-    await expect(page.getByRole('heading', { name: 'Диалоги' })).toBeVisible()
-    await expect.poll(() => onboardingRequests).toBeGreaterThan(0)
-    const afterFirstNavigation = onboardingRequests
-    await open('Аналитика', /\/analytics/)
-    await open('Диалоги', /\/conversations/)
-    await open('Аналитика', /\/analytics/)
-    expect(onboardingRequests).toBe(afterFirstNavigation)
+    await expect(page.getByRole('status').filter({ hasText: 'Telegram' })).toHaveCount(0)
+    await expect(page.getByText('Подключён', { exact: true })).toHaveCount(0)
+    // Путь к управлению источниками остаётся в навигации.
+    await expect(
+      page.getByRole('link', { name: 'Интеграции', exact: true }).filter({ visible: true }),
+    ).toBeVisible()
   })
 
   test('Radar на телефоне: фильтры в окне, список показывает те же карточки, меню открывается', async ({
@@ -342,7 +326,7 @@ test.describe('владелец организации', () => {
     await expect(
       page.getByText('Бизнес не ответил клиенту в течение 60 рабочих минут').first(),
     ).toBeVisible()
-    await expect(page.getByText('Действий и исходов пока нет.')).toBeVisible()
+    await expect(page.getByText('Действий пока нет.')).toBeVisible()
     await expectNoAxeViolations(page)
 
     // Команды: взять в работу, получить рекомендацию, записать действие и исход.
@@ -364,12 +348,263 @@ test.describe('владелец организации', () => {
     await page.getByLabel('Чем ответил клиент').selectOption('THINKING')
     await page.getByRole('button', { name: 'Записать исход' }).click()
     await expect(page.getByText('Исход записан.')).toBeVisible()
-    await expect(page.getByRole('list', { name: 'История' }).getByText('Думает')).toBeVisible()
+    await expect(page.getByRole('group', { name: 'Последний исход сделки' })).toContainText(
+      'Думает',
+    )
+    await expect(page.getByRole('list', { name: 'История' }).getByText('Думает')).toHaveCount(0)
     await expectNoAxeViolations(page)
 
     // Возврат в Radar сохраняет фильтры, с которыми открыли карточку.
     await page.getByRole('main').getByRole('link', { name: 'К рискам', exact: true }).click()
     await expect(page).toHaveURL(/\/radar\?severity=CRITICAL$/)
+  })
+
+  test('карточка риска: порядок Tab совпадает с порядком секций, дубликатов нет, черновик переживает смену ширины', async ({
+    page,
+    browserName,
+  }) => {
+    type Stop = { name: string; x: number; y: number }
+    const tabStops = async (key: 'Tab' | 'Shift+Tab', limit: number): Promise<Stop[]> => {
+      const stops: Stop[] = []
+      for (let index = 0; index < limit; index += 1) {
+        await page.keyboard.press(key)
+        const stop = await page.evaluate(() => {
+          const element = document.activeElement as HTMLElement | null
+          if (!element || !element.closest('main')) return null
+          // Порядок секций важнее порядка внутри секции: формы в ней могут стоять рядом.
+          let section: HTMLElement = element
+          for (let node: HTMLElement | null = element; node; node = node.parentElement) {
+            if (node.matches('section[aria-labelledby]')) section = node
+          }
+          const box = section.getBoundingClientRect()
+          const name =
+            element.getAttribute('aria-label') ||
+            (element as HTMLInputElement).labels?.[0]?.textContent ||
+            element.textContent ||
+            element.id
+          return { name: (name ?? '').trim().slice(0, 40), x: box.left, y: box.top + scrollY }
+        })
+        if (!stop) break
+        stops.push(stop)
+      }
+      return stops
+    }
+    const sortedBy = (values: number[]) =>
+      values.every((v, i) => i === 0 || v >= values[i - 1]! - 2)
+
+    // Готовность после смены ширины — наблюдаемый признак, а не пауза. Событие смены ширины приходит
+    // в браузер асинхронно после setViewportSize (особенно в WebKit/mobile), и только после него секции
+    // переезжают между контейнерами. Пока они не переехали, Tab-обход описывает прежнюю раскладку.
+    const resizeTo = async (width: number, height = 900) => {
+      await page.setViewportSize({ width, height })
+      const slot = width < 1024 ? 'flat' : 'left'
+      await expect(
+        page.locator(`[data-slot="${slot}"]`).getByRole('button', { name: 'Записать действие' }),
+      ).toHaveCount(1)
+    }
+    const focusRefresh = async () => {
+      const refresh = page.getByRole('button', { name: 'Обновить' })
+      await refresh.focus()
+      await expect(refresh).toBeFocused()
+    }
+
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.goto(`/risks/${RISK_ID}`)
+    await expect(page.getByRole('heading', { level: 1, name: 'Нет ответа клиенту' })).toBeVisible()
+    await resizeTo(1280)
+    // Один экземпляр каждой формы при любой ширине.
+    for (const width of [390, 834, 1023, 1024, 1280]) {
+      await resizeTo(width)
+      await expect(page.getByRole('button', { name: 'Записать действие' })).toHaveCount(1)
+      await expect(page.getByRole('button', { name: 'Получить рекомендацию' })).toHaveCount(1)
+      await expect(page.getByRole('button', { name: 'Закрыть риск…' })).toHaveCount(1)
+    }
+
+    for (const width of [390, 834, 1023, 1024, 1280]) {
+      await resizeTo(width)
+      const narrow = width < 1024
+      await focusRefresh()
+      const forward = await tabStops('Tab', 60)
+      // WebKit по умолчанию не ставит Tab-фокус на кнопки и ссылки: остаются только поля форм.
+      expect(forward.length, `${width}: в карточке есть управляемые элементы`).toBeGreaterThan(
+        browserName === 'webkit' ? 3 : 8,
+      )
+      if (narrow) {
+        // Один столбец: фокус идёт сверху вниз, как секции на экране.
+        expect(
+          sortedBy(forward.map((stop) => stop.y)),
+          `${width}: Tab ${JSON.stringify(forward.map((s) => s.name))}`,
+        ).toBe(true)
+      } else {
+        // Две колонки: внутри каждой — сверху вниз (левая — по самому левому краю).
+        const leftEdge = Math.min(...forward.map((stop) => stop.x))
+        // Порядок между колонками: левая целиком, затем правая, затем «Оценка сигнала» на всю ширину.
+        const pattern = forward
+          .map((stop) => (stop.x < leftEdge + 100 ? 'L' : 'R'))
+          .join('')
+          .replace(/(.)\1+/g, '$1')
+        expect(pattern, `${width}: порядок колонок`).toBe('LRL')
+        for (const column of [
+          forward.filter((stop) => stop.x < leftEdge + 100),
+          forward.filter((stop) => stop.x >= leftEdge + 100),
+        ]) {
+          expect(sortedBy(column.map((stop) => stop.y)), `${width}: колонка`).toBe(true)
+        }
+      }
+      // Последнее нажатие Tab вышло за пределы main; Shift+Tab возвращает элементы в обратном порядке.
+      expect(forward.length).toBeLessThan(60)
+      // Shift+Tab начинается с того же места, откуда вышел прямой проход: после выхода из документа
+      // страница снова получает фокус, и обратный проход стартует с первого элемента после main.
+      const backward = await tabStops('Shift+Tab', forward.length)
+      expect(backward.map((stop) => stop.name)).toEqual(forward.map((stop) => stop.name).reverse())
+    }
+
+    // Черновик формы и состояние переживают смену раскладки.
+    await resizeTo(1280)
+    await page.getByLabel('Что вы сделали').selectOption('CALL')
+    await page.getByLabel('Заметка').first().fill('Черновик заметки')
+    await page.getByLabel('Заметка').first().focus()
+    await resizeTo(390, 844)
+    await expect(page.getByLabel('Заметка').first()).toHaveValue('Черновик заметки')
+    await expect(page.getByLabel('Заметка').first()).toBeFocused()
+    await expect(page.getByLabel('Что вы сделали')).toHaveValue('CALL')
+    await resizeTo(1280)
+    await expect(page.getByLabel('Заметка').first()).toHaveValue('Черновик заметки')
+  })
+
+  test('дерево доступности: даты карточки, порядок секций, подсказки заметок, выход с клавиатуры', async ({
+    page,
+  }) => {
+    // Проверка по дереву доступности браузера; это не замена прохода с VoiceOver.
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/radar')
+    const card = page.getByRole('listitem').filter({ hasText: 'Дмитрий Соколов' }).first()
+    const snapshot = await card.ariaSnapshot()
+    expect(snapshot).toContain('Срок по правилу')
+    expect(snapshot).toContain('Риск обнаружен')
+    expect(snapshot).toMatch(/\d{4} · \d{2}:\d{2} МСК/)
+    expect(snapshot).not.toContain('Ожидание с')
+    await expect(card.getByRole('link', { name: 'Разобрать риск: Дмитрий Соколов' })).toBeVisible()
+
+    await page.goto(`/risks/${RISK_ID}`)
+    await expect(page.getByRole('heading', { level: 1, name: 'Нет ответа клиенту' })).toBeVisible()
+    // Порядок заголовков секций в дереве = порядок на узком экране.
+    const headings = await page
+      .getByRole('main')
+      .getByRole('heading', { level: 2 })
+      .allTextContents()
+    expect(headings.map((text) => text.trim())).toEqual([
+      'Почему это риск',
+      'Переписка',
+      'Рекомендация',
+      'Работа по риску',
+      'Потенциал сделки',
+      'Этап сделки',
+      'История',
+      'Оценка сигнала',
+    ])
+    // Подсказка про заметки связана с полем, а не только нарисована рядом.
+    for (const name of ['Заметка · необязательно']) {
+      const notes = page.getByLabel(name)
+      await expect(notes).toHaveCount(2)
+      await expect(notes.first()).toHaveAccessibleDescription(
+        'Повторный просмотр заметок пока недоступен',
+      )
+      await expect(notes.last()).toHaveAccessibleDescription(
+        'Повторный просмотр заметок пока недоступен',
+      )
+    }
+    await expect(page.getByRole('group', { name: 'Последний исход сделки' })).toContainText(
+      'Исход не записан',
+    )
+
+    // «Выйти» — обычная кнопка меню: достижима Tab и срабатывает с клавиатуры.
+    await page.getByRole('button', { name: 'Меню' }).first().click()
+    const menu = page.getByRole('dialog', { name: 'Меню' })
+    const logout = menu.getByRole('button', { name: 'Выйти' })
+    await logout.focus()
+    await expect(logout).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/login$/)
+  })
+
+  test('«Выйти» в боковой панели достижимо Tab и срабатывает с клавиатуры', async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName === 'webkit', 'WebKit не ставит Tab-фокус на кнопки по умолчанию')
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.goto('/radar')
+    const logout = page.getByRole('button', { name: 'Выйти' })
+    await logout.focus()
+    await expect(logout).toBeFocused()
+    // Обратным Tab доходим от «Выйти» до ссылки «Аккаунт», прямым возвращаемся на кнопку.
+    await page.keyboard.press('Shift+Tab')
+    await expect(page.getByRole('link', { name: /Аккаунт/ })).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(logout).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/login$/)
+  })
+
+  test('боковая панель залита на всю высоту экрана при прокрутке длинной страницы', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 700 })
+    await page.goto(`/risks/${RISK_ID}`)
+    await expect(page.getByRole('heading', { level: 1, name: 'Нет ответа клиенту' })).toBeVisible()
+    const pageHeight = await page.evaluate(() => document.documentElement.scrollHeight)
+    expect(pageHeight).toBeGreaterThan(1500)
+    // Панель — sticky на высоту окна: проверяем геометрию и то, что лежит в нижней левой точке окна.
+    for (const y of [0, 600, pageHeight]) {
+      await page.evaluate((top) => window.scrollTo(0, top), y)
+      const box = await page.evaluate(() => {
+        const aside = document.querySelector('aside')!
+        const rect = aside.getBoundingClientRect()
+        return {
+          top: Math.round(rect.top),
+          bottom: Math.round(rect.bottom),
+          inner: window.innerHeight,
+          bg: getComputedStyle(aside).backgroundColor,
+          // Альфа-канал фона независимо от формата записи цвета (rgb, oklab, color-mix…).
+          alpha: (() => {
+            const context = document.createElement('canvas').getContext('2d')!
+            context.clearRect(0, 0, 1, 1)
+            context.fillStyle = getComputedStyle(aside).backgroundColor
+            context.fillRect(0, 0, 1, 1)
+            return context.getImageData(0, 0, 1, 1).data[3]!
+          })(),
+          // Что реально лежит в левой нижней точке окна — сама панель.
+          hit: document.elementFromPoint(20, window.innerHeight - 4)?.closest('aside') != null,
+        }
+      })
+      expect(box.top, `scroll ${y}`).toBe(0)
+      expect(box.bottom, `scroll ${y}`).toBeGreaterThanOrEqual(box.inner)
+      expect(box.hit, `scroll ${y}: в нижней левой точке окна лежит панель`).toBe(true)
+      // Панель действительно залита: фон полностью непрозрачный (альфа-канал = 255).
+      expect(box.alpha, `scroll ${y}: ${box.bg}`).toBe(255)
+    }
+  })
+
+  test('«В работе»: после записи действия карточка остаётся в группе, reload и back её сохраняют', async ({
+    page,
+  }) => {
+    await page.goto(`/risks/${RISK_ID}`)
+    await page.getByLabel('Что вы сделали').selectOption('CALL')
+    await page.getByRole('button', { name: 'Записать действие' }).click()
+    await expect(page.getByText('Действие записано.')).toBeVisible()
+
+    await page.goto('/radar?status=ACKNOWLEDGED')
+    const card = page.getByRole('link', { name: 'Дмитрий Соколов' }).first()
+    await expect(card).toBeVisible()
+    await page.reload()
+    await expect(page.getByRole('link', { name: 'Дмитрий Соколов' }).first()).toBeVisible()
+
+    await page.getByRole('link', { name: 'Дмитрий Соколов' }).first().click()
+    await expect(page).toHaveURL(new RegExp(`/risks/${RISK_ID}$`))
+    await page.goBack()
+    await expect(page).toHaveURL(/status=ACKNOWLEDGED/)
+    await expect(page.getByRole('link', { name: 'Дмитрий Соколов' }).first()).toBeVisible()
   })
 
   test('подтверждение оплаты: возвращённая выручка, конфликт при повторе и отдельная обычная оплата', async ({
@@ -408,7 +643,8 @@ test.describe('владелец организации', () => {
     await dialog.getByRole('button', { name: 'Подтвердить 5 000 ₽' }).click()
     const conflict = dialog.getByRole('alert')
     await expect(conflict).toContainText('Возвращённая выручка уже учтена')
-    await expect(conflict).toContainText('Сначала сверьте существующее подтверждение')
+    await expect(conflict).toContainText('Сверьте учтённую выручку в аналитике')
+    await expect(conflict.getByRole('link', { name: 'Открыть аналитику' })).toBeVisible()
     await expect(dialog.getByRole('radio', { name: /Возвращённая выручка/ })).toBeChecked()
     await expect(
       dialog.getByRole('button', { name: 'Подтвердить как обычную оплату' }),
@@ -1154,16 +1390,49 @@ test.describe('владелец организации', () => {
     await expect(timeline.getByRole('listitem').first()).toContainText('Этап: Новая → В диалоге')
     await expect(timeline.getByRole('listitem').first()).toContainText('Вручную')
 
-    // Гонка: сервер уже перевёл сделку дальше. Либо интерфейс успевает отправить
-    // устаревший этап и получает 409 с объяснением, либо сигнал потока уже
-    // перечитал сделку и сбросил выбор — в обоих случаях состояние сходится к серверному.
+    // Гонка: сервер уже перевёл сделку дальше, а интерфейс ещё не перечитал её. Перечитывание
+    // сделки удерживается, пока запрещённый переход не отправлен и не отклонён сервером: так
+    // проверяются условия гонки, а не угадывается порядок событий.
+    let releaseReread!: () => void
+    const rereadGate = new Promise<void>((resolve) => (releaseReread = resolve))
+    let heldReads = 0
+    await page.route(`**/api/v1/opportunities/${OPPORTUNITY_ID}`, async (route) => {
+      if (route.request().method() === 'GET') {
+        heldReads += 1
+        await rereadGate
+      }
+      await route.fallback()
+    })
+    const patchResponses: { stage: string; status: number }[] = []
+    // Ошибка команды показывается только после перечитывания: удержание снимается сразу после ответа сервера.
+    page.on('response', (response) => {
+      const request = response.request()
+      if (request.method() !== 'PATCH' || !request.url().includes(OPPORTUNITY_ID)) return
+      patchResponses.push({
+        stage: (request.postDataJSON() as { stage: string }).stage,
+        status: response.status(),
+      })
+      releaseReread()
+    })
     setOpportunityStage(page, 'BOOKED')
+    // Перечитывание уже идёт (запрос удержан), но интерфейс ещё показывает прежний этап и прежний список.
+    await page.evaluate(() => window.dispatchEvent(new Event('online')))
+    await expect.poll(() => heldReads).toBeGreaterThan(0)
+    await expect(context.getByTestId('opportunity-stage')).toHaveText('В диалоге')
     await select.selectOption('QUALIFYING')
-    const transfer = context.getByRole('button', { name: 'Изменить этап' })
-    if (await transfer.isEnabled()) await transfer.click()
-    // Итог одинаков: этап перечитан с сервера, а текст конфликта проверяет unit-тест.
+    await context.getByRole('button', { name: 'Изменить этап' }).click()
+    // Сервер отклонил устаревший переход, интерфейс объяснил это и не выдал успех.
+    await expect(context.getByRole('alert')).toContainText('Этап уже изменился')
+    expect(patchResponses.filter((entry) => entry.stage === 'QUALIFYING')).toEqual([
+      { stage: 'QUALIFYING', status: 409 },
+    ])
+    // Серверное состояние актуально, лишних ошибок нет, интерфейс работоспособен.
     await expect(context.getByTestId('opportunity-stage')).toHaveText('Записан')
     await expect(timeline).toContainText('AI')
+    await expect(select).toHaveValue('')
+    await expect(context.getByRole('button', { name: 'Изменить этап' })).toBeDisabled()
+    // С момента сдвига сервера отправлен ровно один запрещённый переход, других записей нет.
+    expect(patchResponses).toEqual([{ stage: 'QUALIFYING', status: 409 }])
     const afterConflict = await select
       .locator('option')
       .evaluateAll((options) =>
@@ -1185,6 +1454,67 @@ test.describe('владелец организации', () => {
       )
     expect(closed).toEqual(['ARCHIVED'])
     await expectNoAxeViolations(page)
+  })
+
+  test('выбор этапа: перечитывание при том же этапе сохраняет выбор, смена этапа объясняется, недопустимое не уходит', async ({
+    page,
+  }) => {
+    // Здесь нет повторов выбора и клика: каждый шаг выполняется один раз и обязан сойтись сам.
+    let stageWrites = 0
+    page.on('request', (request) => {
+      if (!new URL(request.url()).pathname.endsWith(`/opportunities/${OPPORTUNITY_ID}`)) return
+      if (request.method() === 'PATCH') stageWrites += 1
+    })
+    // Перечитывание вызывается событием online и считается выполненным по ПОЛУЧЕННОМУ ответу сделки.
+    const reread = async () => {
+      const answer = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'GET' &&
+          new URL(response.url()).pathname.endsWith(`/opportunities/${OPPORTUNITY_ID}`),
+      )
+      await page.evaluate(() => window.dispatchEvent(new Event('online')))
+      await answer
+      // Дать интерфейсу применить пришедшие данные.
+      await page.evaluate(
+        () => new Promise((resolve) => requestAnimationFrame(() => resolve(null))),
+      )
+    }
+
+    await page.goto(`/risks/${RISK_ID}`)
+    const context = page.getByRole('region', { name: 'Этап сделки' })
+    await expect(context.getByTestId('opportunity-stage')).toHaveText('Новая')
+    const select = context.getByLabel('Новый этап')
+    const transfer = context.getByRole('button', { name: 'Изменить этап' })
+
+    // 1. Выбор переживает фоновое перечитывание при неизменном серверном этапе.
+    await select.selectOption('QUALIFYING')
+    await expect(transfer).toBeEnabled()
+    await reread()
+    await expect(context.getByTestId('opportunity-stage')).toHaveText('Новая')
+    await expect(select).toHaveValue('QUALIFYING')
+    await expect(transfer).toBeEnabled()
+    await expect(context.getByText('выбор сброшен')).toHaveCount(0)
+
+    // 2. Сервер перевёл сделку: переходы обновились, выбор сброшен с объяснением.
+    setOpportunityStage(page, 'BOOKED')
+    await reread()
+    await expect(context.getByTestId('opportunity-stage')).toHaveText('Записан')
+    await expect(select).toHaveValue('')
+    await expect(transfer).toBeDisabled()
+    await expect(context.getByRole('status').filter({ hasText: 'выбор сброшен' })).toContainText(
+      '«Записан»',
+    )
+    const values = await select
+      .locator('option')
+      .evaluateAll((options) =>
+        options.map((option) => (option as HTMLOptionElement).value).filter(Boolean),
+      )
+    expect(values).toEqual(['WON', 'LOST'])
+
+    // 3. Недопустимый теперь переход не предлагается (список выше) и отправить нечем.
+    await expect(select.locator('option[value="QUALIFYING"]')).toHaveCount(0)
+    await expect(transfer).toBeDisabled()
+    expect(stageWrites).toBe(0)
   })
 
   test('закрытие риска требует подтверждения и делает карточку только для чтения', async ({

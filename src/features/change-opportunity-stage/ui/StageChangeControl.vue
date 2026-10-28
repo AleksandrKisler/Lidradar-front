@@ -28,6 +28,12 @@ const change = useChangeStage(
 )
 const target = ref<OpportunityStage | ''>('')
 const confirmOpen = ref(false)
+/** Почему выбор сброшен без действий пользователя: сделку перевели, список переходов обновлён. */
+const resetNotice = ref<string | null>(null)
+/** Синхронный замок отправки: исключает двойной клик и отличает собственный перевод от чужого. */
+let inFlight = false
+/** Номер сделки в этом экземпляре: ответ по прежней сделке не должен менять состояние новой. */
+let generation = 0
 
 const options = computed<UiSelectOption[]>(() =>
   allowedNextStages(props.currentStage).map((stage) => ({
@@ -36,12 +42,36 @@ const options = computed<UiSelectOption[]>(() =>
   })),
 )
 // Этап изменился (в том числе после конфликта): прежний выбор больше не действителен.
+// Фоновое перечитывание при том же этапе значение не трогает: сброс только по смене этапа.
+// Пока идёт собственная отправка, приход нового этапа — её результат, а не чужое изменение.
 watch(
   () => props.currentStage,
-  () => {
+  (stage, previous) => {
+    if (stage === previous) return
+    const hadChoice = Boolean(target.value) || confirmOpen.value
     target.value = ''
+    confirmOpen.value = false
+    if (inFlight) return
+    if (hadChoice || resetNotice.value) {
+      resetNotice.value = `Сделку перевели на этап «${opportunityStageLabel(stage)}»: ваш выбор сброшен, доступные переходы обновлены.`
+    }
   },
 )
+// Другая сделка в том же компоненте: выбор, ошибка и пояснение относились к прежней.
+watch(
+  () => [props.riskId, props.opportunityId],
+  () => {
+    generation += 1
+    inFlight = false
+    target.value = ''
+    confirmOpen.value = false
+    resetNotice.value = null
+    change.reset()
+  },
+)
+watch(target, (value) => {
+  if (value) resetNotice.value = null
+})
 
 const conflict = computed(
   () => isApiError(change.error.value) && change.error.value.httpStatus === 409,
@@ -58,20 +88,27 @@ const errorView = computed(() => {
 })
 const traceId = computed(() => (isApiError(change.error.value) ? change.error.value.traceId : ''))
 
-let inFlight = false
 async function submit(): Promise<void> {
   const stage = target.value
   if (!stage || inFlight) return
+  // Недопустимый для текущего этапа переход не отправляется.
+  if (!options.value.some((option) => option.value === stage)) {
+    target.value = ''
+    resetNotice.value = 'Этот переход сейчас недоступен: выберите этап из обновлённого списка.'
+    return
+  }
   inFlight = true
+  const mine = generation
   try {
     await change.mutateAsync(stage)
+    if (mine !== generation) return
     confirmOpen.value = false
     target.value = ''
     emit('changed', stage)
   } catch {
-    confirmOpen.value = false
+    if (mine === generation) confirmOpen.value = false
   } finally {
-    inFlight = false
+    if (mine === generation) inFlight = false
   }
 }
 
@@ -106,6 +143,7 @@ function start(): void {
     >
       Изменить этап
     </UiButton>
+    <UiAlert v-if="resetNotice && !errorView" tone="info">{{ resetNotice }}</UiAlert>
     <UiAlert
       v-if="errorView && !confirmOpen"
       :tone="conflict ? 'warning' : 'danger'"

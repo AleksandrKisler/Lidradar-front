@@ -2,8 +2,8 @@
 
 ## Локальные корни
 
-- Frontend (единственная область правок): `/Users/aleksandrkisler/WebstormProjects/Lidradar`.
-- Backend documentation (чтение): `/Users/aleksandrkisler/Develop/Lidradar/docs`.
+- Frontend (единственная область правок): `/Users/aleksandrkisler/Develop/LidradarWorksapce/Lidradar-front`.
+- Backend documentation (чтение): `/Users/aleksandrkisler/Develop/LidradarWorksapce/Lidradar/docs` (по умолчанию `../Lidradar/docs` от корня frontend; переопределяется через `LIDRADAR_BACKEND_DOCS`).
 - Новый дизайн (чтение): `/Users/aleksandrkisler/Documents/LidRadar_MVP_v1.1_package/design`.
 - Figma: https://www.figma.com/design/jN8Hhzn6ObIAEi7FoY9kPu/LidRadar
 

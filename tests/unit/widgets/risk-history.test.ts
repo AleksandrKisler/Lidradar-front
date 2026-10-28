@@ -32,7 +32,7 @@ describe('история риска', () => {
 
   it('без действий и исхода говорит об этом, с действием — не говорит', () => {
     const empty = mount(RiskHistory, { props: { entries: [detected], timeZone: 'UTC' } })
-    expect(empty.text()).toContain('Действий и исходов пока нет.')
+    expect(empty.text()).toContain('Действий пока нет.')
     const done = mount(RiskHistory, {
       props: {
         entries: [
@@ -48,10 +48,37 @@ describe('история риска', () => {
         timeZone: 'UTC',
       },
     })
-    expect(done.text()).not.toContain('Действий и исходов пока нет.')
+    expect(done.text()).not.toContain('Действий пока нет.')
     expect(done.text()).toContain('2 события')
     empty.unmount()
     done.unmount()
+  })
+
+  it('последний исход — отдельный блок, а не запись списка; полным журналом история не названа', () => {
+    const wrapper = mount(RiskHistory, {
+      props: {
+        entries: [
+          detected,
+          {
+            id: 'o1',
+            kind: 'outcome',
+            title: 'Думает',
+            detail: 'Исход клиента',
+            createdAt: '2026-10-23T13:00:00Z',
+          },
+        ],
+        timeZone: 'UTC',
+      },
+    })
+    expect(wrapper.get('[role="group"]').text()).toContain('Последний исход сделки')
+    expect(wrapper.get('[role="group"]').text()).toContain('Думает')
+    expect(wrapper.get('ol').text()).not.toContain('Думает')
+    expect(wrapper.text()).toContain('1 событие')
+    expect(wrapper.text()).toContain('Прежние исходы и заметки отсюда не читаются')
+    const none = mount(RiskHistory, { props: { entries: [detected], timeZone: 'UTC' } })
+    expect(none.get('[role="group"]').text()).toContain('Исход не записан')
+    wrapper.unmount()
+    none.unmount()
   })
 
   it('при событиях в разных днях добавляет дату и сортирует по моменту, а не по строке', () => {

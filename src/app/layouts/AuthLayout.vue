@@ -49,7 +49,7 @@ const benefits = [
     </main>
 
     <aside
-      class="flex flex-col gap-6 bg-panel px-6 py-8 md:px-24 md:py-12 lg:order-first lg:min-h-dvh lg:justify-between lg:gap-0 lg:px-16"
+      class="flex flex-col gap-6 bg-panel px-6 py-8 max-lg:flex-1 md:px-24 md:py-12 lg:order-first lg:min-h-dvh lg:justify-between lg:gap-0 lg:px-16"
     >
       <p class="hidden items-center gap-2.5 text-xl leading-7 font-semibold text-ink lg:flex">
         <UiIcon name="radar" class="size-7" />LidRadar

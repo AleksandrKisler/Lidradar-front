@@ -26,27 +26,48 @@ describe('UiButton', () => {
 })
 
 describe('UiField', () => {
-  it('связывает подпись, описание и ошибку с элементом управления', () => {
-    const wrapper = mount(
-      defineComponent({
-        render() {
-          return h(
-            UiField,
-            { label: 'Почта', description: 'Рабочая', error: 'Неверно' },
-            {
-              default: (slot: { id: string; describedBy?: string; invalid: boolean }) =>
-                h(UiInput, slot),
-            },
-          )
-        },
-      }),
+  it('связывает подпись, описание и ошибку; ошибка заменяет описание только по параметру (формы Access)', () => {
+    const mountField = (error: string, replace = false) =>
+      mount(
+        defineComponent({
+          render() {
+            return h(
+              UiField,
+              { label: 'Почта', description: 'Рабочая', error, errorReplacesDescription: replace },
+              {
+                default: (slot: { id: string; describedBy?: string; invalid: boolean }) =>
+                  h(UiInput, slot),
+              },
+            )
+          },
+        }),
+      )
+    // Без ошибки: подпись и описание связаны, ошибки нет.
+    const calm = mountField('')
+    const calmInput = calm.get('input')
+    const calmId = calmInput.attributes('id')!
+    expect(calm.get('label').attributes('for')).toBe(calmId)
+    expect(calmInput.attributes('aria-describedby')).toBe(`${calmId}-description`)
+    expect(calmInput.attributes('aria-invalid')).toBeUndefined()
+    expect(calm.get(`[id="${calmId}-description"]`).text()).toBe('Рабочая')
+    calm.unmount()
+    // По умолчанию подсказка остаётся рядом с ошибкой: она может нести смысл, которого нет в ошибке.
+    const both = mountField('Неверно')
+    const bothId = both.get('input').attributes('id')!
+    expect(both.get('input').attributes('aria-describedby')).toBe(
+      `${bothId}-description ${bothId}-error`,
     )
+    expect(both.get(`[id="${bothId}-description"]`).text()).toBe('Рабочая')
+    both.unmount()
+    // Формы Access: текст ошибки заменяет описание и объявляется живой областью.
+    const wrapper = mountField('Неверно', true)
     const input = wrapper.get('input')
     const id = input.attributes('id')!
     expect(wrapper.get('label').attributes('for')).toBe(id)
-    expect(input.attributes('aria-describedby')).toBe(`${id}-description ${id}-error`)
+    expect(input.attributes('aria-describedby')).toBe(`${id}-error`)
     expect(input.attributes('aria-invalid')).toBe('true')
     expect(wrapper.get(`[id="${id}-error"]`).text()).toBe('Неверно')
+    expect(wrapper.find(`[id="${id}-description"]`).exists()).toBe(false)
     expect(wrapper.find('[aria-live="polite"]').exists()).toBe(true)
     wrapper.unmount()
   })

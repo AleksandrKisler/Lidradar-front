@@ -161,7 +161,8 @@ describe('RiskWorkspace', () => {
     expect(text).toContain('Записать исход')
     expect(text).toContain('Открыть в Telegram')
     expect(wrapper.get('[aria-label="История"]').text()).toContain('Звонок клиенту')
-    expect(wrapper.get('[aria-label="История"]').text()).toContain('Думает')
+    expect(wrapper.get('[aria-label="История"]').text()).not.toContain('Думает')
+    expect(wrapper.get('[aria-labelledby="risk-last-outcome-title"]').text()).toContain('Думает')
     wrapper.unmount()
   })
 

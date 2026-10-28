@@ -14,6 +14,7 @@ import type {
   RiskFeedStatus,
   RiskFilters,
   RiskSeverity,
+  RiskStatus,
   RiskType,
 } from '../model/types'
 
@@ -33,10 +34,21 @@ export const riskKeys = {
     [
       ...tenantScope(tenantId),
       'risks',
-      { ...normalizeFilters(filters), ...(status ? { status } : { active: true }) },
+      {
+        ...normalizeFilters(filters),
+        ...(status ? { status: feedGroupStatuses(status) } : { active: true }),
+      },
     ] as const,
   /** Карточка риска; префикс `risk` отличается от лент `risks`, чтобы инвалидация была точечной. */
   detail: (tenantId: string, riskId: string) => [...tenantScope(tenantId), 'risk', riskId] as const,
+}
+
+/**
+ * Группа вкладки → статусы API. «В работе» включает ACTED: после записи действия
+ * карточка остаётся в группе. Группировка на клиенте, серверная политика не меняется.
+ */
+export function feedGroupStatuses(group: RiskFeedStatus): RiskStatus[] {
+  return group === 'ACKNOWLEDGED' ? ['ACKNOWLEDGED', 'ACTED'] : [group]
 }
 
 /** Параметры запроса из контракта, общие для сводки и ленты. */
@@ -90,7 +102,7 @@ export function fetchActiveRisks(
         header: { 'X-Tenant-ID': tenantId },
         query: {
           ...toQuery(filters),
-          ...(status ? { status: [status] } : { active: true }),
+          ...(status ? { status: feedGroupStatuses(status) } : { active: true }),
           limit: RISK_PAGE_SIZE,
           ...(cursor ? { cursor } : {}),
         },

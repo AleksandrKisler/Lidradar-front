@@ -160,6 +160,14 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   /**
+   * Сервер завершил все сессии пользователя сам (сброс пароля, ADR 0058): локальное состояние
+   * очищается без запроса `logout` и без пометки «сессия истекла» — человек входит новым паролем.
+   */
+  function markSessionsEnded(): void {
+    becomeGuest(null)
+  }
+
+  /**
    * Выход. Локальное состояние очищается в любом случае, включая
    * запомненную организацию; `confirmed=false` означает, что сервер не
    * подтвердил отзыв сессии (сеть) и интерфейс должен об этом сказать.
@@ -199,6 +207,7 @@ export const useSessionStore = defineStore('session', () => {
     refresh,
     selectTenant,
     clearTenant,
+    markSessionsEnded,
     markExpired,
     logout,
   }

@@ -63,7 +63,7 @@ const organizationName = computed(() => session.membership?.organizationName ?? 
         </div>
         <button
           type="button"
-          class="h-[46px] w-24 shrink-0 rounded-button border border-line bg-paper text-field leading-5 font-medium text-ink hover:bg-canvas"
+          class="h-[46px] w-24 shrink-0 rounded-button border border-line bg-canvas text-field leading-5 font-medium text-ink hover:bg-panel"
           aria-haspopup="dialog"
           @click="menuOpen = true"
         >

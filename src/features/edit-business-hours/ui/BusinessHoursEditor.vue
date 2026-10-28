@@ -10,7 +10,7 @@
  * работы собственная кнопка не нужна (`hideSubmit`): кнопка шага вызывает
  * `save()` и идёт дальше, только если неделя сохранена.
  */
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { describeError, isApiError } from '@/shared/api'
 import { UiAlert, UiButton } from '@/shared/ui'
@@ -38,6 +38,7 @@ const props = defineProps<{
 const emit = defineEmits<{ saved: [location: Location]; 'update:dirty': [dirty: boolean] }>()
 
 const queryClient = useQueryClient()
+const formEl = useTemplateRef<HTMLFormElement>('formEl')
 
 function baseline(location: Location): DayDraft[] {
   return weekFromHours(location.businessHours) ?? defaultWeek()
@@ -105,9 +106,6 @@ const canApplyToAll = computed(() => {
     openDays.value.some((day) => day.opensAt !== first.opensAt || day.closesAt !== first.closesAt)
   )
 })
-const sampleName = computed(
-  () => WEEKDAYS.find((day) => day.weekday === sample.value?.weekday)?.genitive ?? '',
-)
 
 function applyToAll(): void {
   const first = sample.value
@@ -123,7 +121,12 @@ async function submit(): Promise<void> {
   saved.value = false
   mutation.reset()
   errors.value = validateWeek(days.value)
-  if (Object.keys(errors.value).length > 0) return
+  if (Object.keys(errors.value).length > 0) {
+    // Кнопка шага вне формы: фокус переносится на первое поле времени с ошибкой.
+    await nextTick()
+    formEl.value?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()
+    return
+  }
   await mutation.mutateAsync().catch(() => null)
 }
 
@@ -141,90 +144,112 @@ async function save(): Promise<boolean> {
 
 defineExpose({ save })
 
+/** Поле времени: на телефоне и планшете крупное, на десктопе компактное (Figma «Точка и график»). */
+const timeClass =
+  'h-[46px] min-w-0 flex-1 rounded-field border border-line bg-paper px-3 text-center text-field text-ink md:w-24 md:flex-none lg:h-[34px] lg:w-20 aria-invalid:border-danger disabled:text-muted [&::-webkit-calendar-picker-indicator]:hidden'
+
 const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === weekday)?.label ?? ''
 </script>
 
 <template>
-  <form class="flex flex-col gap-4" novalidate @submit.prevent="submit">
-    <p class="text-sm text-muted">
-      Время местное · {{ location.timezone }}. Сообщение в выходной дождётся следующего рабочего
-      интервала.
+  <form ref="formEl" class="flex flex-col" novalidate @submit.prevent="submit">
+    <p class="text-sm leading-5 text-secondary">
+      Время указано для выбранной точки. Для копирования используется первый рабочий день.
     </p>
-    <div v-if="canApplyToAll">
+    <div v-if="canApplyToAll" class="mt-4">
       <!-- Обычная кнопка, а не UiButton: длинная подпись должна переноситься, а не раздвигать страницу. -->
       <button
         type="button"
-        class="-ml-3.5 block max-w-full rounded-control px-3.5 py-2 text-left text-sm font-medium text-brand-dark hover:bg-brand-pale disabled:cursor-not-allowed disabled:opacity-60"
+        class="block max-w-full text-left text-sm leading-5 text-link hover:underline disabled:cursor-not-allowed disabled:opacity-60"
         :disabled="mutation.isPending.value"
         @click="applyToAll"
       >
-        Применить время {{ sampleName }} ко всем рабочим дням
+        Применить ко всем рабочим дням
       </button>
     </div>
-    <ul class="flex flex-col divide-y divide-line" aria-label="Дни недели">
+    <ul class="mt-5 flex flex-col" aria-label="Дни недели">
       <li
         v-for="day in days"
         :key="day.weekday"
-        class="grid grid-cols-2 items-center gap-x-4 gap-y-2 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
+        class="border-t border-hairline py-3 md:max-lg:py-[8.5px] lg:py-[5.5px]"
       >
-        <label
-          class="col-span-2 flex items-center gap-3 text-sm font-medium text-ink sm:col-span-1"
-        >
-          <input
-            type="checkbox"
-            :name="`day-${day.weekday}`"
-            class="size-4 accent-brand"
-            :checked="!day.closed"
-            :disabled="mutation.isPending.value"
-            @change="toggle(day, ($event.target as HTMLInputElement).checked)"
-          />
-          {{ labelOf(day.weekday) }}
-        </label>
-        <template v-if="!day.closed">
-          <label class="flex items-center gap-2 text-sm text-muted">
-            <span aria-hidden="true">с</span>
-            <span class="sr-only">{{ labelOf(day.weekday) }}, открытие</span>
+        <div class="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between md:gap-4">
+          <label
+            class="flex items-center gap-3 pl-4 text-field leading-6 text-ink md:flex-1 md:pl-0"
+          >
             <input
-              v-model="day.opensAt"
-              type="time"
-              :name="`opens-${day.weekday}`"
-              class="h-10 min-w-0 flex-1 rounded-field border border-line bg-paper px-3 text-sm text-ink sm:flex-none"
-              :aria-invalid="errors[day.weekday] ? true : undefined"
+              type="checkbox"
+              :name="`day-${day.weekday}`"
+              class="size-4 accent-brand"
+              :checked="!day.closed"
               :disabled="mutation.isPending.value"
-              @input="saved = false"
+              @change="toggle(day, ($event.target as HTMLInputElement).checked)"
             />
+            {{ labelOf(day.weekday) }}
           </label>
-          <label class="flex items-center gap-2 text-sm text-muted">
-            <span aria-hidden="true">до</span>
-            <span class="sr-only">{{ labelOf(day.weekday) }}, закрытие</span>
-            <input
-              v-model="day.closesAt"
-              type="time"
-              :name="`closes-${day.weekday}`"
-              class="h-10 min-w-0 flex-1 rounded-field border border-line bg-paper px-3 text-sm text-ink sm:flex-none"
-              :aria-invalid="errors[day.weekday] ? true : undefined"
-              :disabled="mutation.isPending.value"
-              @input="saved = false"
-            />
-          </label>
-        </template>
-        <span v-else class="col-span-2 text-sm text-muted">Выходной</span>
+          <div v-if="!day.closed" class="flex items-center gap-3 md:gap-4">
+            <label
+              class="flex min-w-0 flex-1 items-center gap-3 text-sm text-secondary md:flex-none"
+            >
+              <span aria-hidden="true">с</span>
+              <span class="sr-only">{{ labelOf(day.weekday) }}, открытие</span>
+              <input
+                v-model="day.opensAt"
+                type="time"
+                :name="`opens-${day.weekday}`"
+                :class="timeClass"
+                :aria-invalid="errors[day.weekday] ? true : undefined"
+                :aria-describedby="errors[day.weekday] ? `day-error-${day.weekday}` : undefined"
+                :disabled="mutation.isPending.value"
+                @input="saved = false"
+              />
+            </label>
+            <label
+              class="flex min-w-0 flex-1 items-center gap-3 text-sm text-secondary md:flex-none"
+            >
+              <span aria-hidden="true">до</span>
+              <span class="sr-only">{{ labelOf(day.weekday) }}, закрытие</span>
+              <input
+                v-model="day.closesAt"
+                type="time"
+                :name="`closes-${day.weekday}`"
+                :class="timeClass"
+                :aria-invalid="errors[day.weekday] ? true : undefined"
+                :aria-describedby="errors[day.weekday] ? `day-error-${day.weekday}` : undefined"
+                :disabled="mutation.isPending.value"
+                @input="saved = false"
+              />
+            </label>
+          </div>
+          <span
+            v-else
+            class="text-sm leading-5 text-secondary md:flex md:min-h-[46px] md:items-center lg:min-h-[34px]"
+            >Выходной</span
+          >
+        </div>
         <p
           v-if="errors[day.weekday]"
-          class="col-span-2 text-xs text-danger sm:col-span-3"
-          aria-live="polite"
+          :id="`day-error-${day.weekday}`"
+          class="mt-2 text-sm leading-5 text-danger lg:text-right"
+          role="alert"
         >
           {{ errors[day.weekday] }}
         </p>
       </li>
     </ul>
 
-    <UiAlert v-if="saved" tone="success">График сохранён.</UiAlert>
-    <UiAlert v-if="errorView" tone="danger" :title="errorView.title" :trace-id="traceId">
+    <UiAlert v-if="saved" class="mt-4" tone="success">График сохранён.</UiAlert>
+    <UiAlert
+      v-if="errorView"
+      class="mt-4"
+      tone="danger"
+      :title="errorView.title"
+      :trace-id="traceId"
+    >
       {{ errorView.description }}
     </UiAlert>
 
-    <div v-if="!hideSubmit" class="flex flex-wrap items-center justify-between gap-4">
+    <div v-if="!hideSubmit" class="mt-4 flex flex-wrap items-center justify-between gap-4">
       <p class="text-xs text-muted">Неделя сохраняется целиком, одним запросом.</p>
       <UiButton
         type="submit"

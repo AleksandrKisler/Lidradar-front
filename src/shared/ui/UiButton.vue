@@ -11,7 +11,7 @@ import UiSpinner from './UiSpinner.vue'
 
 withDefaults(
   defineProps<{
-    variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'plain'
+    variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'plain' | 'outline'
     size?: 'md' | 'sm'
     type?: 'button' | 'submit' | 'reset'
     disabled?: boolean
@@ -23,13 +23,15 @@ withDefaults(
 )
 
 const variants = {
-  primary: 'bg-brand text-white hover:bg-brand-dark',
-  secondary: 'border border-line bg-paper text-ink hover:bg-canvas',
-  danger: 'bg-danger text-white hover:bg-[#b32420]',
+  primary: 'bg-brand font-medium text-white hover:bg-brand-dark',
+  secondary: 'border border-line bg-paper font-medium text-ink hover:bg-canvas',
+  danger: 'bg-danger font-medium text-white hover:bg-[#b32420]',
   // Тёмный оттенок: на серой канве и в подсветках контраст остаётся не ниже 4.5:1.
-  ghost: 'bg-transparent text-brand-dark hover:bg-brand-pale',
+  ghost: 'bg-transparent font-medium text-brand-dark hover:bg-brand-pale',
   // Тихое действие в шапке без рамки («Выйти» в макетах Рабочих пространств).
-  plain: 'bg-transparent font-normal! text-secondary hover:text-ink',
+  plain: 'bg-transparent text-secondary hover:text-ink',
+  // Второстепенное действие синим по рамке («Добавить услугу» в мастере).
+  outline: 'border border-line bg-paper font-medium text-link hover:bg-action-pale',
 } as const
 
 const sizes = {
@@ -44,7 +46,7 @@ const sizes = {
     :disabled="disabled || loading"
     :aria-busy="loading || undefined"
     :class="[
-      'inline-flex items-center justify-center gap-2 rounded-button font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed',
+      'inline-flex items-center justify-center gap-2 rounded-button whitespace-nowrap transition-colors disabled:cursor-not-allowed',
       disabled && !loading ? 'opacity-45' : '',
       variants[variant],
       sizes[size],

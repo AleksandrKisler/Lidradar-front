@@ -63,7 +63,7 @@ async function openWorkspace(): Promise<void> {
     <UiCard :padded="false" class="p-[19px] md:p-[27px]">
       <AcceptInvitationForm :loading="loading" @accepted="accepted = $event" />
     </UiCard>
-    <p class="mt-[42px] text-sm md:max-lg:mt-[51px] leading-5 text-secondary">
+    <p class="mt-[42px] text-sm leading-5 text-secondary">
       <RouterLink
         v-if="loading || session.memberships.length > 0"
         :to="{ name: 'workspaces' }"

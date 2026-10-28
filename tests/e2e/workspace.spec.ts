@@ -849,7 +849,7 @@ test.describe('владелец организации', () => {
     await expect(page.getByRole('list', { name: 'Добавленные услуги' })).toContainText(
       'Полировка кузова',
     )
-    await page.getByRole('link', { name: 'Назад' }).click()
+    await page.getByRole('button', { name: 'Назад' }).click()
     await expect(page).toHaveURL(/\/onboarding\/location$/)
     await expect(page.getByRole('heading', { name: 'График точки' })).toBeVisible()
     // У времени видимые подписи, а отдельной кнопки сохранения в мастере нет.
@@ -870,17 +870,15 @@ test.describe('владелец организации', () => {
     await expect(page.getByRole('heading', { name: 'График точки' })).toBeVisible()
     await page.getByLabel('Понедельник, открытие').fill('21:00')
     await page.getByRole('button', { name: 'Сохранить и продолжить' }).click()
-    await expect(page.getByText('Открытие должно быть раньше закрытия')).toBeVisible()
+    await expect(page.getByText('Время окончания должно быть позже начала.')).toBeVisible()
     await expect(page).toHaveURL(/\/onboarding\/location$/)
     // Одинаковое время для всех рабочих дней задаётся одним действием.
     await page.getByLabel('Понедельник, открытие').fill('08:00')
     await page.getByLabel('Понедельник, закрытие').fill('19:00')
-    await page
-      .getByRole('button', { name: 'Применить время понедельника ко всем рабочим дням' })
-      .click()
+    await page.getByRole('button', { name: 'Применить ко всем рабочим дням' }).click()
     await expect(page.getByLabel('Суббота, открытие')).toHaveValue('08:00')
     await expect(page.getByLabel('Пятница, закрытие')).toHaveValue('19:00')
-    await expect(page.getByRole('button', { name: /Применить время/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /Применить ко всем/ })).toHaveCount(0)
   })
 
   test('онбординг: источник подключается на шаге, а выход без него подписан честно', async ({

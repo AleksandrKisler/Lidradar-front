@@ -225,7 +225,7 @@ describe('формы настроек', () => {
     expect(wrapper.emitted('update:dirty')?.at(-1)).toEqual([true])
     await wrapper.get('form').trigger('submit')
     await settle()
-    expect(wrapper.text()).toContain('Открытие должно быть раньше закрытия')
+    expect(wrapper.text()).toContain('Время окончания должно быть позже начала.')
     expect(fetchMock).not.toHaveBeenCalled()
     await wrapper.get('input[name="opens-1"]').setValue('09:00')
     await wrapper.get('input[name="day-7"]').setValue(true)
@@ -259,9 +259,9 @@ describe('формы настроек', () => {
   it('график: «Применить время» копирует образец на рабочие дни и исчезает, когда всё одинаково', async () => {
     const wrapper = mountWith(BusinessHoursEditor, { tenantId: 'tenant-a', location })
     const apply = () =>
-      wrapper.findAll('button').find((button) => button.text().startsWith('Применить время'))
-    // В стартовой неделе суббота короче будней: выравнивать есть что, образец — понедельник.
-    expect(apply()?.text()).toBe('Применить время понедельника ко всем рабочим дням')
+      wrapper.findAll('button').find((button) => button.text().startsWith('Применить ко всем'))
+    // В стартовой неделе суббота короче будней: выравнивать есть что, образец — первый рабочий день.
+    expect(apply()?.text()).toBe('Применить ко всем рабочим дням')
     await wrapper.get('input[name="opens-1"]').setValue('08:00')
     await wrapper.get('input[name="closes-1"]').setValue('19:00')
     await apply()!.trigger('click')
@@ -276,7 +276,10 @@ describe('формы настроек', () => {
     // Если понедельник выходной, образцом служит первый рабочий день.
     await wrapper.get('input[name="day-1"]').setValue(false)
     await wrapper.get('input[name="opens-3"]').setValue('10:00')
-    expect(apply()?.text()).toBe('Применить время вторника ко всем рабочим дням')
+    expect(apply()?.text()).toBe('Применить ко всем рабочим дням')
+    // Образцом служит вторник: его время копируется на остальные рабочие дни.
+    await apply()!.trigger('click')
+    expect((wrapper.get('input[name="opens-3"]').element as HTMLInputElement).value).toBe('08:00')
     wrapper.unmount()
   })
 
@@ -295,7 +298,7 @@ describe('формы настроек', () => {
     await wrapper.get('input[name="opens-1"]').setValue('21:00')
     expect(await save()).toBe(false)
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(wrapper.text()).toContain('Открытие должно быть раньше закрытия')
+    expect(wrapper.text()).toContain('Время окончания должно быть позже начала.')
     // Исправили: неделя уходит одним PUT, результат true.
     await wrapper.get('input[name="opens-1"]').setValue('09:00')
     expect(await save()).toBe(true)
@@ -343,7 +346,7 @@ describe('формы настроек', () => {
     await wrapper.get('input[name="priceTo"]').setValue('50000')
     await wrapper.get('form').trigger('submit')
     await settle()
-    expect(wrapper.text()).toContain('Нижняя граница не может быть выше верхней')
+    expect(wrapper.text()).toContain('Цена «до» не может быть меньше цены «от».')
     expect(fetchMock).not.toHaveBeenCalled()
     await wrapper.get('input[name="priceTo"]').setValue('')
     await wrapper.get('select[name="serviceLocation"]').setValue('loc-1')

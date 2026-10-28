@@ -20,7 +20,7 @@ function status(done: Record<string, boolean>): OnboardingStatus {
   } as OnboardingStatus
 }
 
-/** Кружок шага: цифра или значок; видимый текст нужен для проверки нумерации. */
+/** Кружок шага: цифра или значок. */
 const circles = (wrapper: ReturnType<typeof mount>) =>
   wrapper.findAll('li').map((item) => {
     const circle = item.get('span[aria-hidden="true"]')
@@ -28,31 +28,45 @@ const circles = (wrapper: ReturnType<typeof mount>) =>
   })
 
 describe('шаги начала работы', () => {
-  it('нумеруются только обязательные шаги, необязательный помечен значком', () => {
+  it('четыре обязательных шага: выполненные — галочка, текущий — цифра; привязка уведомлений в ряд не входит', () => {
     const wrapper = mount(OnboardingProgress, {
       props: {
         status: status({ ORGANIZATION: true, LOCATION: true, SERVICES: true }),
         current: 'CHANNEL',
       },
     })
-    // Три выполненных шага — галочки, четвёртый — цифра 4, пятого номера нет.
     expect(circles(wrapper)).toEqual([
       { text: '', icon: true },
       { text: '', icon: true },
       { text: '', icon: true },
       { text: '4', icon: false },
-      { text: '', icon: true },
     ])
-    expect(wrapper.text()).not.toContain('5')
-    expect(wrapper.text()).toContain('необязательно')
-    expect(wrapper.get('[aria-current="step"]').text()).toBe('Источник сообщений')
+    expect(wrapper.text()).not.toContain('Уведомления в Telegram')
+    // Текущий шаг помечен на элементе списка; название и состояние читаются и при скрытой подписи.
+    expect(wrapper.get('li[aria-current="step"]').get('.sr-only').text().replace(/\s+/g, ' ')).toBe(
+      'Источник сообщений текущий шаг',
+    )
+    // Подпись «Шаг n из 4» и название на телефоне дублируют текущий шаг.
+    expect(wrapper.get('p').text().replace(/\s+/g, ' ')).toBe('Шаг 4 из 4 · Источник сообщений')
     wrapper.unmount()
   })
 
-  it('до загрузки статуса необязательным считается привязка уведомлений', () => {
+  it('до загрузки статуса ничего не выполнено, текущий шаг берётся из маршрута', () => {
     const wrapper = mount(OnboardingProgress, { props: { status: null, current: 'LOCATION' } })
-    expect(circles(wrapper).map((circle) => circle.text)).toEqual(['1', '2', '3', '4', ''])
-    expect(circles(wrapper)[4]!.icon).toBe(true)
+    expect(circles(wrapper).map((circle) => circle.text)).toEqual(['1', '2', '3', '4'])
+    expect(wrapper.get('p').text()).toContain('Шаг 2 из 4')
+    wrapper.unmount()
+  })
+
+  it('выполненность и текущий шаг озвучиваются скрытым текстом', () => {
+    const wrapper = mount(OnboardingProgress, {
+      props: { status: status({ ORGANIZATION: true }), current: 'LOCATION' },
+    })
+    const items = wrapper.findAll('li')
+    const spoken = (index: number) => items[index]!.get('.sr-only').text().replace(/\s+/g, ' ')
+    expect(spoken(0)).toBe('Компания выполнено')
+    expect(spoken(1)).toBe('Точка и график текущий шаг')
+    expect(spoken(2)).toBe('Услуги и цены')
     wrapper.unmount()
   })
 })

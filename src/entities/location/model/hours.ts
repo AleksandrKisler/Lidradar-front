@@ -68,7 +68,7 @@ export function validateWeek(days: readonly DayDraft[]): Record<number, string> 
     if (!TIME_PATTERN.test(day.opensAt) || !TIME_PATTERN.test(day.closesAt)) {
       errors[day.weekday] = 'Укажите время открытия и закрытия'
     } else if (day.opensAt >= day.closesAt) {
-      errors[day.weekday] = 'Открытие должно быть раньше закрытия'
+      errors[day.weekday] = 'Время окончания должно быть позже начала.'
     }
   }
   return errors

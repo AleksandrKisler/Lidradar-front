@@ -5,7 +5,7 @@ export const createOrganizationSchema = v.object({
   name: v.pipe(
     v.string(),
     v.trim(),
-    v.nonEmpty('Введите название компании'),
+    v.nonEmpty('Введите название компании.'),
     v.maxLength(200, 'Слишком длинное название'),
   ),
   defaultTimezone: v.pipe(v.string(), v.nonEmpty('Выберите часовой пояс')),

@@ -12,7 +12,12 @@ export default defineConfig({
   workers: 1,
   reporter: [['list']],
   outputDir: '../../artifacts/frontend-v2/.pw',
-  use: { baseURL: 'http://127.0.0.1:4173', browserName: 'chromium' },
+  // Язык интерфейса браузера — русский: поля времени показывают 24-часовой формат, как у пользователей.
+  use: {
+    baseURL: 'http://127.0.0.1:4173',
+    browserName: 'chromium',
+    launchOptions: { args: ['--lang=ru-RU'] },
+  },
   webServer: {
     command: 'npm run build:pre-prod && npm run preview',
     url: 'http://127.0.0.1:4173',

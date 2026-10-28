@@ -83,8 +83,8 @@ async function retry(): Promise<void> {
     aria-label="Загрузка"
   >
     <div class="flex flex-col gap-3.5">
-      <div class="h-4 w-40 rounded-full bg-line md:w-60" />
-      <div class="h-3 w-24 rounded-full bg-line md:w-28" />
+      <div class="h-4 w-40 rounded-full md:w-60 bg-line" />
+      <div class="h-3 w-24 rounded-full md:w-28 bg-line" />
     </div>
     <div class="h-[30px] w-[120px] shrink-0 rounded-field bg-line" />
   </div>

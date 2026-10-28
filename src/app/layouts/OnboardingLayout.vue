@@ -1,78 +1,52 @@
 <script setup lang="ts">
 /**
- * Layout начала работы: шаги слева, содержимое шага справа. Выполненность
- * шагов берётся из серверного статуса, текущий шаг — из маршрута. Право
- * маршрута проверяется здесь же: менеджер без `location.manage` увидит
- * «Раздел недоступен», а не форму.
+ * Layout начала работы (Figma «Начало работы»): шапка, ряд шагов над страницей шага. Выполненность шагов
+ * берётся из серверного статуса, текущий шаг — из маршрута. Право маршрута проверяется здесь же:
+ * менеджер без `location.manage` увидит «Раздел недоступен», а не форму. `loading` — каркас первой
+ * загрузки: сессия неизвестна, ряд шагов показывает только первый шаг текущим.
  */
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { UiAccessDenied, UiIcon } from '@/shared/ui'
+import { UiAccessDenied } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
 import { useOnboardingQuery } from '@/entities/organization'
-import { AccountDeletionBanner, LogoutButton } from '@/features/auth-session'
+import { AccountDeletionBanner } from '@/features/auth-session'
+import { AccountHeader } from '@/widgets/account-header'
 import { OnboardingProgress } from '@/widgets/onboarding-progress'
+
+const props = defineProps<{ loading?: boolean }>()
 
 const session = useSessionStore()
 const route = useRoute()
 const router = useRouter()
-const status = useOnboardingQuery(() => session.tenantId)
+const status = useOnboardingQuery(() => (props.loading ? null : session.tenantId))
 
 const denied = computed(
   () => route.meta.permission !== undefined && !session.can(route.meta.permission),
 )
-
-function onLoggedOut({ confirmed }: { confirmed: boolean }): void {
-  void router.replace({ name: 'login', query: confirmed ? {} : { signout: 'unconfirmed' } })
-}
 </script>
 
 <template>
   <div class="min-h-dvh">
-    <header
-      class="flex items-center justify-between gap-4 border-b border-line bg-paper px-5 py-3 md:px-12"
-    >
-      <p class="flex items-center gap-2 text-lg font-bold tracking-tight text-ink">
-        <UiIcon name="radar" class="size-7" />LidRadar
-      </p>
-      <div class="flex items-center gap-3">
-        <RouterLink
-          :to="{ name: 'account' }"
-          class="text-sm font-semibold text-brand-dark hover:underline"
-          data-testid="account-link"
-        >
-          Аккаунт
-        </RouterLink>
-        <p class="hidden text-sm text-muted sm:block">{{ session.user?.displayName }}</p>
-        <LogoutButton variant="secondary" @logged-out="onLoggedOut" />
-      </div>
-    </header>
-    <AccountDeletionBanner />
+    <AccountHeader :loading="loading" />
+    <AccountDeletionBanner v-if="!loading" />
     <main
       id="main"
-      class="mx-auto grid w-full max-w-5xl gap-10 px-5 py-10 md:grid-cols-[240px_minmax(0,1fr)] md:px-12"
+      class="mx-auto w-full max-w-[840px] px-4 pt-2 pb-10 md:px-8 md:pt-[27px] lg:px-0"
     >
-      <aside class="hidden md:block">
-        <p class="mb-5 text-xs font-semibold tracking-wide text-muted">Начало работы</p>
-        <OnboardingProgress
-          :status="status.data.value ?? null"
-          :current="route.meta.onboardingStep ?? null"
-        />
-        <div class="mt-10 rounded-card bg-nav p-5 text-sm text-white">
-          <p class="font-semibold">Вы управляете действиями.</p>
-          <p class="mt-1 text-nav-text">
-            LidRadar помогает заметить риск и выбрать следующий шаг. Самостоятельно клиентам не
-            пишет.
-          </p>
-        </div>
-      </aside>
-      <div class="min-w-0">
-        <UiAccessDenied
-          v-if="denied"
-          back-label="Вернуться в Radar"
-          @back="router.push({ name: 'radar' })"
-        />
-        <RouterView v-else />
+      <OnboardingProgress
+        :status="status.data.value ?? null"
+        :current="loading ? 'ORGANIZATION' : (route.meta.onboardingStep ?? null)"
+      />
+      <div class="mx-auto mt-4 min-w-0 max-w-[760px] md:mt-8">
+        <slot>
+          <UiAccessDenied
+            v-if="denied"
+            back-label="Вернуться в Radar"
+            @back="router.push({ name: 'radar' })"
+          />
+          <RouterView v-else />
+        </slot>
       </div>
     </main>
   </div>

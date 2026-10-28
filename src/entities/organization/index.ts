@@ -16,7 +16,7 @@ export {
   useOrganizationQuery,
   useOnboardingQuery,
 } from './api/organization-api'
-export { CURRENCY_OPTIONS, timeZoneOptions, defaultTimeZone } from './lib/options'
+export { CURRENCY_OPTIONS, timeZoneOptions, timeZoneLabel, defaultTimeZone } from './lib/options'
 export {
   ONBOARDING_STEP_ORDER,
   onboardingStepLabel,

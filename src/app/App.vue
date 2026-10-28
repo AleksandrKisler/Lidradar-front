@@ -28,6 +28,10 @@ const WorkspacesPage = defineAsyncComponent(() =>
 const AcceptInvitationPage = defineAsyncComponent(() =>
   import('@/pages/invitations').then((m) => m.AcceptInvitationPage),
 )
+const CompanyPage = defineAsyncComponent(() =>
+  import('@/pages/onboarding').then((m) => m.CompanyPage),
+)
+const OnboardingLayout = defineAsyncComponent(() => import('./layouts/OnboardingLayout.vue'))
 const AuthLayout = defineAsyncComponent(() => import('./layouts/AuthLayout.vue'))
 const PlainLayout = defineAsyncComponent(() => import('./layouts/PlainLayout.vue'))
 import { useSessionStore } from '@/entities/session'
@@ -52,6 +56,7 @@ const plainSkeletonPages = {
   '/workspaces': WorkspacesPage,
   '/invitations/accept': AcceptInvitationPage,
 } as const
+const onboardingSkeleton = window.location.pathname === '/onboarding/company'
 const plainSkeletonPage =
   plainSkeletonPages[window.location.pathname as keyof typeof plainSkeletonPages] ?? null
 
@@ -73,6 +78,9 @@ async function retry(): Promise<void> {
   <PlainLayout v-else-if="!session.booted && plainSkeletonPage" loading>
     <component :is="plainSkeletonPage" loading />
   </PlainLayout>
+  <OnboardingLayout v-else-if="!session.booted && onboardingSkeleton" loading>
+    <CompanyPage loading />
+  </OnboardingLayout>
   <div v-else-if="!session.booted" class="flex min-h-dvh items-center justify-center" role="status">
     <UiSpinner class="size-8 text-brand" label="Загрузка приложения" />
   </div>

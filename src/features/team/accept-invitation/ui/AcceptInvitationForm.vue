@@ -115,7 +115,7 @@ async function retryRefresh(): Promise<void> {
       <div class="h-[46px] rounded-field bg-line" />
       <div class="flex flex-col">
         <div class="flex h-5 items-center">
-          <div class="h-3 w-[322px] max-w-full rounded-full bg-line md:w-[336px]" />
+          <div class="h-3 w-[322px] max-w-full rounded-full md:w-[336px] bg-line" />
         </div>
         <div class="flex h-5 items-center md:hidden">
           <div class="h-3 w-[216px] rounded-full bg-line" />
@@ -131,7 +131,7 @@ async function retryRefresh(): Promise<void> {
           <div class="h-3 w-[156px] rounded-full bg-line" />
         </div>
       </div>
-      <div class="h-[46px] rounded-button bg-line md:w-[200px]" />
+      <div class="h-[46px] rounded-button md:w-[200px] bg-line" />
     </div>
   </div>
   <form v-else ref="formEl" class="flex flex-col gap-6" novalidate @submit.prevent="submit">

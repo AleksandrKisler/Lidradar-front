@@ -212,7 +212,7 @@ const hasChanges = computed(() => {
       description="Это влияет на расчёты, а не только на подписи."
       :dismissible="!mutation.isPending.value"
     >
-      <ul class="list-disc space-y-1 pl-5 text-sm text-ink">
+      <ul class="list-disc pl-5 [&>li+li]:mt-1 text-sm text-ink">
         <li v-for="line in consequences" :key="line">{{ line }}</li>
       </ul>
       <UiAlert

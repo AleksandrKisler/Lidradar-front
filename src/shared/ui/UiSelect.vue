@@ -45,10 +45,11 @@ const model = defineModel<string | undefined>({ default: '' })
     :aria-describedby="describedBy"
     :class="[
       'appearance-none rounded-field border bg-paper ui-select-chevron bg-no-repeat disabled:cursor-not-allowed disabled:opacity-70',
-      model ? 'text-ink' : 'text-muted',
+      // Пустое значение без подсказки — полноценный пункт («Все точки»), а не заглушка.
+      model || (!placeholder && size !== 'filter') ? 'text-ink' : 'text-muted',
       size === 'filter'
         ? 'h-9 bg-[length:18px_18px] bg-[position:right_0.5rem_center] pr-[26px] pl-2 text-sm leading-5'
-        : 'h-input w-full bg-[length:24px_24px] bg-[position:right_0.625rem_center] pr-10 pl-3.5 text-base',
+        : 'h-input w-full bg-[length:24px_24px] bg-[position:right_0.625rem_center] pr-10 pl-3.5 text-field',
       invalid ? 'border-danger' : 'border-line hover:border-muted/60',
     ]"
   >

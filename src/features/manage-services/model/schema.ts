@@ -40,7 +40,7 @@ export const serviceSchema = v.pipe(
       const from = parseAmount(values.priceFrom)
       const to = parseAmount(values.priceTo)
       return from === null || to === null || Number(from) <= Number(to)
-    }, 'Нижняя граница не может быть выше верхней'),
+    }, 'Цена «до» не может быть меньше цены «от».'),
     ['priceTo'],
   ),
 )

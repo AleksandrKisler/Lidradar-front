@@ -423,6 +423,214 @@ const plainFlows: AccessFlow[] = [
   },
 ]
 
+/* ---------- F03 S4: мастер «Начало работы» ---------- */
+
+/** Новый владелец без организации с правом её создать (ADR 0057). */
+async function mockNewOwner(page: Page): Promise<void> {
+  await page.route('**/api/v1/auth/me', (route) =>
+    json(route, {
+      canCreateOrganization: true,
+      user: {
+        id: '01990000-0000-7000-8000-000000000101',
+        email: 'owner@example.test',
+        displayName: 'Мария Владелец',
+        status: 'ACTIVE',
+        emailVerifiedAt: '2026-10-13T08:00:00Z',
+        deletionDueAt: null,
+        createdAt: '2026-10-13T00:00:00Z',
+        updatedAt: '2026-10-13T00:00:00Z',
+      },
+      memberships: [],
+    }),
+  )
+}
+
+const onboardingFlows: AccessFlow[] = [
+  {
+    name: 'company',
+    path: '/onboarding/company',
+    states: {
+      '': async (page) => {
+        await mockNewOwner(page)
+        await page.goto('/onboarding/company')
+        await page.getByLabel('Название компании').fill('Detail Lab')
+      },
+      error: async (page) => {
+        await mockNewOwner(page)
+        await page.goto('/onboarding/company')
+        await page.getByRole('button', { name: 'Создать компанию' }).click()
+        await page.getByText('Введите название компании').waitFor()
+      },
+      busy: async (page) => {
+        await mockNewOwner(page)
+        await page.route('**/api/v1/organizations', () => new Promise(() => {}))
+        await page.goto('/onboarding/company')
+        await page.getByLabel('Название компании').fill('Detail Lab')
+        await page.getByRole('button', { name: 'Создать компанию' }).click()
+        await page.locator('button[aria-busy="true"]').waitFor()
+      },
+      loading: async (page) => {
+        await page.route('**/api/v1/auth/me', () => new Promise(() => {}))
+        await page.goto('/onboarding/company')
+        await page.getByRole('heading', { level: 1 }).waitFor()
+      },
+    },
+  },
+]
+
+/** Шаг 2 «Точка и график»: владелец с готовой точкой (как в макете «Студия на Тверской»). */
+/** Как в макете: пройден только шаг «Компания». */
+async function mockOwnerAtLocationStep(page: Page): Promise<void> {
+  await mockOwner(page)
+  await page.route('**/api/v1/organization/onboarding', (route) =>
+    json(route, {
+      complete: false,
+      nextStep: 'LOCATION',
+      steps: [
+        { key: 'ORGANIZATION', required: true, done: true },
+        { key: 'LOCATION', required: true, done: false },
+        { key: 'SERVICES', required: true, done: false },
+        { key: 'CHANNEL', required: true, done: false },
+        { key: 'TELEGRAM_LINK', required: false, done: false },
+      ],
+      facts: {
+        activeLocations: 1,
+        locationsWithSchedule: 0,
+        activeServices: 0,
+        connections: 0,
+        liveConnections: 0,
+        telegramLinked: false,
+      },
+      computedAt: '2026-10-23T12:40:00Z',
+    }),
+  )
+}
+
+const locationFlows: AccessFlow[] = [
+  {
+    name: 'location',
+    path: '/onboarding/location',
+    states: {
+      '': async (page) => {
+        await mockOwnerAtLocationStep(page)
+        await page.goto('/onboarding/location')
+        await page.getByText('График точки').first().waitFor()
+      },
+      error: async (page) => {
+        await mockOwnerAtLocationStep(page)
+        await page.goto('/onboarding/location')
+        await page.locator('input[name="opens-1"]').fill('20:00')
+        await page.locator('input[name="closes-1"]').fill('09:00')
+        await page.getByRole('button', { name: 'Сохранить и продолжить' }).click()
+        await page.getByText('Время окончания должно быть позже начала.').waitFor()
+      },
+      busy: async (page) => {
+        await mockOwnerAtLocationStep(page)
+        await page.route('**/api/v1/locations/*/business-hours', () => new Promise(() => {}))
+        await page.goto('/onboarding/location')
+        await page.locator('input[name="opens-6"]').fill('10:00')
+        await page.locator('input[name="closes-6"]').fill('18:30')
+        await page.locator('input[name="closes-6"]').fill('18:00')
+        await page.getByRole('button', { name: 'Сохранить и продолжить' }).click()
+        await page.locator('button[aria-busy="true"]').waitFor()
+      },
+      loading: async (page) => {
+        await mockOwnerAtLocationStep(page)
+        await page.route('**/api/v1/locations', () => new Promise(() => {}))
+        await page.goto('/onboarding/location')
+        await page.getByRole('status', { name: 'Загрузка точек' }).waitFor()
+      },
+    },
+  },
+]
+
+/** Как в макете шага 3: пройдены «Компания» и «Точка и график». */
+async function mockOwnerAtServicesStep(page: Page): Promise<void> {
+  await mockOwner(page)
+  await page.route('**/api/v1/organization/onboarding', (route) =>
+    json(route, {
+      complete: false,
+      nextStep: 'SERVICES',
+      steps: [
+        { key: 'ORGANIZATION', required: true, done: true },
+        { key: 'LOCATION', required: true, done: true },
+        { key: 'SERVICES', required: true, done: false },
+        { key: 'CHANNEL', required: true, done: false },
+        { key: 'TELEGRAM_LINK', required: false, done: false },
+      ],
+      facts: {
+        activeLocations: 1,
+        locationsWithSchedule: 1,
+        activeServices: 1,
+        connections: 0,
+        liveConnections: 0,
+        telegramLinked: false,
+      },
+      computedAt: '2026-10-23T12:40:00Z',
+    }),
+  )
+}
+
+const servicesFlows: AccessFlow[] = [
+  {
+    name: 'services',
+    path: '/onboarding/services',
+    states: {
+      '': async (page) => {
+        await mockOwnerAtServicesStep(page)
+        await page.goto('/onboarding/services')
+        await page.getByLabel('Название услуги').waitFor()
+      },
+      error: async (page) => {
+        await mockOwnerAtServicesStep(page)
+        await page.goto('/onboarding/services')
+        await page.getByLabel('Название услуги').fill('Полировка кузова')
+        await page.getByLabel('Цена от').fill('90 000')
+        await page.getByLabel('Цена до').fill('50 000')
+        await page.getByRole('button', { name: 'Добавить услугу' }).click()
+        await page.getByText('Цена «до» не может быть меньше цены «от».').waitFor()
+      },
+      busy: async (page) => {
+        await mockOwnerAtServicesStep(page)
+        await page.route('**/api/v1/services', (route) =>
+          route.request().method() === 'POST' ? new Promise(() => {}) : route.fallback(),
+        )
+        await page.goto('/onboarding/services')
+        await page.getByLabel('Название услуги').fill('Полировка кузова')
+        await page.getByLabel('Цена от').fill('50 000')
+        await page.getByLabel('Цена до').fill('90 000')
+        await page.getByRole('button', { name: 'Добавить услугу' }).click()
+        await page.locator('button[aria-busy="true"]').waitFor()
+      },
+      loading: async (page) => {
+        await mockOwnerAtServicesStep(page)
+        await page.route('**/api/v1/services**', () => new Promise(() => {}))
+        await page.goto('/onboarding/services')
+        await page.getByRole('status', { name: 'Загрузка услуг' }).waitFor()
+      },
+    },
+  },
+]
+
+/** Без эталона: «Настройки → Компания и график» (общий редактор графика), для проверки регрессии. */
+for (const [device, width, height] of registerDevices) {
+  test(`F03 settings-company-${device}`, async ({ page }) => {
+    await page.setViewportSize({ width, height })
+    await mockOwner(page)
+    await page.goto('/settings/company')
+    await page.locator('input[name="opens-1"]').first().waitFor()
+    await page.locator('input[name="opens-1"]').first().fill('20:00')
+    await page.locator('input[name="closes-1"]').first().fill('09:00')
+    await page.getByRole('button', { name: 'Сохранить график' }).click()
+    await page.getByText('Время окончания должно быть позже начала.').waitFor()
+    await settle(page)
+    await page.screenshot({
+      path: `${OUT}/F03/actual/settings-company-${device}.png`,
+      fullPage: true,
+    })
+  })
+}
+
 /** Состояния без кадров Figma: результат сброса при действующей сессии (решение владельца 28.10). */
 for (const [device, width, height] of registerDevices) {
   test(`F03 reset-done-signed-in-${device}`, async ({ page }) => {
@@ -457,7 +665,13 @@ for (const [device, width, height] of registerDevices) {
   })
 }
 
-for (const flow of [...accessFlows, ...plainFlows]) {
+for (const flow of [
+  ...accessFlows,
+  ...plainFlows,
+  ...onboardingFlows,
+  ...locationFlows,
+  ...servicesFlows,
+]) {
   for (const [device, width, height] of registerDevices) {
     for (const [state, prepare] of Object.entries(flow.states)) {
       const file = `${flow.name}-${device}${state ? `-${state}` : ''}`

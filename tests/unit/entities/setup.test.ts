@@ -114,7 +114,7 @@ describe('недельный график', () => {
     week[1]!.closesAt = '09:00'
     const errors = validateWeek(week)
     expect(errors[1]).toBe('Укажите время открытия и закрытия')
-    expect(errors[2]).toBe('Открытие должно быть раньше закрытия')
+    expect(errors[2]).toBe('Время окончания должно быть позже начала.')
     expect(Object.keys(errors)).toHaveLength(2)
     expect(describeDay({ weekday: 1, closed: false, opensAt: '09:00', closesAt: '20:00' })).toBe(
       '09:00–20:00',

@@ -1,6 +1,6 @@
 ---
 name: lidradar-functional-review
-description: Независимо проверяет diff frontend LidRadar против user stories, API и сценариев ошибок после законченного этапа.
+description: Только отдельный функциональный аудит по явному поручению. В обычном цикле используется lidradar-qa.
 model: sonnet
 tools: Read, Glob, Grep
 maxTurns: 28

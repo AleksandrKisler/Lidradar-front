@@ -118,6 +118,40 @@ describe('describeError', () => {
     expect(describeError(new Error('boom')).title).toBe('Что-то пошло не так')
   })
 
+  it('отказ регистрации (ADR 0068): новый и прежний код — один нейтральный текст без причины', () => {
+    const neutral = {
+      title: 'Не удалось создать аккаунт',
+      description: 'Проверьте данные или попробуйте позже.',
+    }
+    const current = describeError(
+      new ApiError({
+        httpStatus: 400,
+        code: 'REGISTRATION_FAILED',
+        message: 'Registration could not be completed',
+        traceId: 'trace-1',
+      }),
+    )
+    const legacy = describeError(
+      new ApiError({
+        httpStatus: 409,
+        code: 'EMAIL_ALREADY_REGISTERED',
+        message: 'Email already registered',
+      }),
+    )
+    expect(current).toEqual(neutral)
+    expect(legacy).toEqual(neutral)
+    for (const text of [current.title, current.description]) {
+      expect(text).not.toMatch(/почт|адрес|зарегистр|использ|Registration|trace-1/i)
+    }
+    // Прочие 400/409 сохраняют собственные подписи: нейтральный текст не обобщается на статус.
+    expect(describeError(new ApiError({ httpStatus: 400, code: 'INVALID_ARGUMENT' })).title).toBe(
+      'Данные не приняты',
+    )
+    expect(describeError(new ApiError({ httpStatus: 409, code: 'CONFLICT' })).title).toBe(
+      'Конфликт данных',
+    )
+  })
+
   it('никогда не возвращает серверное сообщение как текст интерфейса', () => {
     const error = new ApiError({
       httpStatus: 500,
@@ -152,6 +186,13 @@ describe('классификация путей', () => {
     expect(isSessionLossPath('/api/v1/auth/me')).toBe(false)
     expect(isSessionLossPath('/api/v1/risks')).toBe(true)
     expect(isSessionLossPath('/api/v1/auth/logout')).toBe(true)
+  })
+
+  it('гостевая проверка приглашения: без X-Tenant-ID, неожиданный 401 не уводит на вход (ADR 0067)', () => {
+    expect(isTenantScopedPath('/api/v1/auth/registration/invitation/check')).toBe(false)
+    expect(isTenantScopedPath('/api/v1/auth/registration')).toBe(false)
+    expect(isSessionLossPath('/api/v1/auth/registration/invitation/check')).toBe(false)
+    expect(isMachinePath('/api/v1/auth/registration/invitation/check')).toBe(false)
   })
 })
 

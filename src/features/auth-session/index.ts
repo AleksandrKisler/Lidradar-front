@@ -1,5 +1,25 @@
 export { default as LoginForm } from './ui/LoginForm.vue'
 export { default as RegisterForm } from './ui/RegisterForm.vue'
+export { default as InvitationCodeForm } from './ui/InvitationCodeForm.vue'
+// Регистрация A/B/C (US-M01-01): модель страницы и контекст проверенного приглашения.
+export {
+  useRegistrationFlow,
+  AUTO_CHECK_DELAY_MS,
+  INVITATION_CHECK_RETRY_KEY,
+  REGISTER_RETRY_KEY,
+} from './model/use-registration-flow'
+export type {
+  RegistrationFlow,
+  RegistrationView,
+  InvitationCodeStatus,
+  RegistrationSubmitStatus,
+  RegistrationValues,
+} from './model/use-registration-flow'
+export {
+  INVITATION_CONTEXT_KEY,
+  INVITATION_CONTEXT_TTL_MS,
+  clearInvitationContext,
+} from './model/invitation-context'
 export { default as LogoutButton } from './ui/LogoutButton.vue'
 export { default as AuthCardHeader } from './ui/AuthCardHeader.vue'
 export { default as ForgotPasswordForm } from './ui/ForgotPasswordForm.vue'
@@ -22,6 +42,8 @@ export {
   resetPasswordSchema,
   changePasswordSchema,
   PASSWORD_MIN_LENGTH,
+  INVITATION_CODE_MESSAGES,
+  checkInvitationCodeFormat,
 } from './model/schemas'
 export type {
   LoginValues,

@@ -1,4 +1,11 @@
-# Запуск Claude Code для frontend v2
+# Запуск агентов для frontend v2
+
+Для Codex используй [инструкцию запуска](CODEX.md),
+[правила ролей](CODEX-OPERATING-RULES.md) и корневой [AGENTS.md](../../AGENTS.md).
+Codex продолжает существующую рабочую копию после Claude с сохранением изменений.
+Ниже сохранена инструкция запуска Claude Code.
+
+## Claude Code
 
 В терминале:
 

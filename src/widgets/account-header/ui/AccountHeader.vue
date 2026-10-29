@@ -24,11 +24,14 @@ function onLoggedOut({ confirmed }: { confirmed: boolean }): void {
 </script>
 
 <template>
-  <header class="flex h-20 items-center justify-between gap-4 px-4 md:px-8 lg:px-12">
-    <p class="flex items-center gap-2.5 text-xl leading-7 font-semibold text-ink">
+  <header class="flex min-h-20 items-center justify-between gap-4 px-4 py-3 md:px-8 lg:px-12">
+    <p class="flex shrink-0 items-center gap-2.5 text-xl leading-7 font-semibold text-ink">
       <UiIcon name="radar" class="size-7" />LidRadar
     </p>
-    <div v-if="!loading" class="flex items-center gap-6 text-sm leading-5">
+    <div
+      v-if="!loading"
+      class="flex min-w-0 flex-wrap items-center justify-end gap-x-4 gap-y-1 text-sm leading-5 md:gap-6"
+    >
       <RouterLink
         v-if="isPlatformAdmin"
         :to="{ name: 'admin-overview' }"
@@ -36,7 +39,12 @@ function onLoggedOut({ confirmed }: { confirmed: boolean }): void {
       >
         Администрирование
       </RouterLink>
-      <p class="hidden text-secondary md:block">{{ session.user?.displayName }}</p>
+      <p
+        class="w-full text-right break-words text-secondary md:w-auto md:max-w-64"
+        data-testid="account-display-name"
+      >
+        {{ session.user?.displayName }}
+      </p>
       <RouterLink
         :to="{ name: 'account' }"
         class="text-link hover:underline"

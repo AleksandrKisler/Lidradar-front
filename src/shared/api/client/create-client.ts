@@ -122,11 +122,24 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     credentials: 'include',
     fetch: async (request) => {
       const timeout = timeoutSignal(timeoutMs)
+      const signal = combineSignals(request.signal, timeout.signal)
+      let onAbort: () => void
+      // Дедлайн завершает клиентский Promise, даже если fetch/перехватчик браузера
+      // не отклоняет свой Promise при abort. Сам сетевой запрос также отменяется.
+      const aborted = new Promise<never>((_, reject) => {
+        onAbort = () => reject(signal.reason)
+        if (signal.aborted) onAbort()
+        else signal.addEventListener('abort', onAbort, { once: true })
+      })
       try {
-        return await baseFetch(
-          new Request(request, { signal: combineSignals(request.signal, timeout.signal) }),
-        )
+        return await Promise.race([baseFetch(new Request(request, { signal })), aborted])
+      } catch (error) {
+        // WebKit отклоняет fetch с AbortError даже для сигнала TimeoutError.
+        // Причину определяем по сигналу: только отмена вызывающего остаётся отменой.
+        if (timeout.signal.aborted && !request.signal.aborted) throw timeout.signal.reason
+        throw error
       } finally {
+        signal.removeEventListener('abort', onAbort!)
         timeout.clear()
       }
     },

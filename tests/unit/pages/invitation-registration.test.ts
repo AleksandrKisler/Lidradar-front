@@ -3,7 +3,10 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import { ApiError } from '@/shared/api'
 import { routes } from '@/app/router/routes'
+import { installGuards } from '@/app/router/guards'
+import App from '@/app/App.vue'
 import { fetchMe, useSessionStore } from '@/entities/session'
 import { RegisterPage } from '@/pages/register'
 import { AcceptInvitationPage } from '@/pages/invitations'
@@ -85,13 +88,29 @@ describe('страницы регистрации по приглашениям'
     return { wrapper, router }
   }
 
-  it('код из ссылки подставляется в поле и сразу убирается из адреса', async () => {
-    // Регистрация доступна гостю: сессию в этом сценарии не создаём.
-    vi.mocked(fetchMe).mockRejectedValue(Object.assign(new Error('401'), { httpStatus: 401 }))
+  /** Регистрация гостем: `fetch` отвечает на режим и проверку кода, остальное — ошибка теста. */
+  function registrationApi(mode: 'open' | 'invite_only' = 'invite_only') {
+    const calls: string[] = []
+    const fetchMock = vi.fn(async (request: Request) => {
+      const path = new URL(request.url).pathname
+      calls.push(`${request.method} ${path}`)
+      if (path === '/api/v1/auth/registration') return jsonResponse({ mode })
+      if (path === '/api/v1/auth/registration/invitation/check') {
+        return new Response(null, { status: 204 })
+      }
+      throw new Error(`неожиданный запрос ${path}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    return calls
+  }
+
+  async function mountRegister(location: string) {
+    vi.mocked(fetchMe).mockRejectedValue(new ApiError({ httpStatus: 401, code: 'UNAUTHENTICATED' }))
     const router = createRouter({ history: createMemoryHistory(), routes })
-    await router.push(`/register?code=${CODE}&utm=x`)
+    await router.push(location)
     await router.isReady()
     const wrapper = mount(RegisterPage, {
+      attachTo: document.body,
       global: {
         plugins: [
           router,
@@ -103,20 +122,129 @@ describe('страницы регистрации по приглашениям'
       },
     })
     await settle()
-    expect((wrapper.get('input[name="invite-code"]').element as HTMLInputElement).value).toBe(CODE)
-    expect(router.currentRoute.value.query.code).toBeUndefined()
-    expect(router.currentRoute.value.query.utm).toBe('x') // прочие параметры остаются
+    return { wrapper, router }
+  }
+
+  it('код из ссылки проверяется сервером один раз и убирается из адреса; flow и прочие параметры остаются', async () => {
+    const calls = registrationApi()
+    const { wrapper, router } = await mountRegister(`/register?code=${CODE}&utm=x`)
+    expect(router.currentRoute.value.query).toEqual({ utm: 'x', flow: 'invite' })
     expect(router.currentRoute.value.fullPath).not.toContain(CODE)
-    expect(wrapper.text()).toContain('Регистрация по приглашению')
+    expect(calls).toEqual(['POST /api/v1/auth/registration/invitation/check'])
+    // После успеха — B3: данные аккаунта без поля кода, повторный ввод не нужен.
+    expect(wrapper.find('input[name="invite-code"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain(
+      'Приглашение проверено. Заполните данные для создания аккаунта.',
+    )
+    expect(wrapper.text()).toContain('Использовать другое приглашение')
     wrapper.unmount()
   })
 
-  it('без ссылки поле кода пустое, а адрес не меняется', async () => {
-    vi.mocked(fetchMe).mockRejectedValue(Object.assign(new Error('401'), { httpStatus: 401 }))
+  it('обычный /register в open: A — пояснение и ссылка на код, без warning, кода и «Приглашение проверено»', async () => {
+    registrationApi('open')
+    const { wrapper, router } = await mountRegister('/register')
+    expect(router.currentRoute.value.fullPath).toBe('/register')
+    expect(wrapper.text()).toContain(
+      'Заполните имя, электронную почту и пароль, чтобы создать аккаунт.',
+    )
+    const link = wrapper.get('a[href="/register?flow=invite"]')
+    expect(link.text()).toBe('Использовать код приглашения')
+    expect(wrapper.text()).not.toContain('Приглашение проверено')
+    expect(wrapper.text()).not.toContain('Регистрация закрыта')
+    expect(wrapper.find('input[name="invite-code"]').exists()).toBe(false)
+    expect(wrapper.get('input[name="name"]').attributes('disabled')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('обычный /register в invite_only: warning над карточкой, форма недоступна, ссылки активны', async () => {
+    registrationApi('invite_only')
+    const { wrapper } = await mountRegister('/register')
+    const warning = wrapper.get('[role="alert"]')
+    expect(warning.text()).toContain('Регистрация закрыта')
+    expect(warning.text()).toContain('Доступ только по приглашению.')
+    // Warning — сосед карточки и стоит перед ней, а не внутри формы.
+    const card = wrapper.get('h1').element.closest('.rounded-card')!
+    expect(card.contains(warning.element)).toBe(false)
+    expect(
+      warning.element.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(wrapper.text()).not.toContain('Заполните имя')
+    expect(wrapper.text()).not.toContain('Приглашение проверено')
+    for (const name of ['name', 'email', 'new-password']) {
+      expect(wrapper.get(`input[name="${name}"]`).attributes('disabled')).toBeDefined()
+    }
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('a[href="/register?flow=invite"]').text()).toBe(
+      'Использовать код приглашения',
+    )
+    expect(wrapper.get('a[href="/login"]').text()).toBe('Войти')
+    wrapper.unmount()
+  })
+
+  it('B2 по flow=invite: заголовок, подсказки; режим не запрашивается', async () => {
+    const calls = registrationApi()
+    const { wrapper } = await mountRegister('/register?flow=invite')
+    expect(wrapper.get('h1').text()).toBe('Регистрация по приглашению')
+    expect(wrapper.get('input[name="invite-code"]').attributes('placeholder')).toBe(
+      'Вставьте код приглашения',
+    )
+    expect(calls).toEqual([])
+    wrapper.unmount()
+  })
+
+  it('каркас до загрузки сессии не создаёт модель: нет запросов, адрес и контекст не тронуты', async () => {
+    const calls = registrationApi()
+    const getItem = vi.spyOn(Storage.prototype, 'getItem')
+    const setItem = vi.spyOn(Storage.prototype, 'setItem')
+    const removeItem = vi.spyOn(Storage.prototype, 'removeItem')
+    window.history.replaceState(null, '', `/register?flow=invite&code=${CODE}`)
     const router = createRouter({ history: createMemoryHistory(), routes })
-    await router.push('/register')
-    await router.isReady()
+    const replace = vi.spyOn(router, 'replace')
     const wrapper = mount(RegisterPage, {
+      props: { loading: true },
+      global: {
+        plugins: [router, [VueQueryPlugin, { queryClient: new QueryClient() }]],
+      },
+    })
+    await settle()
+    expect(calls).toEqual([])
+    expect(replace).not.toHaveBeenCalled()
+    expect(window.location.search).toContain(CODE)
+    const touched = [...getItem.mock.calls, ...setItem.mock.calls, ...removeItem.mock.calls].map(
+      ([key]) => key,
+    )
+    expect(touched.filter((key) => String(key).includes('invitation'))).toEqual([])
+    // Каркас B2 по адресу: подпись поля и «Загружаем форму…», без поля ввода.
+    expect(wrapper.text()).toContain('Регистрация по приглашению')
+    expect(wrapper.text()).toContain('Загружаем форму…')
+    expect(wrapper.find('input').exists()).toBe(false)
+    wrapper.unmount()
+
+    window.history.replaceState(null, '', '/register')
+    const ordinary = mount(RegisterPage, {
+      props: { loading: true },
+      global: { plugins: [router, [VueQueryPlugin, { queryClient: new QueryClient() }]] },
+    })
+    expect(ordinary.text()).toContain('Загружаем форму регистрации…')
+    expect(ordinary.find('input').exists()).toBe(false)
+    expect(calls).toEqual([])
+    ordinary.unmount()
+    window.history.replaceState(null, '', '/')
+  })
+
+  it('App: каркас до bootstrap без побочных действий, затем настоящая страница проверяет ссылку ровно один раз', async () => {
+    const calls = registrationApi()
+    window.history.replaceState(null, '', `/register?flow=invite&code=${CODE}`)
+    let finishBoot!: (error: unknown) => void
+    vi.mocked(fetchMe).mockReturnValue(
+      new Promise((_resolve, reject) => {
+        finishBoot = reject
+      }),
+    )
+    const router = createRouter({ history: createMemoryHistory(), routes })
+    installGuards(router)
+    const wrapper = mount(App, {
+      attachTo: document.body,
       global: {
         plugins: [
           router,
@@ -127,10 +255,22 @@ describe('страницы регистрации по приглашениям'
         ],
       },
     })
+    const navigation = router.push(`/register?flow=invite&code=${CODE}`)
     await settle()
-    expect((wrapper.get('input[name="invite-code"]').element as HTMLInputElement).value).toBe('')
-    expect(router.currentRoute.value.fullPath).toBe('/register')
+    await settle()
+    // Каркас B2: запросов режима и проверки нет, адрес с кодом не тронут.
+    expect(wrapper.text()).toContain('Загружаем форму…')
+    expect(calls).toEqual([])
+    finishBoot(new ApiError({ httpStatus: 401, code: 'UNAUTHENTICATED' }))
+    await navigation
+    await settle()
+    await settle()
+    expect(calls).toEqual(['POST /api/v1/auth/registration/invitation/check'])
+    expect(router.currentRoute.value.fullPath).not.toContain(CODE)
+    expect(router.currentRoute.value.query.flow).toBe('invite')
+    expect(wrapper.text()).toContain('Приглашение проверено')
     wrapper.unmount()
+    window.history.replaceState(null, '', '/')
   })
 
   it('без права на организацию страница создания объясняет причину и не показывает форму', async () => {

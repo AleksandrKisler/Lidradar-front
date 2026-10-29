@@ -8,6 +8,7 @@ import { ref } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { UiButton } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
+import { clearInvitationContext } from '../model/invitation-context'
 
 withDefaults(
   defineProps<{ variant?: 'secondary' | 'ghost' | 'plain'; block?: boolean; size?: 'sm' | 'md' }>(),
@@ -26,6 +27,8 @@ async function onClick(): Promise<void> {
   try {
     const result = await session.logout()
     queryClient.clear()
+    // Контекст проверенного приглашения вкладки не переживает выход (US-M01-01 AC-B14/B15).
+    clearInvitationContext()
     emit('loggedOut', result)
   } finally {
     pending.value = false

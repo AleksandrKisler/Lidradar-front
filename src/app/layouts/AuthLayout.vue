@@ -2,8 +2,9 @@
 import { UiIcon } from '@/shared/ui'
 /**
  * Гостевой layout по Figma «Доступ · Apple HIG» (462:5453, 464:6336, 464:8859):
- * на desktop две равные колонки — обзор продукта слева, форма справа; на
- * планшете и телефоне шапка с брендом, форма и обзор продукта под ней.
+ * на desktop две равные колонки — обзор продукта слева, форма справа, правовые
+ * ссылки в общей нижней строке с подписью продукта (US-M01-01 AC-G11); на
+ * планшете и телефоне шапка с брендом, форма, правовые ссылки и обзор продукта под ней.
  */
 const benefits = [
   'Деньги требуют внимания.',
@@ -22,30 +23,38 @@ const benefits = [
 
     <main
       id="main"
-      class="flex flex-col items-center px-4 pt-4 pb-8 md:px-[161px] md:pt-8 md:pb-12 lg:min-h-dvh lg:justify-center lg:px-8 lg:py-12 xl:px-[104px]"
+      class="flex flex-col items-center px-4 pt-4 pb-8 md:px-[161px] md:pt-8 md:pb-12 lg:min-h-dvh lg:px-8 lg:py-12 xl:px-[104px]"
     >
-      <div class="w-full max-w-[512px]">
+      <!-- Desktop: противовес нижней строке правовых ссылок — форма остаётся точно по центру экрана. -->
+      <div class="hidden h-[18px] shrink-0 lg:block" aria-hidden="true" />
+      <div class="w-full max-w-[512px] lg:my-auto">
         <slot><RouterView /></slot>
-        <nav
-          class="mt-6 flex flex-col items-center gap-2 text-xs leading-[18px] text-link md:flex-row md:gap-6"
-          aria-label="Юридические документы"
-        >
-          <a
-            href="/legal/terms.html"
-            target="_blank"
-            rel="noopener"
-            class="flex h-[46px] w-full items-center justify-center text-center hover:underline md:flex-1"
-            >Пользовательское соглашение</a
-          >
-          <a
-            href="/legal/privacy.html"
-            target="_blank"
-            rel="noopener"
-            class="flex h-[46px] w-full items-center justify-center text-center hover:underline md:flex-1"
-            >Политика конфиденциальности</a
-          >
-        </nav>
       </div>
+      <!--
+        Desktop (Figma 773:6393 и все кадры 461:5460): правовые ссылки в нижней строке напротив
+        «LidRadar · Для малого бизнеса» — 64 px от правого края, 24 px между ссылками, ширина по тексту.
+        Планшет и телефон: под формой, как в адаптивных кадрах.
+      -->
+      <nav
+        class="mt-6 flex w-full max-w-[512px] flex-col items-center gap-2 text-xs leading-[18px] text-link md:flex-row md:gap-6 lg:mt-0 lg:mr-8 lg:w-auto lg:max-w-none lg:self-end xl:-mr-10"
+        aria-label="Юридические документы"
+        data-testid="auth-legal"
+      >
+        <a
+          href="/legal/terms.html"
+          target="_blank"
+          rel="noopener"
+          class="flex h-[46px] w-full items-center justify-center text-center hover:underline md:flex-1 lg:h-auto lg:w-auto lg:flex-none"
+          >Пользовательское соглашение</a
+        >
+        <a
+          href="/legal/privacy.html"
+          target="_blank"
+          rel="noopener"
+          class="flex h-[46px] w-full items-center justify-center text-center hover:underline md:flex-1 lg:h-auto lg:w-auto lg:flex-none"
+          >Политика конфиденциальности</a
+        >
+      </nav>
     </main>
 
     <aside
@@ -74,7 +83,9 @@ const benefits = [
           </li>
         </ul>
       </div>
-      <p class="text-xs text-secondary">LidRadar · Для малого бизнеса</p>
+      <p class="text-xs text-secondary" data-testid="auth-product-line">
+        LidRadar · Для малого бизнеса
+      </p>
     </aside>
   </div>
 </template>

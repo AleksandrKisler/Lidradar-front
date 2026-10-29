@@ -6,6 +6,8 @@ info:
     Целевой контракт MVP. Пути без расширения x-lidradar-runtime-status уже
     подключены к рабочему API. Значение planned означает, что контракт
     зафиксирован для будущего этапа, но маршрут ещё не доступен в cmd/api.
+    Значение staging — маршрут есть только на закрытом стейдже при включённой
+    песочнице (ADR 0066); в production он отвечает 404.
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
@@ -14,6 +16,9 @@ servers:
     description: Current LidRadar API origin
 security:
   - sessionCookie: []
+tags:
+  - name: Sandbox
+    description: 'Песочница переписки закрытого стейджа (ADR 0066). Только при LIDRADAR_ENV=staging и LIDRADAR_SANDBOX_ENABLED=true; в production маршрутов нет.'
 paths:
   /internal/v1/ai/nodes/heartbeat:
     post:
@@ -106,7 +111,7 @@ paths:
   /api/v1/auth/registration:
     get:
       summary: Get the registration mode
-      description: 'Без сессии. Режим задаёт LIDRADAR_REGISTRATION_MODE (ADR 0057): в open код приглашения не обязателен, в invite_only регистрация требует код платформы или код сотрудника. Нужен странице регистрации, чтобы показать поле кода.'
+      description: 'Без сессии. Режим задаёт LIDRADAR_REGISTRATION_MODE (ADR 0057): в open код приглашения не обязателен, в invite_only регистрация требует код платформы или код сотрудника. Нужен странице регистрации для выбора открытой/закрытой общей формы и перехода к регистрации по приглашению.'
       operationId: getRegistrationMode
       security: []
       responses:
@@ -114,6 +119,38 @@ paths:
           description: Current registration mode.
           content: { application/json: { schema: { $ref: '#/components/schemas/RegistrationInfo' } } }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /api/v1/auth/registration/invitation/check:
+    post:
+      summary: Check current registration invitation usability
+      description: >-
+        ADR 0067. Без обязательной сессии и X-Tenant-ID, в open и invite_only.
+        Проверяет код платформы или сотрудника без погашения, резервирования,
+        создания пользователя, членства, права, сессии, cookie или отправки письма.
+        204 подтверждает пригодность сейчас; окончательная регистрация повторно
+        проверяет inviteCode. Пустой после trim код — 400 INVALID_ARGUMENT;
+        непустой неверного формата, неизвестный, истёкший, отозванный или
+        использованный код — единый 403 INVITATION_INVALID без раскрытия причины.
+        Все декодированные попытки до trim/валидации расходуют отдельный постоянный
+        REGISTRATION_INVITATION_CHECK_IP: 10 за 15 минут на IP, независимо от REGISTER/LOGIN.
+        Некорректный JSON защищён общим HTTP-лимитом auth-префикса.
+        Все ответы имеют Cache-Control: no-store; действуют стандартные Origin-защиты.
+        Код передаётся только в теле POST и не возвращается в ответе.
+      operationId: checkRegistrationInvitation
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegistrationInvitationCheckRequest' }
+      responses:
+        '204':
+          description: Invitation is usable now; no body, cookie or reservation.
+          headers:
+            Cache-Control: { schema: { type: string, enum: [no-store] } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { description: 'INVITATION_INVALID — непустой код нельзя принять по любой причине; ORIGIN_NOT_ALLOWED — отказ стандартной защиты Origin.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { description: 'INTERNAL_ERROR — проверка не завершена из-за серверной ошибки.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/v1/auth/register:
     post:
       summary: Register a LidRadar user
@@ -130,9 +167,17 @@ paths:
           description: User registered and an opaque server-side session created.
           headers: { Set-Cookie: { $ref: '#/components/headers/SessionCookie' } }
           content: { application/json: { schema: { $ref: '#/components/schemas/AuthResponse' } } }
-        '400': { $ref: '#/components/responses/BadRequest' }
+        '400':
+          description: 'INVALID_ARGUMENT — неверное тело или данные; REGISTRATION_FAILED — регистрация не выполнена. REGISTRATION_FAILED содержит только code, message "Registration could not be completed" и стандартный traceId, без details, email, пользователя, причины отказа или Set-Cookie; действующее приглашение не расходуется.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                invalidArgument:
+                  value: { error: { code: INVALID_ARGUMENT, message: Invalid request, traceId: 0123456789abcdef0123456789abcdef } }
+                registrationFailed:
+                  value: { error: { code: REGISTRATION_FAILED, message: Registration could not be completed, traceId: 0123456789abcdef0123456789abcdef } }
         '403': { description: 'INVITATION_REQUIRED — в режиме invite_only нужен код приглашения; INVITATION_INVALID — код нельзя принять.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-        '409': { $ref: '#/components/responses/Conflict' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /api/v1/auth/login:
     post:
@@ -1371,6 +1416,106 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/sandbox:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+    get:
+      tags: [Sandbox]
+      x-lidradar-runtime-status: staging
+      summary: Получить лимиты и расход песочницы организации
+      description: 'Только staging (ADR 0066). Требует conversation.read (у OWNER и MANAGER есть). Расход считается за скользящие сутки. Веб-клиент обращается сюда, только если в /auth/me есть sandbox: true.'
+      operationId: getSandboxOverview
+      responses:
+        '200': { description: 'Лимиты, расход и правила сборки.', content: { application/json: { schema: { $ref: '#/components/schemas/SandboxOverview' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Песочница выключена (production и стейдж без флага)., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/v1/sandbox/templates:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+    get:
+      tags: [Sandbox]
+      x-lidradar-runtime-status: staging
+      summary: Получить каталог шаблонов песочницы
+      description: 'Только staging (ADR 0066). Требует conversation.read. Все шаблоны текущей версии каталога; qualified — шаблон прошёл квалификацию на стейдже (LIDRADAR_SANDBOX_QUALIFIED_TEMPLATES). Интерфейс показывает тестировщикам только квалифицированные шаблоны; пустая переписка квалифицирована всегда.'
+      operationId: listSandboxTemplates
+      responses:
+        '200': { description: Каталог шаблонов., content: { application/json: { schema: { type: object, additionalProperties: false, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/SandboxTemplate' } } } } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/sandbox/conversations:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+    get:
+      tags: [Sandbox]
+      x-lidradar-runtime-status: staging
+      summary: Получить последние переписки песочницы со сверкой
+      description: 'Только staging (ADR 0066). Требует conversation.read. До 50 последних переписок организации, новые первыми; у каждой — сверка «Ожидали / Нашли» по текущему состоянию обработки.'
+      operationId: listSandboxConversations
+      responses:
+        '200': { description: Переписки песочницы., content: { application/json: { schema: { type: object, additionalProperties: false, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/SandboxConversation' } } } } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Sandbox]
+      x-lidradar-runtime-status: staging
+      summary: Собрать переписку виртуального клиента и отправить её в систему
+      description: 'Только staging (ADR 0066). Требует conversation.read (у OWNER и MANAGER есть). Паузы переводятся во время сообщений: последнее отправлено за tailMinutes до запроса, каждое предыдущее — на свою паузу раньше следующего (без паузы — на секунду раньше); вся история не старше 7 суток. Сообщения уходят в канал TEST «Песочница» точки (создаётся при первом обращении) и проходят обычный путь обработки. Точный повтор с тем же ключом возвращает ту же переписку и досылает недоставленные сообщения.'
+      operationId: createSandboxConversation
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SandboxCreateRequest' } } } }
+      responses:
+        '200': { description: Ранее созданная переписка при точном повторе., content: { application/json: { schema: { $ref: '#/components/schemas/SandboxConversation' } } } }
+        '201': { description: Переписка сохранена и отправлена., content: { application/json: { schema: { $ref: '#/components/schemas/SandboxConversation' } } } }
+        '400': { description: 'INVALID_ARGUMENT — неизвестный шаблон, пустой или длинный текст, больше 30 сообщений, история старше 7 суток; IDEMPOTENCY_KEY_REQUIRED — нет заголовка Idempotency-Key.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: 'Точка не найдена в организации; песочница выключена.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: 'IDEMPOTENCY_CONFLICT — ключ использован с другим содержимым; IDEMPOTENCY_KEY_EXPIRED — ответ по ключу стёрт; SANDBOX_CHANNEL_DISCONNECTED — канал песочницы переписки отключён владельцем; SANDBOX_BUSY — другая переписка песочницы организации ещё обрабатывается (не дольше 30 минут после её отправки).', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429': { description: 'SANDBOX_LIMIT — исчерпан суточный лимит сборок или сообщений организации; SANDBOX_AI_BUSY — очередь AI стейджа длиннее лимита (AI-узел общий с production), Retry-After указывает срок повтора.', headers: { Retry-After: { $ref: '#/components/headers/RetryAfter' } }, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '503': { description: 'SANDBOX_DELIVERY_UNAVAILABLE — переписка сохранена, но не все сообщения приняты; повторите запрос с тем же ключом.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/v1/sandbox/conversations/{conversationId}:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+      - { name: conversationId, in: path, required: true, description: Идентификатор переписки песочницы (не переписки модуля conversation)., schema: { type: string, format: uuid } }
+    get:
+      tags: [Sandbox]
+      x-lidradar-runtime-status: staging
+      summary: Получить переписку песочницы со сверкой
+      description: 'Только staging (ADR 0066). Требует conversation.read. Пока status.state = PROCESSING, интерфейс опрашивает переписку раз в 3 секунды.'
+      operationId: getSandboxConversation
+      responses:
+        '200': { description: Переписка песочницы., content: { application/json: { schema: { $ref: '#/components/schemas/SandboxConversation' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/sandbox/conversations/{conversationId}/messages:
+    parameters:
+      - { $ref: '#/components/parameters/TenantId' }
+      - { $ref: '#/components/parameters/IdempotencyKey' }
+      - { name: conversationId, in: path, required: true, description: Идентификатор переписки песочницы (не переписки модуля conversation)., schema: { type: string, format: uuid } }
+    post:
+      tags: [Sandbox]
+      x-lidradar-runtime-status: staging
+      summary: Отправить сообщение в собранную переписку песочницы
+      description: 'Только staging (ADR 0066). Требует conversation.read (у OWNER и MANAGER есть). Сообщение получает текущее время, но строго позже последнего сообщения переписки. Ответ содержит всю переписку; недоставленные ранее сообщения досылаются.'
+      operationId: sendSandboxMessage
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SandboxSendRequest' } } } }
+      responses:
+        '200': { description: Ранее сохранённый ответ при точном повторе., content: { application/json: { schema: { $ref: '#/components/schemas/SandboxConversation' } } } }
+        '201': { description: Сообщение сохранено и отправлено., content: { application/json: { schema: { $ref: '#/components/schemas/SandboxConversation' } } } }
+        '400': { description: 'INVALID_ARGUMENT — пустой или длинный текст, неизвестный отправитель; IDEMPOTENCY_KEY_REQUIRED — нет заголовка Idempotency-Key.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: 'IDEMPOTENCY_CONFLICT — ключ использован с другим содержимым; IDEMPOTENCY_KEY_EXPIRED — ответ по ключу стёрт; SANDBOX_CHANNEL_DISCONNECTED — канал песочницы переписки отключён владельцем.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429': { description: SANDBOX_LIMIT — исчерпан суточный лимит сообщений организации., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '503': { description: 'SANDBOX_DELIVERY_UNAVAILABLE — сообщение сохранено, но не принято; повторите запрос с тем же ключом.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
 components:
   securitySchemes:
     sessionCookie:
@@ -1484,6 +1629,15 @@ components:
         updatedAt: { type: string, format: date-time }
         emailVerifiedAt: { type: [string, 'null'], format: date-time, description: 'Когда подтверждён адрес почты (ADR 0058); null — не подтверждён. Подтверждение мягкое и ничего не блокирует.' }
         deletionDueAt: { type: [string, 'null'], format: date-time, description: 'Срок обезличивания учётной записи, если пользователь запросил её закрытие (ADR 0059); до этого срока запрос можно отменить, работа не ограничена. null — удаление не назначено.' }
+    RegistrationInvitationCheckRequest:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          description: 'Код приглашения; после trim ожидаются 43 символа base64url. Непустой неверный формат получает 403 INVITATION_INVALID, а не 400.'
     RegisterRequest:
       type: object
       additionalProperties: false
@@ -1611,6 +1765,130 @@ components:
         user: { $ref: '#/components/schemas/User' }
         memberships: { type: array, items: { $ref: '#/components/schemas/MembershipSummary' } }
         canCreateOrganization: { type: boolean, description: 'true в режиме open и в invite_only при действующем праве создать организацию (ADR 0057); по нему интерфейс выбирает между созданием организации и вводом кода сотрудника.' }
+        sandbox: { type: boolean, const: true, description: 'Есть только на стейдже при включённой песочнице (ADR 0066): по нему интерфейс показывает раздел «Песочница». В production поля нет.' }
+    SandboxDirection: { type: string, enum: [INCOMING, OUTGOING], description: INCOMING — пишет клиент; OUTGOING — отвечает бизнес. }
+    SandboxDraftMessage:
+      type: object
+      additionalProperties: false
+      required: [direction, text]
+      properties:
+        direction: { $ref: '#/components/schemas/SandboxDirection' }
+        text: { type: string, minLength: 1, maxLength: 4000 }
+        pauseBeforeMinutes: { type: integer, minimum: 0, default: 0, description: Пауза перед сообщением; у первого сообщения не учитывается. }
+    SandboxCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [locationId, templateCode, messages]
+      properties:
+        locationId: { type: string, format: uuid }
+        templateCode: { type: string, enum: [no_response, booking_not_confirmed, promise_not_fulfilled, customer_silent_after_price, follow_up_candidate, unfinished_agreement, empty], description: Шаблон задаёт ожидаемый тип риска; empty — без ожидания. }
+        contactName: { type: string, maxLength: 100, description: Имя виртуального клиента; без него выбирается синтетическое. }
+        tailMinutes: { type: integer, minimum: 0, maximum: 10080, default: 0, description: Сколько минут прошло после последнего сообщения. }
+        messages: { type: array, minItems: 1, maxItems: 30, items: { $ref: '#/components/schemas/SandboxDraftMessage' } }
+    SandboxSendRequest:
+      type: object
+      additionalProperties: false
+      required: [direction, text]
+      properties:
+        direction: { $ref: '#/components/schemas/SandboxDirection' }
+        text: { type: string, minLength: 1, maxLength: 4000 }
+    SandboxMessage:
+      type: object
+      additionalProperties: false
+      required: [id, sequence, direction, text, sentAt]
+      properties:
+        id: { type: string, format: uuid }
+        sequence: { type: integer, minimum: 1 }
+        direction: { $ref: '#/components/schemas/SandboxDirection' }
+        text: { type: string }
+        sentAt: { type: string, format: date-time, description: Рассчитанное время сообщения; оно же время сообщения в переписке. }
+    SandboxConversation:
+      type: object
+      additionalProperties: false
+      required: [id, locationId, connectionId, contactName, templateCode, templateVersion, templateModified, expectedRiskType, createdAt, lastSentAt, messages, status]
+      properties:
+        id: { type: string, format: uuid }
+        locationId: { type: string, format: uuid }
+        connectionId: { type: string, format: uuid, description: Канал TEST «Песочница» точки. }
+        contactName: { type: string }
+        templateCode: { type: string }
+        templateModified: { type: [boolean, 'null'], description: "Изменены тексты или состав исходной сборки; null — версия каталога больше недоступна. Живые сообщения не меняют отметку." }
+        templateVersion: { type: integer, minimum: 1 }
+        expectedRiskType: { oneOf: [{ $ref: '#/components/schemas/RiskType' }, { type: 'null' }] }
+        createdAt: { type: string, format: date-time }
+        lastSentAt: { type: [string, 'null'], format: date-time, description: 'Время последнего сообщения, принятого коннектором.' }
+        messages: { type: array, items: { $ref: '#/components/schemas/SandboxMessage' } }
+        status: { $ref: '#/components/schemas/SandboxVerdict' }
+    SandboxFoundRisk:
+      type: object
+      additionalProperties: false
+      required: [id, type, status, severity, detectedAt, resolvedAt, active]
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: '#/components/schemas/RiskType' }
+        status: { type: string, enum: [OPEN, ACKNOWLEDGED, ACTED, RESOLVED, FALSE_POSITIVE, IGNORED, EXPIRED] }
+        severity: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+        detectedAt: { type: string, format: date-time }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+        active: { type: boolean, description: 'OPEN, ACKNOWLEDGED или ACTED.' }
+    SandboxVerdict:
+      type: object
+      additionalProperties: false
+      description: 'Сверка «Ожидали / Нашли» (ADR 0066 п. 6). PROCESSING — обработка идёт (stage: SENDING — коннектор принял не все сообщения, повторите команду; NORMALIZING — собирается переписка; ANALYZING — AI разбирает текущую ревизию; EVALUATING — правила рисков отрабатывают, до 90 секунд после анализа). MATCH — найден активный ожидаемый риск; PENDING — риск ещё не наступил, dueAt — срок его проверки в рабочих часах точки; CLOSED — ожидаемый риск был найден и закрыт; MISMATCH — обработка завершена, ожидаемого риска нет; NO_EXPECTATION — у шаблона нет ожидания; FAILED — событие или анализ завершились ошибкой (failureCode).'
+      required: [state, stage, expectedRiskType, expectedRiskId, dueAt, failureCode, failureMessageId, conversationId, analysisVersion, found]
+      properties:
+        state: { type: string, enum: [PROCESSING, MATCH, PENDING, CLOSED, MISMATCH, NO_EXPECTATION, FAILED] }
+        stage: { type: [string, 'null'], enum: [SENDING, NORMALIZING, ANALYZING, EVALUATING, null] }
+        expectedRiskType: { oneOf: [{ $ref: '#/components/schemas/RiskType' }, { type: 'null' }] }
+        expectedRiskId: { type: [string, 'null'], format: uuid, description: Найденный риск ожидаемого типа (активный или последний закрытый). }
+        dueAt: { type: [string, 'null'], format: date-time }
+        failureCode: { type: [string, 'null'], description: 'EVENT_FAILED или ANALYSIS_FAILED, через двоеточие — код модуля.' }
+        failureMessageId: { type: [string, 'null'], format: uuid, description: 'Сообщение песочницы с ошибкой события; при ошибке AI — последнее сообщение анализируемой переписки. Для поиска RawEvent используйте sandbox-event:<id>.' }
+        conversationId: { type: [string, 'null'], format: uuid, description: Переписка модуля conversation; по ней интерфейс открывает «Диалоги». }
+        analysisVersion: { type: [string, 'null'], description: 'Кортеж AI последнего успешного анализа переписки: модель/схема/инструкция. Для отчёта о баге.' }
+        found: { type: array, items: { $ref: '#/components/schemas/SandboxFoundRisk' } }
+    SandboxTemplateMessage:
+      type: object
+      additionalProperties: false
+      required: [direction, text, pauseBeforeMinutes]
+      properties:
+        direction: { $ref: '#/components/schemas/SandboxDirection' }
+        text: { type: string }
+        pauseBeforeMinutes: { type: integer, minimum: 0 }
+    SandboxTemplate:
+      type: object
+      additionalProperties: false
+      required: [code, name, expectedRiskType, closedBy, messages, tailMinutes, version, qualified]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        expectedRiskType: { oneOf: [{ $ref: '#/components/schemas/RiskType' }, { type: 'null' }] }
+        closedBy: { oneOf: [{ $ref: '#/components/schemas/SandboxDirection' }, { type: 'null' }], description: Чей ответ закрывает ожидаемый риск. }
+        messages: { type: array, items: { $ref: '#/components/schemas/SandboxTemplateMessage' } }
+        tailMinutes: { type: integer, minimum: 0 }
+        version: { type: integer, minimum: 1 }
+        qualified: { type: boolean }
+    SandboxOverview:
+      type: object
+      additionalProperties: false
+      required: [enabled, limits, usage, rules]
+      properties:
+        enabled: { type: boolean, const: true }
+        limits:
+          type: object
+          additionalProperties: false
+          required: [conversationsPerDay, messagesPerDay, aiQueueLimit]
+          properties: { conversationsPerDay: { type: integer, minimum: 1 }, messagesPerDay: { type: integer, minimum: 1 }, aiQueueLimit: { type: integer, minimum: 1 } }
+        usage:
+          type: object
+          additionalProperties: false
+          required: [conversations, messages]
+          properties: { conversations: { type: integer, minimum: 0 }, messages: { type: integer, minimum: 0 } }
+        rules:
+          type: object
+          additionalProperties: false
+          required: [maxMessagesPerBuild, maxHistoryMinutes, maxTextLength]
+          properties: { maxMessagesPerBuild: { type: integer }, maxHistoryMinutes: { type: integer }, maxTextLength: { type: integer } }
     RegistrationInfo:
       type: object
       required: [mode]

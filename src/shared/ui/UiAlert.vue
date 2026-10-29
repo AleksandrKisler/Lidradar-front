@@ -5,15 +5,18 @@
  * прерывали пользователя без необходимости.
  */
 import UiIcon from './UiIcon.vue'
+import type { IconName } from './icons'
 
 withDefaults(
   defineProps<{
     tone?: 'info' | 'success' | 'warning' | 'danger' | undefined
+    /** Пиктограмма выбранного макета; семантика и цвет остаются у tone. */
+    icon?: IconName | undefined
     title?: string | undefined
     /** Идентификатор трассировки для обращения в поддержку. */
     traceId?: string | undefined
   }>(),
-  { tone: 'info', title: '', traceId: '' },
+  { tone: 'info', icon: undefined, title: '', traceId: '' },
 )
 
 const tones = {
@@ -44,7 +47,7 @@ const titles = {
     :class="['rounded-field border px-[15px] py-[11px] text-sm leading-5', tones[tone]]"
   >
     <div class="flex items-start gap-3">
-      <UiIcon :name="icons[tone]" :class="['size-5', titles[tone]]" />
+      <UiIcon :name="icon ?? icons[tone]" :class="['size-5', titles[tone]]" />
       <div class="min-w-0">
         <p v-if="title" :class="['font-medium', titles[tone]]">{{ title }}</p>
         <div :class="title ? 'mt-1' : ''"><slot /></div>

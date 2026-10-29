@@ -129,6 +129,33 @@ describe('транспорт: заголовки и организация', () 
   })
 })
 
+describe('WebKit deadline', () => {
+  it('завершает ожидание по дедлайну, даже если fetch не отклоняет Promise после abort', async () => {
+    const { client, fetchMock, call } = setup({}, { timeoutMs: 20 })
+    fetchMock.mockImplementation(() => new Promise(() => {}))
+    await expect(call(client.GET('/api/v1/auth/registration'))).rejects.toMatchObject({
+      code: CLIENT_ERROR_CODES.network,
+      httpStatus: 0,
+    })
+  })
+
+  it('AbortError при срабатывании таймера остаётся сетевым сбоем, а не отменой вызывающего', async () => {
+    const { client, fetchMock, call } = setup({}, { timeoutMs: 20 })
+    fetchMock.mockImplementation(
+      (request) =>
+        new Promise((_, reject) => {
+          request.signal.addEventListener('abort', () =>
+            reject(new DOMException('Fetch is aborted', 'AbortError')),
+          )
+        }),
+    )
+    await expect(call(client.GET('/api/v1/auth/registration'))).rejects.toMatchObject({
+      code: CLIENT_ERROR_CODES.network,
+      httpStatus: 0,
+    })
+  })
+})
+
 describe('транспорт: ответы и ошибки', () => {
   it('превращает конверт ошибки в ApiError', async () => {
     const { client, fetchMock, call } = setup()
@@ -198,6 +225,12 @@ describe('транспорт: ответы и ошибки', () => {
     ).catch(() => undefined)
     fetchMock.mockResolvedValueOnce(unauthorized())
     await call(client.GET('/api/v1/auth/me')).catch(() => undefined)
+    // Гостевая проверка приглашения (ADR 0067): неожиданный 401 — служебный сбой, не потеря сессии.
+    fetchMock.mockResolvedValueOnce(unauthorized())
+    await call(
+      client.POST('/api/v1/auth/registration/invitation/check', { body: { code: 'c' } }),
+    ).catch(() => undefined)
+    expect(fetchMock.mock.calls.at(-1)![0].headers.get('X-Tenant-ID')).toBeNull()
     expect(onSessionLost).not.toHaveBeenCalled()
     fetchMock.mockResolvedValueOnce(unauthorized())
     await call(

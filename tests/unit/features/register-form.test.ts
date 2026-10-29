@@ -1,337 +1,285 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { flushPromises, mount } from '@vue/test-utils'
-import { createPinia, setActivePinia } from 'pinia'
-import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
+import { afterEach, describe, expect, it } from 'vitest'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { ApiError } from '@/shared/api'
-import { register, useSessionStore } from '@/entities/session'
-import { RegisterForm } from '@/features/auth-session'
+import { RegisterForm, type RegistrationSubmitStatus } from '@/features/auth-session'
 
-vi.mock('@/entities/session/api/auth-api', () => ({
-  fetchMe: vi.fn(),
-  logout: vi.fn(),
-  login: vi.fn(),
-  register: vi.fn(),
-}))
+/**
+ * Общая форма данных A/B3 и отключённая форма C (US-M01-01 AC-G02…G05, AC-C01/C03; US-M01-02).
+ * Форма только проверяет формат и передаёт значения: поля кода и собственного запроса режима нет.
+ */
 
-/** Регистрация по приглашениям (ADR 0057): поле кода, проверка формата до запроса и ответы сервера. */
+const router = createRouter({
+  history: createMemoryHistory(),
+  routes: [
+    { path: '/', component: { render: () => null } },
+    { path: '/login', name: 'login', component: { render: () => null } },
+    { path: '/forgot-password', name: 'forgot-password', component: { render: () => null } },
+  ],
+})
 
-const CODE = 'A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8S9t0UvW' // 43 символа base64url
-const rejected = (code: string) => new ApiError({ httpStatus: 403, code, traceId: 't-1' })
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
+type Props = {
+  variant?: 'open' | 'invite' | 'closed'
+  loading?: boolean
+  draft?: { displayName: string; email: string }
+  status?: RegistrationSubmitStatus
+  error?: unknown
+  retrySeconds?: number
+  autofocus?: boolean
 }
 
-async function settle(): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 30))
+let wrapper: VueWrapper | null = null
+
+function mountForm(props: Props = {}) {
+  wrapper = mount(RegisterForm, {
+    props: { error: null, ...props },
+    attachTo: document.body,
+    global: { plugins: [router] },
+  })
+  return wrapper
+}
+
+async function fill(
+  form: VueWrapper,
+  values: { name?: string; email?: string; password?: string },
+): Promise<void> {
+  if (values.name !== undefined) await form.get('input[name="name"]').setValue(values.name)
+  if (values.email !== undefined) await form.get('input[name="email"]').setValue(values.email)
+  if (values.password !== undefined) {
+    await form.get('input[name="new-password"]').setValue(values.password)
+  }
+}
+
+async function submit(form: VueWrapper): Promise<void> {
+  await form.get('form').trigger('submit')
+  await new Promise((resolve) => setTimeout(resolve, 10))
   await flushPromises()
 }
 
-describe('RegisterForm', () => {
-  let fetchMock: ReturnType<typeof vi.fn<(request: Request) => Promise<Response>>>
+const valid = { name: 'Мария', email: 'maria@example.test', password: 'synthetic-pass-1' }
 
-  beforeEach(() => {
-    setActivePinia(createPinia())
-    sessionStorage.clear()
-    vi.mocked(register).mockReset()
-    fetchMock = vi.fn<(request: Request) => Promise<Response>>()
-    vi.stubGlobal('fetch', fetchMock)
-  })
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
+afterEach(() => {
+  wrapper?.unmount()
+  wrapper = null
+})
 
-  function modeIs(mode: 'open' | 'invite_only'): void {
-    fetchMock.mockImplementation(async () => jsonResponse({ mode }))
-  }
-
-  function mountForm(initialCode?: string) {
-    return mount(RegisterForm, {
-      props: initialCode === undefined ? {} : { initialCode },
-      global: {
-        plugins: [
-          [
-            VueQueryPlugin,
-            { queryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
-          ],
-        ],
-      },
-    })
-  }
-
-  async function fillAndSubmit(wrapper: ReturnType<typeof mountForm>, code?: string) {
-    if (code !== undefined) await wrapper.get('input[name="invite-code"]').setValue(code)
-    await wrapper.get('input[name="name"]').setValue('Мария')
-    await wrapper.get('input[name="email"]').setValue('maria@example.test')
-    await wrapper.get('input[name="new-password"]').setValue('very-secure-password')
-    await wrapper.get('form').trigger('submit')
-    await settle()
-  }
-
-  it('в режиме invite_only просит код и не отправляет форму без него', async () => {
-    modeIs('invite_only')
-    const wrapper = mountForm()
-    await settle()
-    expect(wrapper.text()).toContain('Код приглашения')
-    expect(wrapper.text()).not.toContain('необязательно')
-    await fillAndSubmit(wrapper)
-    expect(register).not.toHaveBeenCalled()
-    expect(wrapper.text()).toContain('Для регистрации нужен код приглашения')
-    expect(wrapper.get('input[name="invite-code"]').attributes('aria-invalid')).toBe('true')
-    wrapper.unmount()
-  })
-
-  // Предел регистраций с адреса — пять в час, и неверный код тоже расходует попытку:
-  // опечатку в формате форма ловит сама.
-  it('не отправляет код неверного формата, не тратя попытку регистрации', async () => {
-    modeIs('invite_only')
-    const wrapper = mountForm()
-    await settle()
-    await fillAndSubmit(wrapper, 'short-code')
-    expect(register).not.toHaveBeenCalled()
-    expect(wrapper.text()).toContain('Код состоит из 43 символов')
-    wrapper.unmount()
-  })
-
-  it('отправляет нормализованный код вместе с остальными полями, очищает пароль и сообщает родителю', async () => {
-    modeIs('invite_only')
-    vi.mocked(register).mockResolvedValue({ user: { id: 'u' } } as never)
-    const refresh = vi.spyOn(useSessionStore(), 'refresh').mockResolvedValue()
-    const wrapper = mountForm()
-    await settle()
-    await fillAndSubmit(wrapper, `  ${CODE.slice(0, 20)}\n${CODE.slice(20)} `)
-    expect(register).toHaveBeenCalledWith({
-      email: 'maria@example.test',
-      displayName: 'Мария',
-      password: 'very-secure-password',
-      inviteCode: CODE,
-    })
-    expect(refresh).toHaveBeenCalledTimes(1)
-    expect(wrapper.emitted('success')).toHaveLength(1)
-    wrapper.unmount()
-  })
-
-  it('в открытом режиме поле кода скрыто и в запрос не попадает', async () => {
-    modeIs('open')
-    vi.mocked(register).mockResolvedValue({ user: { id: 'u' } } as never)
-    vi.spyOn(useSessionStore(), 'refresh').mockResolvedValue()
-    const wrapper = mountForm()
-    await settle()
-    expect(wrapper.find('input[name="invite-code"]').exists()).toBe(false)
-    await fillAndSubmit(wrapper)
-    expect(register).toHaveBeenCalledWith({
-      email: 'maria@example.test',
-      displayName: 'Мария',
-      password: 'very-secure-password',
-    })
-    wrapper.unmount()
-  })
-
-  it('код из ссылки подставляется и в открытом режиме, где он необязателен', async () => {
-    modeIs('open')
-    vi.mocked(register).mockResolvedValue({ user: { id: 'u' } } as never)
-    vi.spyOn(useSessionStore(), 'refresh').mockResolvedValue()
-    const wrapper = mountForm(CODE)
-    await settle()
-    expect(wrapper.text()).toContain('необязательно')
-    expect((wrapper.get('input[name="invite-code"]').element as HTMLInputElement).value).toBe(CODE)
-    await fillAndSubmit(wrapper)
-    expect(register).toHaveBeenCalledWith(expect.objectContaining({ inviteCode: CODE }))
-    wrapper.unmount()
-  })
-
-  it('пока режим не известен или запрос режима упал, форма просит код: решает сервер', async () => {
-    fetchMock.mockImplementation(async () => {
-      throw new TypeError('offline')
-    })
-    const wrapper = mountForm()
-    await settle()
-    expect(wrapper.find('input[name="invite-code"]').exists()).toBe(true)
-    wrapper.unmount()
-  })
-
-  it('INVITATION_INVALID показывается у поля одним текстом, без серверной причины и без общего алерта', async () => {
-    modeIs('invite_only')
-    vi.mocked(register).mockRejectedValue(rejected('INVITATION_INVALID'))
-    const refresh = vi.spyOn(useSessionStore(), 'refresh').mockResolvedValue()
-    const wrapper = mountForm()
-    await settle()
-    await fillAndSubmit(wrapper, CODE)
-    expect(wrapper.text()).toContain('Код не подходит')
-    expect(wrapper.text()).toContain('просрочен, уже использован или отозван')
-    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
-    expect(refresh).not.toHaveBeenCalled()
-    expect(wrapper.emitted('success')).toBeUndefined()
-    wrapper.unmount()
-  })
-
-  it('INVITATION_REQUIRED от сервера тоже показывается у поля кода', async () => {
-    modeIs('open')
-    vi.mocked(register).mockRejectedValue(rejected('INVITATION_REQUIRED'))
-    const wrapper = mountForm()
-    await settle()
-    await fillAndSubmit(wrapper)
-    expect(wrapper.text()).toContain('Для регистрации нужен код приглашения')
-    wrapper.unmount()
-  })
-
-  it('занятая почта показывается у почты, а не у кода', async () => {
-    modeIs('invite_only')
-    vi.mocked(register).mockRejectedValue(
-      new ApiError({ httpStatus: 409, code: 'EMAIL_ALREADY_REGISTERED' }),
+describe('единая форма A/B3 (AC-G02)', () => {
+  it.each(['open', 'invite'] as const)('%s: имя, почта и пароль; поля кода нет', (variant) => {
+    const form = mountForm({ variant })
+    const names = form.findAll('input').map((input) => input.attributes('name'))
+    expect(names).toEqual(['name', 'email', 'new-password'])
+    expect(form.text()).not.toContain('Код приглашения')
+    expect(form.get('input[name="name"]').attributes('placeholder')).toBe('Введите имя')
+    expect(form.get('input[name="email"]').attributes('placeholder')).toBe('name@example.com')
+    expect(form.get('input[name="new-password"]').attributes('placeholder')).toBe(
+      'Придумайте пароль',
     )
-    const wrapper = mountForm()
-    await settle()
-    await fillAndSubmit(wrapper, CODE)
-    expect(wrapper.text()).toContain('Этот адрес уже зарегистрирован')
-    expect(wrapper.text()).not.toContain('Код не подходит')
-    wrapper.unmount()
+    expect(form.text()).toContain('Не меньше 12 символов.')
   })
 
-  describe('макет Access «Регистрация» (Figma 462:5559) и негативные проверки US-M01-01/02', () => {
-    it('отправка: поля заблокированы, кнопка «Создаём аккаунт…» сохраняет доступное имя «Создать аккаунт»', async () => {
-      modeIs('invite_only')
-      let release: (value: never) => void = () => {}
-      vi.mocked(register).mockImplementation(() => new Promise((resolve) => (release = resolve)))
-      const wrapper = mountForm()
-      await settle()
-      await fillAndSubmit(wrapper, CODE)
-      const button = wrapper.get('button[type="submit"]')
-      expect(button.attributes('aria-busy')).toBe('true')
-      expect(button.text()).toContain('Создаём аккаунт…')
-      expect(button.get('.sr-only').text()).toBe('Создать аккаунт')
-      for (const name of ['invite-code', 'name', 'email', 'new-password']) {
-        expect(wrapper.get(`input[name="${name}"]`).attributes('disabled')).toBeDefined()
-      }
-      release({ user: { id: 'u' } } as never)
-      wrapper.unmount()
+  it('отправляет только данные аккаунта; имя и почта берутся из памяти страницы, пароль — нет', async () => {
+    const form = mountForm({
+      variant: 'invite',
+      draft: { displayName: 'Мария', email: 'maria@example.test' },
     })
+    expect((form.get('input[name="name"]').element as HTMLInputElement).value).toBe('Мария')
+    expect((form.get('input[name="new-password"]').element as HTMLInputElement).value).toBe('')
+    await fill(form, { password: valid.password })
+    await submit(form)
+    expect(form.emitted('submit')).toEqual([
+      [{ displayName: 'Мария', email: valid.email, password: valid.password }],
+    ])
+  })
 
-    it('первичная загрузка: подписи и подсказки на месте, полей и отправки нет', async () => {
-      modeIs('invite_only')
-      const wrapper = mount(RegisterForm, {
-        props: { loading: true },
-        global: {
-          plugins: [
-            [
-              VueQueryPlugin,
-              { queryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
-            ],
-          ],
-        },
-      })
-      const text = wrapper.text()
-      for (const label of [
-        'Код приглашения',
-        'Имя',
-        'Электронная почта',
-        'Пароль',
-        'Создать аккаунт',
-      ]) {
-        expect(text).toContain(label)
-      }
-      expect(text).toContain('43 символа')
-      expect(text).toContain('Не меньше 12 символов')
-      expect(wrapper.find('input').exists()).toBe(false)
-      expect(wrapper.find('button').exists()).toBe(false)
-      expect(wrapper.get('[role="status"]').attributes('aria-label')).toBe('Загрузка')
-      wrapper.unmount()
+  it('правка имени и почты передаётся в память страницы и снимает устаревший отказ', async () => {
+    const form = mountForm({ variant: 'open' })
+    await fill(form, { name: 'Анна', email: 'anna@example.test' })
+    expect(form.emitted('update:draft')!.at(-1)).toEqual([
+      { displayName: 'Анна', email: 'anna@example.test' },
+    ])
+    expect(form.emitted('edit')!.length).toBeGreaterThan(0)
+  })
+})
+
+describe('проверка до запроса (AC-G03)', () => {
+  it('пустое имя, 201 символ, пароль 11/1025, неверная почта — ошибки у полей, отправки нет', async () => {
+    const form = mountForm({ variant: 'open' })
+    await submit(form)
+    expect(form.text()).toContain('Введите имя')
+    expect(form.get('input[name="name"]').attributes('aria-invalid')).toBe('true')
+    // Фокус — на первом поле с ошибкой.
+    expect(document.activeElement).toBe(form.get('input[name="name"]').element)
+
+    await fill(form, { ...valid, password: '12345678901' })
+    await submit(form)
+    expect(form.text()).toContain('Не меньше 12 символов')
+    expect(form.get('input[name="new-password"]').attributes('aria-invalid')).toBe('true')
+
+    await fill(form, { ...valid, password: 'p'.repeat(1025) })
+    await submit(form)
+    expect(form.text()).toContain('Слишком длинный пароль')
+
+    await fill(form, { ...valid, email: 'maria.example.test' })
+    await submit(form)
+    expect(form.text()).toContain('Введите корректный адрес электронной почты.')
+    const email = form.get('input[name="email"]')
+    expect(email.attributes('aria-invalid')).toBe('true')
+    expect(email.attributes('aria-describedby')).toMatch(/-error$/)
+    expect(document.activeElement).toBe(email.element)
+
+    await fill(form, { ...valid, name: 'я'.repeat(201) })
+    await submit(form)
+    expect(form.get('input[name="name"]').attributes('aria-invalid')).toBe('true')
+    expect(form.emitted('submit')).toBeUndefined()
+  })
+
+  it('граничные значения проходят: имя 200, пароль 12 и 1024', async () => {
+    const form = mountForm({ variant: 'open' })
+    await fill(form, { ...valid, name: 'я'.repeat(200), password: 'p'.repeat(12) })
+    await submit(form)
+    await fill(form, { password: 'p'.repeat(1024) })
+    await submit(form)
+    expect(form.emitted('submit')).toHaveLength(2)
+    expect(form.get('input[name="name"]').attributes('maxlength')).toBe('200')
+  })
+})
+
+describe('закрытая форма C (AC-C01, AC-C03, AC-C04)', () => {
+  it('поля, показ пароля и кнопка недоступны; клик и Enter ничего не отправляют', async () => {
+    const form = mountForm({
+      variant: 'closed',
+      draft: { displayName: 'Мария', email: 'm@x.test' },
     })
+    for (const name of ['name', 'email', 'new-password']) {
+      const input = form.get(`input[name="${name}"]`)
+      expect(input.attributes('disabled')).toBeDefined()
+      expect((input.element as HTMLInputElement).value).toBe('')
+    }
+    expect(form.get('button[aria-label="Показать пароль"]').attributes('disabled')).toBeDefined()
+    const button = form.get('button[type="submit"]')
+    expect(button.attributes('disabled')).toBeDefined()
+    expect(button.text()).toBe('Создать аккаунт')
+    await button.trigger('click')
+    await form.get('input[name="email"]').trigger('keydown', { key: 'Enter' })
+    await submit(form)
+    expect(form.emitted('submit')).toBeUndefined()
+    expect(form.find('[data-testid="register-feedback"]').exists()).toBe(false)
+    // Правовые ссылки остаются активными и открываются в новой вкладке.
+    const legal = form.get('[data-testid="register-legal"]').findAll('a')
+    expect(legal.map((link) => link.attributes('target'))).toEqual(['_blank', '_blank'])
+  })
+})
 
-    it('ошибка поля заменяет его подсказку и связана с полем', async () => {
-      modeIs('invite_only')
-      const wrapper = mountForm()
-      await settle()
-      await fillAndSubmit(wrapper, 'LDR-2026')
-      const code = wrapper.get('input[name="invite-code"]')
-      expect(wrapper.text()).toContain('Код состоит из 43 символов')
-      expect(wrapper.text()).not.toContain('43 символа. Код платформы')
-      expect(code.attributes('aria-invalid')).toBe('true')
-      expect(code.attributes('aria-describedby')).toMatch(/-error$/)
-      wrapper.unmount()
-    })
+describe('отправка и общий отказ (AC-G04, AC-G05, US-M01-02)', () => {
+  it('отправка: «Создаём аккаунт…», поля и кнопка заблокированы, имя кнопки сохранено', async () => {
+    const form = mountForm({ variant: 'invite', status: 'submitting' })
+    const button = form.get('button[type="submit"]')
+    expect(button.attributes('aria-busy')).toBe('true')
+    expect(button.attributes('disabled')).toBeDefined()
+    expect(button.text()).toContain('Создаём аккаунт…')
+    expect(button.get('.sr-only').text()).toBe('Создать аккаунт')
+    for (const name of ['name', 'email', 'new-password']) {
+      expect(form.get(`input[name="${name}"]`).attributes('disabled')).toBeDefined()
+    }
+    await submit(form)
+    expect(form.emitted('submit')).toBeUndefined()
+  })
 
-    it('пароль из 11 символов не отправляется, у поля ошибка; 12 проходит', async () => {
-      modeIs('invite_only')
-      const wrapper = mountForm()
-      await settle()
-      await wrapper.get('input[name="invite-code"]').setValue(CODE)
-      await wrapper.get('input[name="name"]').setValue('Мария')
-      await wrapper.get('input[name="email"]').setValue('maria@example.test')
-      await wrapper.get('input[name="new-password"]').setValue('12345678901')
-      await wrapper.get('form').trigger('submit')
-      await settle()
-      expect(register).not.toHaveBeenCalled()
-      expect(wrapper.text()).toContain('Не меньше 12 символов')
-      expect(wrapper.get('input[name="new-password"]').attributes('aria-invalid')).toBe('true')
-      wrapper.unmount()
-    })
-
-    it('адрес без @ — ошибка у почты, запрос не уходит', async () => {
-      modeIs('invite_only')
-      const wrapper = mountForm()
-      await settle()
-      await wrapper.get('input[name="invite-code"]').setValue(CODE)
-      await wrapper.get('input[name="name"]').setValue('Мария')
-      await wrapper.get('input[name="email"]').setValue('maria.example.test')
-      await wrapper.get('input[name="new-password"]').setValue('very-secure-password')
-      await wrapper.get('form').trigger('submit')
-      await settle()
-      expect(register).not.toHaveBeenCalled()
-      expect(wrapper.get('input[name="email"]').attributes('aria-invalid')).toBe('true')
-      wrapper.unmount()
-    })
-
-    it('имя из 200 букв принимается, из 201 — нет', async () => {
-      modeIs('invite_only')
-      vi.mocked(register).mockResolvedValue({ user: { id: 'u' } } as never)
-      const submitWith = async (name: string) => {
-        const wrapper = mountForm()
-        await settle()
-        await wrapper.get('input[name="invite-code"]').setValue(CODE)
-        await wrapper.get('input[name="name"]').setValue(name)
-        await wrapper.get('input[name="email"]').setValue('maria@example.test')
-        await wrapper.get('input[name="new-password"]').setValue('very-secure-password')
-        await wrapper.get('form').trigger('submit')
-        await settle()
-        const invalid = wrapper.get('input[name="name"]').attributes('aria-invalid')
-        wrapper.unmount()
-        return invalid
-      }
-      expect(await submitWith('я'.repeat(201))).toBe('true')
-      expect(register).not.toHaveBeenCalled()
-      expect(await submitWith('я'.repeat(200))).toBeUndefined()
-      expect(register).toHaveBeenCalledTimes(1)
-    })
-
-    it('после ошибки сервера фокус возвращается к полю с ошибкой, а не остаётся на документе', async () => {
-      modeIs('invite_only')
-      vi.mocked(register).mockRejectedValue(
-        new ApiError({ httpStatus: 409, code: 'EMAIL_ALREADY_REGISTERED' }),
+  it.each([
+    [
+      'REGISTRATION_FAILED',
+      new ApiError({ httpStatus: 400, code: 'REGISTRATION_FAILED', traceId: 'trace-x' }),
+    ],
+    [
+      'legacy 409',
+      new ApiError({ httpStatus: 409, code: 'EMAIL_ALREADY_REGISTERED', traceId: 'trace-x' }),
+    ],
+  ])(
+    '%s: один нейтральный блок над формой, почта не отмечена, данные на месте, фокус на блоке',
+    async (_name, error) => {
+      const form = mountForm({ variant: 'invite' })
+      await fill(form, { ...valid, email: 'busy@example.test' })
+      await form.setProps({ status: 'rejected', error })
+      await flushPromises()
+      const feedback = form.get('[data-testid="register-feedback"]')
+      expect(feedback.text()).toContain('Не удалось создать аккаунт')
+      expect(feedback.text()).toContain('Проверьте данные или попробуйте позже.')
+      expect(feedback.text()).not.toMatch(/зарегистрирован|используется|trace-x|EMAIL|REGISTRATION/)
+      expect(form.findAll('[role="alert"]')).toHaveLength(1)
+      // Блок стоит до формы, а не у поля почты.
+      const order = feedback.element.compareDocumentPosition(form.get('form').element)
+      expect(order & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(form.get('input[name="email"]').attributes('aria-invalid')).toBeUndefined()
+      expect(document.activeElement).toBe(feedback.element)
+      expect((form.get('input[name="email"]').element as HTMLInputElement).value).toBe(
+        'busy@example.test',
       )
-      const wrapper = mount(RegisterForm, {
-        attachTo: document.body,
-        global: {
-          plugins: [
-            [
-              VueQueryPlugin,
-              { queryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
-            ],
-          ],
-        },
-      })
-      await settle()
-      await fillAndSubmit(wrapper, CODE)
-      expect(document.activeElement).toBe(wrapper.get('input[name="email"]').element)
-      // Клиентская ошибка: фокус на первом невалидном поле (код неверного формата).
-      await wrapper.get('input[name="invite-code"]').setValue('short')
-      await wrapper.get('form').trigger('submit')
-      await settle()
-      expect(document.activeElement).toBe(wrapper.get('input[name="invite-code"]').element)
-      wrapper.unmount()
+      expect((form.get('input[name="new-password"]').element as HTMLInputElement).value).toBe(
+        valid.password,
+      )
+      expect(form.get('input[name="new-password"]').attributes('type')).toBe('password')
+      // Поля доступны для исправления и явного повтора.
+      expect(form.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+      await fill(form, { email: 'free@example.test' })
+      await submit(form)
+      expect(form.emitted('submit')!.at(-1)).toEqual([
+        { displayName: valid.name, email: 'free@example.test', password: valid.password },
+      ])
+    },
+  )
+
+  it('неизвестный исход: текст и переходы на вход и восстановление, отправка заблокирована', async () => {
+    const form = mountForm({ variant: 'invite', status: 'outcome-unknown' })
+    await flushPromises()
+    const feedback = form.get('[data-testid="register-feedback"]')
+    expect(feedback.text()).toContain(
+      'Не удалось получить результат регистрации. Попробуйте войти или восстановить пароль.',
+    )
+    expect(feedback.findAll('a').map((link) => link.attributes('href'))).toEqual([
+      '/login',
+      '/forgot-password',
+    ])
+    expect(form.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+  })
+
+  it('аккаунт создан, сессия не загрузилась: повтор только загрузки', async () => {
+    const form = mountForm({ variant: 'open', status: 'session-error' })
+    await flushPromises()
+    expect(form.get('[data-testid="register-feedback"]').text()).toContain('Аккаунт создан')
+    expect(form.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+    await form.get('[data-testid="register-feedback"] button').trigger('click')
+    expect(form.emitted('retry-session')).toHaveLength(1)
+    expect(form.emitted('submit')).toBeUndefined()
+  })
+
+  it('429 регистрации: кнопка с отсчётом, объявление один раз', async () => {
+    const form = mountForm({
+      variant: 'open',
+      status: 'failed',
+      error: new ApiError({ httpStatus: 429, code: 'RATE_LIMITED' }),
+      retrySeconds: 30,
     })
+    await flushPromises()
+    const button = form.get('button[type="submit"]')
+    expect(button.text()).toBe('Создать аккаунт через 30 с')
+    expect(button.attributes('disabled')).toBeDefined()
+    expect(form.text()).toContain('Регистрация временно недоступна')
+  })
+
+  it('первичная загрузка: подписи на месте, полей, кода и действий нет', () => {
+    const form = mountForm({ loading: true })
+    const text = form.text()
+    for (const label of ['Имя', 'Электронная почта', 'Пароль', 'Создать аккаунт']) {
+      expect(text).toContain(label)
+    }
+    expect(text).not.toContain('Код приглашения')
+    expect(form.find('input').exists()).toBe(false)
+    expect(form.find('button').exists()).toBe(false)
+    expect(form.get('[role="status"]').attributes('aria-label')).toBe('Загрузка')
+  })
+
+  it('открыта успешной проверкой кода: фокус на первом поле', () => {
+    const form = mountForm({ variant: 'invite', autofocus: true })
+    expect(document.activeElement).toBe(form.get('input[name="name"]').element)
   })
 })

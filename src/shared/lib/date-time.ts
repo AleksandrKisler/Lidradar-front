@@ -5,8 +5,13 @@
  * организации, а не браузера: разные сотрудники одной организации должны
  * видеть одинаковое время.
  */
-import { formatDistanceStrict, isValid, parseISO } from 'date-fns'
-import { ru } from 'date-fns/locale'
+import {
+  formatDistanceStrict,
+  isValid,
+  parseISO,
+  type FormatDistanceToken,
+  type Locale,
+} from 'date-fns'
 
 /** Разбирает RFC 3339 и возвращает `null` для некорректной строки. */
 export function parseInstant(value: string | null | undefined): Date | null {
@@ -129,6 +134,32 @@ export function formatTime(
   }
 }
 
+/** Только шесть токенов formatDistanceStrict; выбор единиц и DST остаются в date-fns. */
+const relativeUnits: Partial<Record<FormatDistanceToken, Intl.RelativeTimeFormatUnit>> = {
+  xSeconds: 'second',
+  xMinutes: 'minute',
+  xHours: 'hour',
+  xDays: 'day',
+  xMonths: 'month',
+  xYears: 'year',
+}
+const relativeFormatter = new Intl.RelativeTimeFormat('ru-RU', { numeric: 'always' })
+/** Локаль только для formatRelative, который всегда запрашивает суффикс. */
+const relativeLocale: Pick<Locale, 'formatDistance'> = {
+  formatDistance(token, count, options) {
+    const unit = relativeUnits[token]
+    if (!unit) throw new RangeError(`Unsupported strict distance token: ${token}`)
+    // -0 сохраняет прежнее «0 секунд назад» и для равных моментов, и при округлении.
+    const signedCount = options?.comparison && options.comparison > 0 ? count : -count
+    // date-fns пишет 1000 без группировки; Intl добавляет неразрывный пробел.
+    return relativeFormatter
+      .formatToParts(signedCount, unit)
+      .filter((part) => part.type !== 'group')
+      .map((part) => part.value)
+      .join('')
+  },
+}
+
 /**
  * Относительное время без округления до «около»: `2 часа назад`,
  * `через 15 минут`. Относительная подпись всегда дополняется абсолютным
@@ -140,7 +171,10 @@ export function formatRelative(
 ): string | null {
   const date = value instanceof Date ? value : parseInstant(value)
   if (!date) return null
-  return formatDistanceStrict(date, now, { addSuffix: true, locale: ru })
+  return formatDistanceStrict(date, now, {
+    addSuffix: true,
+    locale: relativeLocale,
+  })
 }
 
 /** Ключ календарного дня `YYYY-MM-DD` в часовом поясе организации. */

@@ -131,11 +131,31 @@ export interface paths {
         };
         /**
          * Get the registration mode
-         * @description Без сессии. Режим задаёт LIDRADAR_REGISTRATION_MODE (ADR 0057): в open код приглашения не обязателен, в invite_only регистрация требует код платформы или код сотрудника. Нужен странице регистрации, чтобы показать поле кода.
+         * @description Без сессии. Режим задаёт LIDRADAR_REGISTRATION_MODE (ADR 0057): в open код приглашения не обязателен, в invite_only регистрация требует код платформы или код сотрудника. Нужен странице регистрации для выбора открытой/закрытой общей формы и перехода к регистрации по приглашению.
          */
         get: operations["getRegistrationMode"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/registration/invitation/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check current registration invitation usability
+         * @description ADR 0067. Без обязательной сессии и X-Tenant-ID, в open и invite_only. Проверяет код платформы или сотрудника без погашения, резервирования, создания пользователя, членства, права, сессии, cookie или отправки письма. 204 подтверждает пригодность сейчас; окончательная регистрация повторно проверяет inviteCode. Пустой после trim код — 400 INVALID_ARGUMENT; непустой неверного формата, неизвестный, истёкший, отозванный или использованный код — единый 403 INVITATION_INVALID без раскрытия причины. Все декодированные попытки до trim/валидации расходуют отдельный постоянный REGISTRATION_INVITATION_CHECK_IP: 10 за 15 минут на IP, независимо от REGISTER/LOGIN. Некорректный JSON защищён общим HTTP-лимитом auth-префикса. Все ответы имеют Cache-Control: no-store; действуют стандартные Origin-защиты. Код передаётся только в теле POST и не возвращается в ответе.
+         */
+        post: operations["checkRegistrationInvitation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1802,6 +1822,132 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sandbox": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Explicit Organization tenant selected from /auth/me memberships. */
+                "X-Tenant-ID": components["parameters"]["TenantId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Получить лимиты и расход песочницы организации
+         * @description Только staging (ADR 0066). Требует conversation.read (у OWNER и MANAGER есть). Расход считается за скользящие сутки. Веб-клиент обращается сюда, только если в /auth/me есть sandbox: true.
+         */
+        get: operations["getSandboxOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sandbox/templates": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Explicit Organization tenant selected from /auth/me memberships. */
+                "X-Tenant-ID": components["parameters"]["TenantId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Получить каталог шаблонов песочницы
+         * @description Только staging (ADR 0066). Требует conversation.read. Все шаблоны текущей версии каталога; qualified — шаблон прошёл квалификацию на стейдже (LIDRADAR_SANDBOX_QUALIFIED_TEMPLATES). Интерфейс показывает тестировщикам только квалифицированные шаблоны; пустая переписка квалифицирована всегда.
+         */
+        get: operations["listSandboxTemplates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sandbox/conversations": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Explicit Organization tenant selected from /auth/me memberships. */
+                "X-Tenant-ID": components["parameters"]["TenantId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Получить последние переписки песочницы со сверкой
+         * @description Только staging (ADR 0066). Требует conversation.read. До 50 последних переписок организации, новые первыми; у каждой — сверка «Ожидали / Нашли» по текущему состоянию обработки.
+         */
+        get: operations["listSandboxConversations"];
+        put?: never;
+        /**
+         * Собрать переписку виртуального клиента и отправить её в систему
+         * @description Только staging (ADR 0066). Требует conversation.read (у OWNER и MANAGER есть). Паузы переводятся во время сообщений: последнее отправлено за tailMinutes до запроса, каждое предыдущее — на свою паузу раньше следующего (без паузы — на секунду раньше); вся история не старше 7 суток. Сообщения уходят в канал TEST «Песочница» точки (создаётся при первом обращении) и проходят обычный путь обработки. Точный повтор с тем же ключом возвращает ту же переписку и досылает недоставленные сообщения.
+         */
+        post: operations["createSandboxConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sandbox/conversations/{conversationId}": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Explicit Organization tenant selected from /auth/me memberships. */
+                "X-Tenant-ID": components["parameters"]["TenantId"];
+            };
+            path: {
+                /** @description Идентификатор переписки песочницы (не переписки модуля conversation). */
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Получить переписку песочницы со сверкой
+         * @description Только staging (ADR 0066). Требует conversation.read. Пока status.state = PROCESSING, интерфейс опрашивает переписку раз в 3 секунды.
+         */
+        get: operations["getSandboxConversation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sandbox/conversations/{conversationId}/messages": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Explicit Organization tenant selected from /auth/me memberships. */
+                "X-Tenant-ID": components["parameters"]["TenantId"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Идентификатор переписки песочницы (не переписки модуля conversation). */
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Отправить сообщение в собранную переписку песочницы
+         * @description Только staging (ADR 0066). Требует conversation.read (у OWNER и MANAGER есть). Сообщение получает текущее время, но строго позже последнего сообщения переписки. Ответ содержит всю переписку; недоставленные ранее сообщения досылаются.
+         */
+        post: operations["sendSandboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1880,6 +2026,10 @@ export interface components {
              * @description Срок обезличивания учётной записи, если пользователь запросил её закрытие (ADR 0059); до этого срока запрос можно отменить, работа не ограничена. null — удаление не назначено.
              */
             deletionDueAt: string | null;
+        };
+        RegistrationInvitationCheckRequest: {
+            /** @description Код приглашения; после trim ожидаются 43 символа base64url. Непустой неверный формат получает 403 INVITATION_INVALID, а не 400. */
+            code: string;
         };
         RegisterRequest: {
             /** Format: email */
@@ -1996,6 +2146,163 @@ export interface components {
             memberships: components["schemas"]["MembershipSummary"][];
             /** @description true в режиме open и в invite_only при действующем праве создать организацию (ADR 0057); по нему интерфейс выбирает между созданием организации и вводом кода сотрудника. */
             canCreateOrganization: boolean;
+            /**
+             * @description Есть только на стейдже при включённой песочнице (ADR 0066): по нему интерфейс показывает раздел «Песочница». В production поля нет.
+             * @constant
+             */
+            sandbox?: true;
+        };
+        /**
+         * @description INCOMING — пишет клиент; OUTGOING — отвечает бизнес.
+         * @enum {string}
+         */
+        SandboxDirection: "INCOMING" | "OUTGOING";
+        SandboxDraftMessage: {
+            direction: components["schemas"]["SandboxDirection"];
+            text: string;
+            /**
+             * @description Пауза перед сообщением; у первого сообщения не учитывается.
+             * @default 0
+             */
+            pauseBeforeMinutes: number;
+        };
+        SandboxCreateRequest: {
+            /** Format: uuid */
+            locationId: string;
+            /**
+             * @description Шаблон задаёт ожидаемый тип риска; empty — без ожидания.
+             * @enum {string}
+             */
+            templateCode: "no_response" | "booking_not_confirmed" | "promise_not_fulfilled" | "customer_silent_after_price" | "follow_up_candidate" | "unfinished_agreement" | "empty";
+            /** @description Имя виртуального клиента; без него выбирается синтетическое. */
+            contactName?: string;
+            /**
+             * @description Сколько минут прошло после последнего сообщения.
+             * @default 0
+             */
+            tailMinutes: number;
+            messages: components["schemas"]["SandboxDraftMessage"][];
+        };
+        SandboxSendRequest: {
+            direction: components["schemas"]["SandboxDirection"];
+            text: string;
+        };
+        SandboxMessage: {
+            /** Format: uuid */
+            id: string;
+            sequence: number;
+            direction: components["schemas"]["SandboxDirection"];
+            text: string;
+            /**
+             * Format: date-time
+             * @description Рассчитанное время сообщения; оно же время сообщения в переписке.
+             */
+            sentAt: string;
+        };
+        SandboxConversation: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            locationId: string;
+            /**
+             * Format: uuid
+             * @description Канал TEST «Песочница» точки.
+             */
+            connectionId: string;
+            contactName: string;
+            templateCode: string;
+            /** @description Изменены тексты или состав исходной сборки; null — версия каталога больше недоступна. Живые сообщения не меняют отметку. */
+            templateModified: boolean | null;
+            templateVersion: number;
+            expectedRiskType: components["schemas"]["RiskType"] | null;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description Время последнего сообщения, принятого коннектором.
+             */
+            lastSentAt: string | null;
+            messages: components["schemas"]["SandboxMessage"][];
+            status: components["schemas"]["SandboxVerdict"];
+        };
+        SandboxFoundRisk: {
+            /** Format: uuid */
+            id: string;
+            type: components["schemas"]["RiskType"];
+            /** @enum {string} */
+            status: "OPEN" | "ACKNOWLEDGED" | "ACTED" | "RESOLVED" | "FALSE_POSITIVE" | "IGNORED" | "EXPIRED";
+            /** @enum {string} */
+            severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+            /** Format: date-time */
+            detectedAt: string;
+            /** Format: date-time */
+            resolvedAt: string | null;
+            /** @description OPEN, ACKNOWLEDGED или ACTED. */
+            active: boolean;
+        };
+        /** @description Сверка «Ожидали / Нашли» (ADR 0066 п. 6). PROCESSING — обработка идёт (stage: SENDING — коннектор принял не все сообщения, повторите команду; NORMALIZING — собирается переписка; ANALYZING — AI разбирает текущую ревизию; EVALUATING — правила рисков отрабатывают, до 90 секунд после анализа). MATCH — найден активный ожидаемый риск; PENDING — риск ещё не наступил, dueAt — срок его проверки в рабочих часах точки; CLOSED — ожидаемый риск был найден и закрыт; MISMATCH — обработка завершена, ожидаемого риска нет; NO_EXPECTATION — у шаблона нет ожидания; FAILED — событие или анализ завершились ошибкой (failureCode). */
+        SandboxVerdict: {
+            /** @enum {string} */
+            state: "PROCESSING" | "MATCH" | "PENDING" | "CLOSED" | "MISMATCH" | "NO_EXPECTATION" | "FAILED";
+            /** @enum {string|null} */
+            stage: "SENDING" | "NORMALIZING" | "ANALYZING" | "EVALUATING" | null;
+            expectedRiskType: components["schemas"]["RiskType"] | null;
+            /**
+             * Format: uuid
+             * @description Найденный риск ожидаемого типа (активный или последний закрытый).
+             */
+            expectedRiskId: string | null;
+            /** Format: date-time */
+            dueAt: string | null;
+            /** @description EVENT_FAILED или ANALYSIS_FAILED, через двоеточие — код модуля. */
+            failureCode: string | null;
+            /**
+             * Format: uuid
+             * @description Сообщение песочницы с ошибкой события; при ошибке AI — последнее сообщение анализируемой переписки. Для поиска RawEvent используйте sandbox-event:<id>.
+             */
+            failureMessageId: string | null;
+            /**
+             * Format: uuid
+             * @description Переписка модуля conversation; по ней интерфейс открывает «Диалоги».
+             */
+            conversationId: string | null;
+            /** @description Кортеж AI последнего успешного анализа переписки: модель/схема/инструкция. Для отчёта о баге. */
+            analysisVersion: string | null;
+            found: components["schemas"]["SandboxFoundRisk"][];
+        };
+        SandboxTemplateMessage: {
+            direction: components["schemas"]["SandboxDirection"];
+            text: string;
+            pauseBeforeMinutes: number;
+        };
+        SandboxTemplate: {
+            code: string;
+            name: string;
+            expectedRiskType: components["schemas"]["RiskType"] | null;
+            /** @description Чей ответ закрывает ожидаемый риск. */
+            closedBy: components["schemas"]["SandboxDirection"] | null;
+            messages: components["schemas"]["SandboxTemplateMessage"][];
+            tailMinutes: number;
+            version: number;
+            qualified: boolean;
+        };
+        SandboxOverview: {
+            /** @constant */
+            enabled: true;
+            limits: {
+                conversationsPerDay: number;
+                messagesPerDay: number;
+                aiQueueLimit: number;
+            };
+            usage: {
+                conversations: number;
+                messages: number;
+            };
+            rules: {
+                maxMessagesPerBuild: number;
+                maxHistoryMinutes: number;
+                maxTextLength: number;
+            };
         };
         RegistrationInfo: {
             /** @enum {string} */
@@ -3674,6 +3981,49 @@ export interface operations {
             429: components["responses"]["RateLimited"];
         };
     };
+    checkRegistrationInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegistrationInvitationCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description Invitation is usable now; no body, cookie or reservation. */
+            204: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description INVITATION_INVALID — непустой код нельзя принять по любой причине; ORIGIN_NOT_ALLOWED — отказ стандартной защиты Origin. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+            /** @description INTERNAL_ERROR — проверка не завершена из-за серверной ошибки. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     registerUser: {
         parameters: {
             query?: never;
@@ -3697,7 +4047,15 @@ export interface operations {
                     "application/json": components["schemas"]["AuthResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
+            /** @description INVALID_ARGUMENT — неверное тело или данные; REGISTRATION_FAILED — регистрация не выполнена. REGISTRATION_FAILED содержит только code, message "Registration could not be completed" и стандартный traceId, без details, email, пользователя, причины отказа или Set-Cookie; действующее приглашение не расходуется. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description INVITATION_REQUIRED — в режиме invite_only нужен код приглашения; INVITATION_INVALID — код нельзя принять. */
             403: {
                 headers: {
@@ -3707,7 +4065,6 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            409: components["responses"]["Conflict"];
             429: components["responses"]["RateLimited"];
         };
     };
@@ -6443,6 +6800,291 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    getSandboxOverview: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Explicit Organization tenant selected from /auth/me memberships. */
+                "X-Tenant-ID": components["parameters"]["TenantId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Лимиты, расход и правила сборки. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SandboxOverview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Песочница выключена (production и стейдж без флага). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listSandboxTemplates: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Explicit Organization tenant selected from /auth/me memberships. */
+                "X-Tenant-ID": components["parameters"]["TenantId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Каталог шаблонов. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["SandboxTemplate"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listSandboxConversations: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Explicit Organization tenant selected from /auth/me memberships. */
+                "X-Tenant-ID": components["parameters"]["TenantId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Переписки песочницы. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["SandboxConversation"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createSandboxConversation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Explicit Organization tenant selected from /auth/me memberships. */
+                "X-Tenant-ID": components["parameters"]["TenantId"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SandboxCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Ранее созданная переписка при точном повторе. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SandboxConversation"];
+                };
+            };
+            /** @description Переписка сохранена и отправлена. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SandboxConversation"];
+                };
+            };
+            /** @description INVALID_ARGUMENT — неизвестный шаблон, пустой или длинный текст, больше 30 сообщений, история старше 7 суток; IDEMPOTENCY_KEY_REQUIRED — нет заголовка Idempotency-Key. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Точка не найдена в организации; песочница выключена. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description IDEMPOTENCY_CONFLICT — ключ использован с другим содержимым; IDEMPOTENCY_KEY_EXPIRED — ответ по ключу стёрт; SANDBOX_CHANNEL_DISCONNECTED — канал песочницы переписки отключён владельцем; SANDBOX_BUSY — другая переписка песочницы организации ещё обрабатывается (не дольше 30 минут после её отправки). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description SANDBOX_LIMIT — исчерпан суточный лимит сборок или сообщений организации; SANDBOX_AI_BUSY — очередь AI стейджа длиннее лимита (AI-узел общий с production), Retry-After указывает срок повтора. */
+            429: {
+                headers: {
+                    "Retry-After": components["headers"]["RetryAfter"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description SANDBOX_DELIVERY_UNAVAILABLE — переписка сохранена, но не все сообщения приняты; повторите запрос с тем же ключом. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getSandboxConversation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Explicit Organization tenant selected from /auth/me memberships. */
+                "X-Tenant-ID": components["parameters"]["TenantId"];
+            };
+            path: {
+                /** @description Идентификатор переписки песочницы (не переписки модуля conversation). */
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Переписка песочницы. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SandboxConversation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    sendSandboxMessage: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Explicit Organization tenant selected from /auth/me memberships. */
+                "X-Tenant-ID": components["parameters"]["TenantId"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Идентификатор переписки песочницы (не переписки модуля conversation). */
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SandboxSendRequest"];
+            };
+        };
+        responses: {
+            /** @description Ранее сохранённый ответ при точном повторе. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SandboxConversation"];
+                };
+            };
+            /** @description Сообщение сохранено и отправлено. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SandboxConversation"];
+                };
+            };
+            /** @description INVALID_ARGUMENT — пустой или длинный текст, неизвестный отправитель; IDEMPOTENCY_KEY_REQUIRED — нет заголовка Idempotency-Key. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description IDEMPOTENCY_CONFLICT — ключ использован с другим содержимым; IDEMPOTENCY_KEY_EXPIRED — ответ по ключу стёрт; SANDBOX_CHANNEL_DISCONNECTED — канал песочницы переписки отключён владельцем. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description SANDBOX_LIMIT — исчерпан суточный лимит сообщений организации. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description SANDBOX_DELIVERY_UNAVAILABLE — сообщение сохранено, но не принято; повторите запрос с тем же ключом. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
 }

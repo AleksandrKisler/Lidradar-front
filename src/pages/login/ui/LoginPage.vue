@@ -71,14 +71,22 @@ function onSuccess(): void {
         </div>
       </div>
       <LoginForm v-else @success="onSuccess" />
-      <p class="flex h-[46px] items-center justify-center text-center text-sm text-secondary">
-        <span
-          >Впервые в LidRadar?
-          <RouterLink :to="{ name: 'register' }" class="font-medium text-link hover:underline"
+      <!-- Figma 773:6361: две точки входа в регистрацию — общая (A/C по режиму сервера) и по приглашению (B2). -->
+      <div class="flex flex-col items-center gap-2 text-center text-sm">
+        <p class="text-secondary">Впервые в LidRadar?</p>
+        <nav class="flex flex-wrap justify-center gap-x-10" aria-label="Регистрация">
+          <RouterLink
+            :to="{ name: 'register' }"
+            class="flex h-[46px] items-center text-link hover:underline"
             >Создать аккаунт</RouterLink
-          ></span
-        >
-      </p>
+          >
+          <RouterLink
+            :to="{ name: 'register', query: { flow: 'invite' } }"
+            class="flex h-[46px] items-center text-link hover:underline"
+            >У меня есть приглашение</RouterLink
+          >
+        </nav>
+      </div>
     </UiCard>
     <p class="text-center text-xs leading-[18px] text-secondary">
       <span class="font-medium">Безопасный вход.</span> Данные организаций разделены. После входа

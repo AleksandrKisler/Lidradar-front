@@ -1,5 +1,58 @@
 # Статус frontend v2
 
+## Codex R2 · US-M01-01/02 — проверено 29.10.2026
+
+**Frontend/API: TEST PASS, FUNCTIONAL PASS; UI desktop/tablet/mobile PASS.**
+Текущие изменения Claude сохранены, регистрация продолжена без переписывания.
+[Итоговый отчёт](evidence/US-M01-01/codex-r2.md) описывает исправления R1,
+пять дополнительных функциональных и четыре визуальных finding, все закрыты.
+
+Финальный snapshot `5ebcb18f079df495fc9711601d1f06217b33cc3c42f820ce8642be1552f40085`,
+541 input (HEAD `c9e676d` + tracked/untracked). Независимый Sol QA: `check`
+1068 тестов; три builds и release audit exit0; полная browser matrix
+446 PASS / 32 штатных SKIP / 0 FAIL. JS904317 ≤905600, CSS62848 ≤72000;
+пороги/CI/browser coverage не ослаблялись. Capture90, compare1537 checks/0errors.
+Terra приняла все три адаптива: exact frames и approved patterns указаны явно.
+Артефакты и QA7/UI3: `artifacts/frontend-v2/us-m01-01/R2-codex-r3/`.
+R1, промежуточные FAIL и прежние изображения сохранены отдельно.
+
+Живой локальный frontend `http://127.0.0.1:5174` → актуальный backend-stage:
+A/B зарегистрированы, нейтральный отказ на занятом адресе и повтор с тем же
+приглашением проверены, logout и отказ использованного кода — PASS.
+Два synthetic аккаунта example.test, израсходован первый предоставленный код;
+коды/password/cookie в артефактах отсутствуют. Provenance среза живого прогона
+и последующих адресных регрессий раскрыт в отчёте. **Доставка писем UNVERIFIED**:
+реального тестового mailbox не было. Общий stage mode=open не менялся;
+invite_only/employee path проверены детерминированно, backend race/mail-инициация
+имеют отдельное сохранённое evidence выбранного backend revision.
+
+G01 уже принят, повторять его не нужно. Текущее поручение регистрации выполнено
+в пределах frontend/API; следующая независимая интеграционная проверка — доставка
+в реальный разрешённый mailbox. Остальные frontend-сценарии — по отдельной очереди.
+
+## Структура Codex для продолжения Claude — 29.10.2026
+
+По поручению владельца добавлены [AGENTS.md](../../AGENTS.md), проектные
+`.codex/config.toml` и пять ролей, [правила](CODEX-OPERATING-RULES.md),
+[launcher/инструкция](CODEX.md), [стартовый запрос](CODEX-START.md) и
+[шаблон brief](CODEX-TASK-BRIEF.md). Codex может продолжать реализацию;
+старые записи ниже «Codex только принимает» — исторические.
+
+Обычный цикл: Sol разрабатывает → Sol QA выполняет TEST/FUNCTIONAL → Terra
+проверяет три адаптива. Независимые задачи: Sol worker / Luna explorer;
+Astra — только явная консультация. Общая регистрация остаётся у одного автора.
+
+База подготовки: HEAD `c9e676d` после `3844681`, ветка
+`frontend/v2-implementation` и существующая незакоммиченная реализация.
+Все 32 inputs checkpoint `44b0b3e6…8e037` совпали с рабочими файлами.
+Runtime этим пакетом не изменён; R1 остаётся историческим FAIL, новые frontend
+тесты/приёмка не заявляются. G01 принят 28.10.2026, повторять его не нужно.
+Следующий шаг при продолжении — сверить актуальные hashes/findings R1 и адресно
+воспроизвести оставшиеся дефекты по CODEX-START, сохраняя код и R1 evidence.
+[Проверка конфигурации](evidence/codex-setup-2026-10-29.md): Bash/doctor,
+TOML/model/effort, smoke режимов launcher, Prettier и diff-check — PASS.
+Фактическая загрузка ролей в LLM-сессии и приёмка frontend — UNVERIFIED.
+
 ## Продолжение доступа —29.10.2026
 
 Текущая реализация регистрации уже есть в незакоммиченных 32 файлах.

@@ -1,160 +1,177 @@
 <script setup lang="ts">
 /**
- * Форма регистрации. Сервер сразу создаёт сессию; дальше — обязательный
- * `/auth/me`, а не прямой переход в приложение. Занятая почта показывается
- * у поля, пароль после ошибки не сохраняется нигде, кроме формы.
+ * Данные аккаунта A/B3 и отключённая форма C (US-M01-01; Figma 784:6465, 783:6429, 788:6501).
+ * Форма содержит только имя, почту и пароль: режим регистрации и проверенное приглашение
+ * принадлежат модели страницы, поля кода здесь нет. Форма проверяет формат и передаёт значения
+ * наверх; отправку, отказ и восстановление исхода выполняет `useRegistrationFlow`.
  *
- * Регистрация по приглашениям (ADR 0057): режим читается с сервера, и в
- * `invite_only` форма просит код (платформы или сотрудника). Пока режим
- * неизвестен или запрос не удался, поле показано: решает сервер. Причина
- * отказа по коду не различается, сервер отвечает одинаково на любую.
+ * Нейтральный отказ (ADR 0068) показывается одним блоком над полями; ошибки формата — у полей.
+ * Пароль живёт только в этой форме и пропадает вместе с ней при смене сценария.
  */
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { describeError, isApiError } from '@/shared/api'
-import { useRetryAfter } from '@/shared/lib'
 import { UiAlert, UiButton, UiField, UiInput, UiPasswordInput } from '@/shared/ui'
-import { register, useRegistrationModeQuery, useSessionStore } from '@/entities/session'
 import { focusFirstProblem } from '../lib/focus-problem'
 import { PASSWORD_MIN_LENGTH, registerSchema } from '../model/schemas'
+import type { RegistrationSubmitStatus, RegistrationValues } from '../model/use-registration-flow'
 
-const props = defineProps<{
-  /** Код из ссылки приглашения; страница убирает его из адреса, форма только подставляет. */
-  initialCode?: string | undefined
-  /** Первичная загрузка сессии: подписи на месте, поля — каркас (Figma «Регистрация · Первичная загрузка»). */
-  loading?: boolean | undefined
+const props = withDefaults(
+  defineProps<{
+    /** `open` — A, `invite` — B3, `closed` — C (все действия формы недоступны). */
+    variant?: 'open' | 'invite' | 'closed'
+    /** Плейсхолдер загрузки: подписи на месте, поля — каркас (Figma 811:7677, 462:6648, 811:7751). */
+    loading?: boolean
+    /** Имя и почта из памяти страницы; пароль сюда не передаётся никогда. */
+    draft?: { displayName: string; email: string } | undefined
+    status?: RegistrationSubmitStatus
+    /** Ошибка последней отправки (`null`, если её нет). */
+    error: unknown
+    /** Секунды до повторной регистрации после `429`. */
+    retrySeconds?: number
+    /** Форма открыта успешной проверкой кода: фокус переходит к первому полю. */
+    autofocus?: boolean
+  }>(),
+  {
+    variant: 'open',
+    loading: false,
+    draft: () => ({ displayName: '', email: '' }),
+    status: 'idle',
+    retrySeconds: 0,
+    autofocus: false,
+  },
+)
+
+const emit = defineEmits<{
+  submit: [values: RegistrationValues]
+  'update:draft': [draft: { displayName: string; email: string }]
+  /** Пользователь изменил поле: устаревший общий отказ можно убрать. */
+  edit: []
+  'retry-session': []
 }>()
-const emit = defineEmits<{ success: [] }>()
 
-const session = useSessionStore()
+const closed = computed(() => props.variant === 'closed')
+const busy = computed(() => ['submitting', 'account-created', 'reconciling'].includes(props.status))
+const locked = computed(() => ['session-error', 'outcome-unknown'].includes(props.status))
+const waiting = computed(() => props.retrySeconds > 0)
+const fieldsDisabled = computed(() => closed.value || busy.value || locked.value)
+
+const { defineField, handleSubmit, errors, values } = useForm({
+  validationSchema: toTypedSchema(registerSchema),
+  initialValues: closed.value
+    ? { displayName: '', email: '', password: '' }
+    : { displayName: props.draft.displayName, email: props.draft.email, password: '' },
+})
+const [displayName] = defineField('displayName')
+const [email] = defineField('email')
+const [password] = defineField('password')
+
+watch([displayName, email], ([name, address]) => {
+  if (!closed.value) emit('update:draft', { displayName: name ?? '', email: address ?? '' })
+})
+watch(
+  () => [values.displayName, values.email, values.password],
+  () => emit('edit'),
+)
+
 /** Скринридеру отсчёт объявляется один раз при блокировке, а не каждую секунду. */
 const announcedSeconds = ref(0)
-const retry = useRetryAfter('lidradar.register.retryUntil')
 watch(
-  () => retry.active.value,
+  waiting,
   (active) => {
-    if (active) announcedSeconds.value = retry.secondsLeft.value
+    if (active) announcedSeconds.value = props.retrySeconds
   },
   { immediate: true },
 )
-const registration = useRegistrationModeQuery()
-
-/**
- * Сервер ответил «код обязателен», хотя закешированный режим был `open`: режим успели закрыть. Поле
- * показывается принудительно, иначе ошибка пришла бы к скрытому полю и осталась бы незамеченной.
- */
-const serverRequiresCode = ref(false)
-
-/** Код обязателен, пока сервер не сообщил `open`. */
-const requiresCode = computed(
-  () => serverRequiresCode.value || registration.data.value?.mode !== 'open',
-)
-
-const { defineField, handleSubmit, errors, setFieldError, isSubmitting } = useForm({
-  validationSchema: toTypedSchema(registerSchema),
-  initialValues: { email: '', displayName: '', password: '', inviteCode: props.initialCode ?? '' },
-})
-const [email] = defineField('email')
-const [displayName] = defineField('displayName')
-const [password] = defineField('password')
-const [inviteCode] = defineField('inviteCode')
-
-/** В открытом режиме поле нужно только тому, кто пришёл по ссылке с кодом. */
-const showCode = computed(() => requiresCode.value || Boolean(props.initialCode))
-
-const formEl = ref<HTMLFormElement | null>(null)
-const submitError = ref<unknown>(null)
-
-const errorView = computed(() => {
-  const error = submitError.value
-  if (error === null) return null
-  const described = describeError(error)
-  return {
-    tone: isApiError(error) && error.isRateLimited ? ('warning' as const) : ('danger' as const),
-    title: described.title,
-    text: described.description,
-    traceId: isApiError(error) && !error.isRateLimited ? error.traceId : '',
-  }
-})
 
 const submitLabel = computed(() =>
-  retry.active.value ? `Создать аккаунт через ${retry.secondsLeft.value} с` : 'Создать аккаунт',
+  waiting.value ? `Создать аккаунт через ${props.retrySeconds} с` : 'Создать аккаунт',
 )
 
-let succeeded = false
-const submitValues = handleSubmit(async (values) => {
-  if (retry.active.value) return
-  submitError.value = null
-  if (requiresCode.value && values.inviteCode === '') {
-    setFieldError('inviteCode', 'Для регистрации нужен код приглашения')
-    return
+type Feedback =
+  | { kind: 'rejected'; title: string; text: string }
+  | { kind: 'failed'; tone: 'warning' | 'danger'; title: string; text: string; traceId: string }
+  | { kind: 'unknown' }
+  | { kind: 'session' }
+
+const feedback = computed<Feedback | null>(() => {
+  if (props.status === 'rejected') {
+    const described = describeError(props.error)
+    return { kind: 'rejected', title: described.title, text: described.description }
   }
-  try {
-    await register({
-      email: values.email,
-      displayName: values.displayName,
-      password: values.password,
-      ...(values.inviteCode === '' ? {} : { inviteCode: values.inviteCode }),
+  if (props.status === 'failed') {
+    const described = describeError(props.error)
+    const limited = isApiError(props.error) && props.error.isRateLimited
+    return {
+      kind: 'failed',
+      tone: limited ? 'warning' : 'danger',
+      title: described.title,
+      text: described.description,
+      traceId: isApiError(props.error) && !limited ? props.error.traceId : '',
+    }
+  }
+  if (props.status === 'outcome-unknown') return { kind: 'unknown' }
+  if (props.status === 'session-error') return { kind: 'session' }
+  return null
+})
+
+const formEl = ref<HTMLFormElement | null>(null)
+const feedbackEl = ref<HTMLDivElement | null>(null)
+
+/** Общий результат относится ко всей форме: фокус — на блок сообщения, после обновления DOM. */
+watch(
+  () => feedback.value?.kind,
+  async (kind) => {
+    if (!kind) return
+    await nextTick()
+    feedbackEl.value?.focus()
+  },
+)
+
+const onValid = handleSubmit(
+  (submitted) => {
+    emit('submit', {
+      displayName: submitted.displayName,
+      email: submitted.email,
+      password: submitted.password,
     })
-    await session.refresh()
-    succeeded = true
-    emit('success')
-  } catch (error) {
-    if (isApiError(error) && error.code === 'EMAIL_ALREADY_REGISTERED') {
-      setFieldError('email', 'Этот адрес уже зарегистрирован. Войдите или используйте другой.')
-      return
-    }
-    if (isApiError(error) && error.code === 'INVITATION_REQUIRED') {
-      serverRequiresCode.value = true
-      void registration.refetch()
-      setFieldError('inviteCode', 'Для регистрации нужен код приглашения')
-      return
-    }
-    if (isApiError(error) && error.code === 'INVITATION_INVALID') {
-      setFieldError(
-        'inviteCode',
-        'Код не подходит: он неверен, просрочен, уже использован или отозван. Попросите новый.',
-      )
-      return
-    }
-    submitError.value = error
-    if (isApiError(error) && error.isRateLimited) retry.start(error.retryAfterSeconds ?? 60)
+  },
+  () => focusFirstProblem(formEl.value),
+)
+
+async function onSubmit(event: Event): Promise<void> {
+  if (fieldsDisabled.value || waiting.value) return
+  await onValid(event)
+}
+
+onMounted(() => {
+  if (props.autofocus && !props.loading && !closed.value) {
+    formEl.value?.querySelector<HTMLInputElement>('input[name="name"]')?.focus()
   }
 })
 
-/** Поля были заблокированы на время запроса: после неудачи фокус возвращается к проблемному полю. */
-async function onSubmit(event?: Event): Promise<void> {
-  succeeded = false
-  await submitValues(event)
-  if (!succeeded) await focusFirstProblem(formEl.value)
-}
+/** Отключённое поле закрытой формы (UI Kit `State=Disabled`, 665:3946). */
+const closedField = 'disabled:bg-canvas! disabled:opacity-50! placeholder:text-secondary'
 </script>
 
 <template>
-  <form v-if="props.loading" class="flex flex-col gap-4" role="status" aria-label="Загрузка">
-    <div class="flex flex-col gap-2">
-      <p class="text-base leading-5 font-medium text-ink">Код приглашения</p>
-      <div class="h-[46px] rounded-field bg-line motion-safe:animate-pulse" />
-      <p class="text-xs text-secondary">
-        43 символа. Код платформы выдаёт оператор, код сотрудника — владелец вашей организации.
-      </p>
-    </div>
+  <form v-if="loading" class="flex flex-col gap-4" role="status" aria-label="Загрузка">
     <div class="flex flex-col gap-2">
       <p class="text-base leading-5 font-medium text-ink">Имя</p>
-      <div class="h-[46px] rounded-field bg-line motion-safe:animate-pulse" />
+      <div class="h-input rounded bg-line motion-safe:animate-pulse" />
     </div>
     <div class="flex flex-col gap-2">
       <p class="text-base leading-5 font-medium text-ink">Электронная почта</p>
-      <div class="h-[46px] rounded-field bg-line motion-safe:animate-pulse" />
+      <div class="h-input rounded bg-line motion-safe:animate-pulse" />
     </div>
     <div class="flex flex-col gap-2">
       <p class="text-base leading-5 font-medium text-ink">Пароль</p>
-      <div class="h-[46px] rounded-field bg-line motion-safe:animate-pulse" />
+      <div class="h-input rounded bg-line motion-safe:animate-pulse" />
       <p class="text-xs text-secondary">Не меньше {{ PASSWORD_MIN_LENGTH }} символов.</p>
     </div>
     <div
-      class="flex h-[46px] items-center justify-center rounded-button bg-line text-field leading-5 font-medium text-muted"
+      class="flex h-input items-center justify-center rounded-button bg-line text-field leading-5 font-medium text-muted"
     >
       Создать аккаунт
     </div>
@@ -177,109 +194,139 @@ async function onSubmit(event?: Event): Promise<void> {
       >.
     </p>
   </form>
-  <form v-else ref="formEl" class="flex flex-col gap-4" novalidate @submit.prevent="onSubmit">
-    <UiField
-      v-if="showCode"
-      v-slot="{ id, describedBy, invalid }"
-      error-replaces-description
-      :label="requiresCode ? 'Код приглашения' : 'Код приглашения (необязательно)'"
-      description="43 символа. Код платформы выдаёт оператор, код сотрудника — владелец вашей организации."
-      :error="errors.inviteCode"
+  <div v-else class="flex flex-col gap-6">
+    <div
+      v-if="feedback"
+      ref="feedbackEl"
+      tabindex="-1"
+      class="rounded-field outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      data-testid="register-feedback"
     >
-      <UiInput
-        :id="id"
-        v-model="inviteCode"
-        name="invite-code"
-        autocomplete="off"
-        spellcheck="false"
-        autocapitalize="off"
-        :described-by="describedBy"
-        :invalid="invalid"
-        :maxlength="128"
-        :disabled="isSubmitting"
-      />
-    </UiField>
-    <UiField v-slot="{ id, describedBy, invalid }" label="Имя" :error="errors.displayName">
-      <UiInput
-        :id="id"
-        v-model="displayName"
-        name="name"
-        autocomplete="name"
-        :described-by="describedBy"
-        :invalid="invalid"
-        :maxlength="200"
-        :disabled="isSubmitting"
-      />
-    </UiField>
-    <UiField v-slot="{ id, describedBy, invalid }" label="Электронная почта" :error="errors.email">
-      <UiInput
-        :id="id"
-        v-model="email"
-        type="email"
-        name="email"
-        autocomplete="username"
-        inputmode="email"
-        :described-by="describedBy"
-        :invalid="invalid"
-        :maxlength="254"
-        :disabled="isSubmitting"
-      />
-    </UiField>
-    <UiField
-      v-slot="{ id, describedBy, invalid }"
-      label="Пароль"
-      error-replaces-description
-      :description="`Не меньше ${PASSWORD_MIN_LENGTH} символов.`"
-      :error="errors.password"
-    >
-      <UiPasswordInput
-        :id="id"
-        v-model="password"
-        name="new-password"
-        autocomplete="new-password"
-        :described-by="describedBy"
-        :invalid="invalid"
-        :disabled="isSubmitting"
-      />
-    </UiField>
-
-    <UiAlert
-      v-if="errorView"
-      :tone="errorView.tone"
-      :title="errorView.title"
-      :trace-id="errorView.traceId"
-    >
-      {{ errorView.text }}
-    </UiAlert>
-    <p v-if="retry.active.value" class="sr-only" role="status">
-      Регистрация временно недоступна. Повторите попытку через {{ announcedSeconds }} секунд.
-    </p>
-
-    <UiButton type="submit" block :loading="isSubmitting" :disabled="retry.active.value">
-      <!-- Figma «Регистрация · Отправка»: «Создаём аккаунт…», доступное имя остаётся «Создать аккаунт». -->
-      <template v-if="isSubmitting">
-        <span aria-hidden="true">Создаём аккаунт…</span
-        ><span class="sr-only">{{ submitLabel }}</span>
-      </template>
-      <template v-else>{{ submitLabel }}</template>
-    </UiButton>
-    <p class="text-xs leading-[18px] text-secondary" data-testid="register-legal">
-      Создавая аккаунт, вы принимаете
-      <a
-        href="/legal/terms.html"
-        target="_blank"
-        rel="noopener"
-        class="font-medium text-link hover:underline"
-        >Пользовательское соглашение</a
+      <UiAlert v-if="feedback.kind === 'rejected'" tone="danger" :title="feedback.title">
+        {{ feedback.text }}
+      </UiAlert>
+      <UiAlert
+        v-else-if="feedback.kind === 'failed'"
+        :tone="feedback.tone"
+        :title="feedback.title"
+        :trace-id="feedback.traceId"
       >
-      и подтверждаете, что ознакомились с
-      <a
-        href="/legal/privacy.html"
-        target="_blank"
-        rel="noopener"
-        class="font-medium text-link hover:underline"
-        >Политикой обработки персональных данных</a
-      >.
-    </p>
-  </form>
+        {{ feedback.text }}
+      </UiAlert>
+      <UiAlert v-else-if="feedback.kind === 'unknown'" tone="warning">
+        <p>Не удалось получить результат регистрации. Попробуйте войти или восстановить пароль.</p>
+        <p class="mt-2 flex flex-wrap gap-x-6 gap-y-1">
+          <RouterLink :to="{ name: 'login' }" class="font-medium text-link hover:underline"
+            >Войти</RouterLink
+          >
+          <RouterLink
+            :to="{ name: 'forgot-password' }"
+            class="font-medium text-link hover:underline"
+            >Восстановить пароль</RouterLink
+          >
+        </p>
+      </UiAlert>
+      <UiAlert v-else tone="warning" title="Аккаунт создан">
+        <p>Не удалось загрузить сессию. Повторите загрузку — регистрироваться заново не нужно.</p>
+        <UiButton class="mt-3" variant="secondary" size="sm" @click="emit('retry-session')"
+          >Повторить загрузку</UiButton
+        >
+      </UiAlert>
+    </div>
+
+    <form ref="formEl" class="flex flex-col gap-4" novalidate @submit.prevent="onSubmit">
+      <UiField v-slot="{ id, describedBy, invalid }" label="Имя" :error="errors.displayName">
+        <UiInput
+          :id="id"
+          v-model="displayName"
+          name="name"
+          autocomplete="name"
+          placeholder="Введите имя"
+          :described-by="describedBy"
+          :invalid="invalid"
+          :maxlength="200"
+          :disabled="fieldsDisabled"
+          :class="closed ? closedField : ''"
+        />
+      </UiField>
+      <UiField
+        v-slot="{ id, describedBy, invalid }"
+        label="Электронная почта"
+        :error="errors.email"
+      >
+        <UiInput
+          :id="id"
+          v-model="email"
+          type="email"
+          name="email"
+          autocomplete="username"
+          inputmode="email"
+          placeholder="name@example.com"
+          :described-by="describedBy"
+          :invalid="invalid"
+          :maxlength="254"
+          :disabled="fieldsDisabled"
+          :class="closed ? closedField : ''"
+        />
+      </UiField>
+      <UiField
+        v-slot="{ id, describedBy, invalid }"
+        label="Пароль"
+        error-replaces-description
+        :description="`Не меньше ${PASSWORD_MIN_LENGTH} символов.`"
+        :error="errors.password"
+      >
+        <div :class="closed ? '[&_button]:opacity-50' : ''">
+          <UiPasswordInput
+            :id="id"
+            v-model="password"
+            name="new-password"
+            autocomplete="new-password"
+            placeholder="Придумайте пароль"
+            :described-by="describedBy"
+            :invalid="invalid"
+            :disabled="fieldsDisabled"
+            :class="closed ? closedField : ''"
+          />
+        </div>
+      </UiField>
+
+      <p v-if="waiting" class="sr-only" role="status">
+        Регистрация временно недоступна. Повторите попытку через {{ announcedSeconds }} секунд.
+      </p>
+
+      <UiButton
+        type="submit"
+        block
+        :loading="busy"
+        :disabled="closed || locked || waiting"
+        :class="closed ? 'disabled:bg-line disabled:text-muted disabled:opacity-100' : ''"
+      >
+        <!-- Figma «Отправка»: «Создаём аккаунт…», доступное имя остаётся «Создать аккаунт». -->
+        <template v-if="busy">
+          <span aria-hidden="true">Создаём аккаунт…</span
+          ><span class="sr-only">{{ submitLabel }}</span>
+        </template>
+        <template v-else>{{ submitLabel }}</template>
+      </UiButton>
+      <p class="text-xs leading-[18px] text-secondary" data-testid="register-legal">
+        Создавая аккаунт, вы принимаете
+        <a
+          href="/legal/terms.html"
+          target="_blank"
+          rel="noopener"
+          class="font-medium text-link hover:underline"
+          >Пользовательское соглашение</a
+        >
+        и подтверждаете, что ознакомились с
+        <a
+          href="/legal/privacy.html"
+          target="_blank"
+          rel="noopener"
+          class="font-medium text-link hover:underline"
+          >Политикой обработки персональных данных</a
+        >.
+      </p>
+    </form>
+  </div>
 </template>

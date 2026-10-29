@@ -133,18 +133,12 @@ test('F01 login-phone: первичная загрузка', async ({ page }) =>
   await page.screenshot({ path: `${OUT}/F01/actual/login-phone-loading.png`, fullPage: true })
 })
 
-test('F01 register-phone', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
-  await mockGuest(page)
-  await page.route('**/api/v1/auth/registration', (route) => json(route, { mode: 'invite' }))
-  await page.goto('/register')
-  await page.getByRole('heading', { level: 1 }).waitFor()
-  await settle(page)
-  await page.screenshot({ path: `${OUT}/F01/actual/register-phone.png`, fullPage: true })
-})
+/*
+ * Регистрация US-M01-01 (A/B2/B3/C) снимается отдельной спекой `us-m01-01.capture.spec.ts` по
+ * согласованным кадрам 461:5460/5475/5490; прежние кадры F03 формы с полем кода устарели.
+ */
 
-/* ---------- F03: Регистрация (US-M01-01/02/04) ---------- */
-
+/** Размеры кадров F03 (используются и остальными экранами доступа ниже). */
 const registerDevices = [
   ['desktop', 1440, 1000],
   ['tablet', 834, 1194],
@@ -153,57 +147,6 @@ const registerDevices = [
 
 /** Код из 43 допустимых символов, как в макете «Отправка» (EXAMPLE_aaa…). */
 const EXAMPLE_CODE = `EXAMPLE_${'a'.repeat(35)}`
-
-async function openRegister(page: Page, width: number, height: number): Promise<void> {
-  await page.setViewportSize({ width, height })
-  await mockGuest(page)
-  await page.route('**/api/v1/auth/registration', (route) => json(route, { mode: 'invite' }))
-}
-
-for (const [device, width, height] of registerDevices) {
-  const shot = (state: string) =>
-    `${OUT}/F03/actual/register-${device}${state ? `-${state}` : ''}.png`
-  test(`F03 register-${device}`, async ({ page }) => {
-    await openRegister(page, width, height)
-    await page.goto('/register')
-    await page.getByLabel('Код приглашения').waitFor()
-    await settle(page)
-    await page.screenshot({ path: shot(''), fullPage: true })
-  })
-  test(`F03 register-${device}: ошибка`, async ({ page }) => {
-    await openRegister(page, width, height)
-    await page.goto('/register')
-    await page.getByLabel('Код приглашения').fill('LDR-2026')
-    await page.getByLabel('Имя').fill('Мария')
-    await page.getByLabel('Электронная почта').fill('owner@example.test')
-    await page.getByLabel('Пароль', { exact: true }).fill('password-123')
-    await page.getByRole('button', { name: 'Создать аккаунт' }).click()
-    await page.getByText('Код состоит из 43 символов').waitFor()
-    await settle(page)
-    await page.screenshot({ path: shot('error'), fullPage: true })
-  })
-  test(`F03 register-${device}: отправка`, async ({ page }) => {
-    await openRegister(page, width, height)
-    await page.route('**/api/v1/auth/register', () => new Promise(() => {}))
-    await page.goto('/register')
-    await page.getByLabel('Код приглашения').fill(EXAMPLE_CODE)
-    await page.getByLabel('Имя').fill('Мария')
-    await page.getByLabel('Электронная почта').fill('owner@example.test')
-    await page.getByLabel('Пароль', { exact: true }).fill('password-123')
-    await page.getByRole('button', { name: 'Создать аккаунт' }).click()
-    await page.locator('button[aria-busy="true"]').waitFor()
-    await settle(page)
-    await page.screenshot({ path: shot('busy'), fullPage: true })
-  })
-  test(`F03 register-${device}: первичная загрузка`, async ({ page }) => {
-    await page.setViewportSize({ width, height })
-    await page.route('**/api/v1/auth/me', () => new Promise(() => {}))
-    await page.goto('/register')
-    await page.getByRole('heading', { level: 1 }).waitFor()
-    await settle(page)
-    await page.screenshot({ path: shot('loading'), fullPage: true })
-  })
-}
 
 /* ---------- F03: восстановление пароля, новый пароль, ссылка, подтверждение почты ---------- */
 

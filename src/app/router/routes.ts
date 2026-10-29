@@ -242,7 +242,7 @@ export const routes: RouteRecordRaw[] = [
         path: 'settings/company',
         name: 'settings-company',
         component: () => import('@/pages/settings').then((m) => m.SettingsCompanyPage),
-        meta: { access: 'tenant', permission: 'organization.manage', title: 'Настройки' },
+        meta: { access: 'tenant', permission: 'organization.manage', title: 'Настройки', v2: true },
       },
       {
         path: 'settings/services',

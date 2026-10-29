@@ -14,6 +14,10 @@ bash scripts/claude-frontend.sh start
 Launcher использует существующий Claude Code из PATH или установленного Desktop
 bundle; глобальная установка и изменение shell profile не нужны.
 
+`start` и `resume` включают режим Auto через `--permission-mode auto`.
+Обычные команды и тесты проходят автоматическую проверку без постоянных запросов
+разрешений. Для отдельных действий Claude всё ещё может запросить подтверждение.
+
 По умолчанию backend docs берутся из соседнего `../Lidradar/docs`. Если backend
 расположен отдельно, перед запуском задайте `LIDRADAR_BACKEND_DOCS`:
 

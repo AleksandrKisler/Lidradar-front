@@ -48,6 +48,8 @@ export function useTelegramLink(
   const polls = ref(0)
   let pollTimer: ReturnType<typeof setTimeout> | null = null
   let expiryTimer: ReturnType<typeof setTimeout> | null = null
+  /** Область уничтожена: запоздавший ответ выпуска не должен заново запускать таймеры и опрос. */
+  let disposed = false
 
   function stopPolling(): void {
     if (pollTimer !== null) clearTimeout(pollTimer)
@@ -75,7 +77,7 @@ export function useTelegramLink(
 
   function schedulePoll(): void {
     stopPolling()
-    if (!token.value || expired.value || polls.value >= maxPolls) return
+    if (disposed || !token.value || expired.value || polls.value >= maxPolls) return
     pollTimer = setTimeout(() => {
       pollTimer = null
       void poll()
@@ -83,7 +85,7 @@ export function useTelegramLink(
   }
 
   async function poll(): Promise<void> {
-    if (!token.value || expired.value) return
+    if (disposed || !token.value || expired.value) return
     // Скрытая вкладка не опрашивает сервер: попытка переносится, а не сгорает.
     if (!isVisible()) {
       schedulePoll()
@@ -99,6 +101,7 @@ export function useTelegramLink(
   }
 
   function scheduleExpiry(expiresAt: string): void {
+    if (disposed) return
     if (expiryTimer !== null) clearTimeout(expiryTimer)
     const delay = Math.max(0, new Date(expiresAt).getTime() - now())
     expiryTimer = setTimeout(
@@ -118,6 +121,7 @@ export function useTelegramLink(
       disable.reset()
     },
     onSuccess: (issued) => {
+      if (disposed) return
       token.value = issued
       expired.value = false
       polls.value = 0
@@ -156,6 +160,7 @@ export function useTelegramLink(
   })
 
   onScopeDispose(() => {
+    disposed = true
     clearTimers()
     token.value = null
   })

@@ -17,12 +17,27 @@ import {
 
 const props = defineProps<{ status: OnboardingStatus | null; current: OnboardingStepKey | null }>()
 
+/** Шаг «Источник» отмечается галочкой, когда подключены и источник, и личные уведомления (Figma «Всё подключено»). */
+const channelLinked = computed(
+  () => props.status?.steps.find((step) => step.key === 'TELEGRAM_LINK')?.done ?? true,
+)
+/** Пока статус не получен (первая загрузка), шаги до текущего считаются пройденными: мастер идёт по порядку. */
+const assumedDone = (index: number) =>
+  props.status === null &&
+  props.current !== null &&
+  index < ONBOARDING_STEP_ORDER.indexOf(props.current)
 const steps = computed(() =>
   ONBOARDING_STEP_ORDER.filter((key) => key !== 'TELEGRAM_LINK').map((key, index) => ({
     key,
     number: index + 1,
     label: onboardingStepLabel(key),
-    done: key === 'ORGANIZATION' ? props.status !== null : isOnboardingStepDone(props.status, key),
+    done:
+      assumedDone(index) ||
+      (key === 'ORGANIZATION'
+        ? props.status !== null
+        : key === 'CHANNEL'
+          ? isOnboardingStepDone(props.status, key) && channelLinked.value
+          : isOnboardingStepDone(props.status, key)),
     current: key === props.current,
   })),
 )

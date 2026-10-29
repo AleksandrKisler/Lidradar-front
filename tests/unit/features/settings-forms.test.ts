@@ -111,7 +111,7 @@ describe('формы настроек', () => {
     await settle()
     expect(fetchMock).not.toHaveBeenCalled()
     const dialog = body().get('[role="dialog"]')
-    expect(dialog.text()).toContain('Исторические суммы не конвертируются')
+    expect(dialog.text()).toContain('Новая валюта не пересчитывает прежние суммы')
     await dialog
       .findAll('button')
       .find((button) => button.text() === 'Сохранить изменения')!
@@ -120,6 +120,29 @@ describe('формы настроек', () => {
     const patch = fetchMock.mock.calls.find(([request]) => request.method === 'PATCH')!
     expect(await patch[0].json()).toEqual({ defaultCurrency: 'KZT' })
     expect(wrapper.text()).toContain('Настройки компании сохранены.')
+    wrapper.unmount()
+  })
+
+  it('организация: «Оставить прежние» возвращает пояс и валюту, название остаётся', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ ...organization }))
+    const wrapper = mountWith(OrganizationForm, { tenantId: 'tenant-a', organization })
+    await wrapper.get('input[name="organizationName"]').setValue('Другое имя')
+    await wrapper.get('select[name="organizationCurrency"]').setValue('KZT')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    const dialog = body().get('[role="dialog"]')
+    await dialog
+      .findAll('button')
+      .find((button) => button.text() === 'Оставить прежние')!
+      .trigger('click')
+    await settle()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(
+      wrapper.get<HTMLSelectElement>('select[name="organizationCurrency"]').element.value,
+    ).toBe(organization.defaultCurrency)
+    expect(wrapper.get<HTMLInputElement>('input[name="organizationName"]').element.value).toBe(
+      'Другое имя',
+    )
     wrapper.unmount()
   })
 
@@ -181,6 +204,39 @@ describe('формы настроек', () => {
     edit.unmount()
   })
 
+  it('точка в окне: подписи макета, состояние выбирается списком, форма сообщает о занятости', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ ...location, active: false }, 200))
+    const wrapper = mountWith(LocationForm, {
+      tenantId: 'tenant-a',
+      location,
+      defaultTimezone: 'Europe/Moscow',
+      variant: 'dialog',
+      formId: 'dialog-form',
+    })
+    expect(wrapper.get('form').attributes('id')).toBe('dialog-form')
+    expect(wrapper.text()).toContain('Нет ответа, мин')
+    expect(wrapper.text()).toContain('Следующий шаг, мин')
+    expect(wrapper.text()).toContain('От 1 до 1 440 рабочих минут')
+    expect(wrapper.text()).toContain('График этой точки настраивается отдельно')
+    // Собственных кнопок нет: форму отправляет кнопка нижней панели окна.
+    expect(wrapper.find('button').exists()).toBe(false)
+    await wrapper.get('select[name="locationActive"]').setValue('inactive')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(await fetchMock.mock.calls[0]![0].json()).toEqual({ active: false })
+    expect(wrapper.emitted('busy')?.map(([busy]) => busy)).toEqual([true, false])
+    wrapper.unmount()
+
+    const create = mountWith(LocationForm, {
+      tenantId: 'tenant-a',
+      location: null,
+      defaultTimezone: 'Europe/Moscow',
+      variant: 'dialog',
+    })
+    expect(create.find('select[name="locationActive"]').exists()).toBe(false)
+    create.unmount()
+  })
+
   it.each(['create', 'update'] as const)(
     'точка: %s защищена от повторного submit во время валидации и запроса',
     async (kind) => {
@@ -212,6 +268,68 @@ describe('формы настроек', () => {
       wrapper.unmount()
     },
   )
+
+  it('график в настройках: ошибка у дня, красным только «до», сохранение ждёт исправления', async () => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(jsonResponse({ ...location, businessHours: [] })),
+    )
+    const wrapper = mountWith(BusinessHoursEditor, {
+      tenantId: 'tenant-a',
+      location,
+      appearance: 'settings',
+      intro: 'Часы ниже — черновик.',
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Скопировать часы первого рабочего дня')
+    await wrapper.get('input[name="closes-2"]').setValue('08:00')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(wrapper.text()).toContain('Вторник: окончание рабочего дня должно быть позже начала.')
+    expect(wrapper.get('input[name="closes-2"]').attributes('aria-invalid')).toBe('true')
+    expect(wrapper.get('input[name="opens-2"]').attributes('aria-invalid')).toBeUndefined()
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+    expect(fetchMock).not.toHaveBeenCalled()
+    // Правка поля снимает ошибку и возвращает кнопку.
+    await wrapper.get('input[name="closes-2"]').setValue('20:00')
+    expect(wrapper.text()).not.toContain('окончание рабочего дня')
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('график в настройках: ошибку дня снимают «Скопировать…» и выходной; правка порога точки не стирает часы', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ ...location, businessHours: [] }))
+    const wrapper = mountWith(BusinessHoursEditor, {
+      tenantId: 'tenant-a',
+      location,
+      appearance: 'settings',
+      intro: 'Часы ниже — черновик.',
+    })
+    await flushPromises()
+    await wrapper.get('input[name="closes-2"]').setValue('08:00')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(wrapper.text()).toContain('Вторник:')
+    // «Скопировать часы первого рабочего дня» выравнивает вторник по понедельнику и снимает ошибку.
+    await wrapper
+      .findAll('button[type="button"]')
+      .find((button) => button.text().includes('Скопировать'))!
+      .trigger('click')
+    expect(wrapper.text()).not.toContain('Вторник:')
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+    // Выходной день тоже снимает ошибку.
+    await wrapper.get('input[name="closes-3"]').setValue('08:00')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(wrapper.text()).toContain('Среда:')
+    await wrapper.get('input[name="day-3"]').setValue(false)
+    expect(wrapper.text()).not.toContain('Среда:')
+    // Правка порога точки (новый объект без изменения графика) черновик не сбрасывает.
+    await wrapper.get('input[name="opens-1"]').setValue('07:00')
+    await wrapper.setProps({ location: { ...location, responseThresholdMinutes: 50 } })
+    expect(wrapper.get<HTMLInputElement>('input[name="opens-1"]').element.value).toBe('07:00')
+    wrapper.unmount()
+    expect(wrapper.emitted('update:dirty')?.at(-1)).toEqual([false])
+  })
 
   it('график: локальная проверка, атомарный PUT и признак несохранённых изменений', async () => {
     fetchMock.mockImplementation(() =>

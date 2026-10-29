@@ -23,6 +23,28 @@ async function expectNoAxeViolations(page: Page) {
   expect(violations).toEqual([])
 }
 
+/** Разделы настроек: вкладки на десктопе, подписанный выбор раздела на планшете и телефоне. */
+async function openSettingsSection(page: Page, name: string) {
+  const select = page.getByLabel('Раздел настроек')
+  if (await select.isVisible()) await select.selectOption({ label: name })
+  else {
+    await page
+      .getByRole('navigation', { name: 'Разделы настроек' })
+      .getByRole('link', { name })
+      .click()
+  }
+}
+
+async function expectSettingsSection(page: Page, name: string) {
+  const select = page.getByLabel('Раздел настроек')
+  if (await select.isVisible()) await expect(select.locator('option:checked')).toHaveText(name)
+  else {
+    await expect(
+      page.getByRole('navigation', { name: 'Разделы настроек' }).getByRole('link', { name }),
+    ).toHaveAttribute('aria-current', 'page')
+  }
+}
+
 test.describe('гость', () => {
   test.beforeEach(async ({ page }) => mockGuest(page))
 
@@ -760,9 +782,7 @@ test.describe('владелец организации', () => {
   test('настройки: компания, точка, график и услуги', async ({ page }) => {
     await page.goto('/settings')
     await expect(page).toHaveURL(/\/settings\/company$/)
-    await expect(
-      page.getByRole('heading', { name: 'Настройки рабочего пространства' }),
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Компания и график' })).toBeVisible()
     await expect(
       page.getByRole('status').filter({ hasText: /Настройка не завершена/ }),
     ).toHaveCount(0)
@@ -770,21 +790,44 @@ test.describe('владелец организации', () => {
 
     // Название компании сохраняется без подтверждения, валюта — с предупреждением.
     await page.getByLabel('Название компании').fill('Студия «Блик» и партнёры')
-    await page.getByRole('button', { name: 'Сохранить', exact: true }).click()
+    await page.getByRole('button', { name: 'Сохранить компанию' }).click()
     await expect(page.getByText('Настройки компании сохранены.')).toBeVisible()
     await page.getByLabel('Основная валюта').selectOption('KZT')
-    await page.getByRole('button', { name: 'Сохранить', exact: true }).click()
-    const currencyDialog = page.getByRole('dialog', { name: 'Изменить пояс или валюту?' })
-    await expect(currencyDialog).toContainText('Исторические суммы не конвертируются')
-    await currencyDialog.getByRole('button', { name: 'Отмена' }).click()
+    await page.getByRole('button', { name: 'Сохранить компанию' }).click()
+    const currencyDialog = page.getByRole('dialog', { name: 'Изменить валюту и часовой пояс?' })
+    await expect(currencyDialog).toContainText('Новая валюта не пересчитывает прежние суммы')
+    await currencyDialog.getByRole('button', { name: 'Оставить прежние' }).click()
+    await expect(page.getByLabel('Основная валюта')).toHaveValue('RUB')
 
     // Новая точка через диалог появляется в списке.
     await page.getByRole('button', { name: 'Добавить точку' }).click()
-    const locationDialog = page.getByRole('dialog', { name: 'Новая точка' })
+    const locationDialog = page.getByRole('dialog', { name: 'Добавить точку' })
     await locationDialog.getByLabel('Название точки').fill('Студия на Пресне')
-    await locationDialog.getByLabel('Порог ответа, минут').fill('60')
-    await locationDialog.getByRole('button', { name: 'Создать точку' }).click()
+    await locationDialog.getByLabel('Нет ответа, мин').fill('45')
+    await locationDialog.getByRole('button', { name: 'Добавить точку' }).click()
     await expect(page.getByRole('list', { name: 'Список точек' })).toContainText('Студия на Пресне')
+    // Порог 45 и «Активна» в списке; неактивность — через «Изменить точку».
+    const created = page
+      .getByRole('list', { name: 'Список точек' })
+      .getByRole('listitem')
+      .filter({ hasText: 'Студия на Пресне' })
+    await expect(created).toContainText('Порог ответа: 45 рабочих минут')
+    await expect(created).toContainText('Активна')
+    await created.getByRole('button', { name: 'Изменить точку' }).click()
+    const editDialog = page.getByRole('dialog', { name: 'Изменить точку' })
+    await editDialog.getByLabel('Состояние точки').selectOption('inactive')
+    await editDialog.getByRole('button', { name: 'Сохранить точку' }).click()
+    await expect(created).toContainText('Неактивна')
+
+    // Смена точки при несохранённом графике: «К редактированию» возвращает прежнюю точку и ввод.
+    await page.locator('input[name="opens-1"]').fill('07:00')
+    const scheduleLocation = page.locator('#schedule-location')
+    const firstLocation = await scheduleLocation.inputValue()
+    await scheduleLocation.selectOption({ label: 'Студия на Пресне (неактивна)' })
+    const switchDialog = page.getByRole('dialog', { name: 'Сохранить изменения графика?' })
+    await switchDialog.getByRole('button', { name: 'К редактированию' }).click()
+    await expect(scheduleLocation).toHaveValue(firstLocation)
+    await expect(page.locator('input[name="opens-1"]')).toHaveValue('07:00')
 
     // График: воскресенье становится рабочим, неделя уходит одним запросом.
     const putHours = page.waitForRequest(
@@ -796,8 +839,28 @@ test.describe('владелец организации', () => {
     expect((request.postDataJSON() as { days: unknown[] }).days).toHaveLength(7)
     await expect(page.getByText('График сохранён.')).toBeVisible()
 
+    // Несохранённый график защищён окном: «К редактированию» остаётся, «Продолжить без сохранения» уходит.
+    await page.locator('input[name="opens-1"]').fill('08:00')
+    await openSettingsSection(page, 'Услуги')
+    const leaveDialog = page.getByRole('dialog', { name: 'Сохранить изменения графика?' })
+    await expect(leaveDialog).toContainText('несохранённые изменения недельного расписания')
+    await expectNoAxeViolations(page)
+    await leaveDialog.getByRole('button', { name: 'К редактированию' }).click()
+    await expect(leaveDialog).toHaveCount(0)
+    await expect(page).toHaveURL(/\/settings\/company$/)
+    await expect(page.locator('input[name="opens-1"]')).toHaveValue('08:00')
+    await openSettingsSection(page, 'Услуги')
+    await leaveDialog.getByRole('button', { name: 'Продолжить без сохранения' }).click()
+    await expect(page).toHaveURL(/\/settings\/services$/)
+    // Страница ушла вместе со слушателем: закрытие вкладки не спрашивает «Покинуть сайт?».
+    const unloadPrevented = await page.evaluate(() => {
+      const event = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(event)
+      return event.defaultPrevented
+    })
+    expect(unloadPrevented).toBe(false)
+
     // Услуги: добавить, отключить с подтверждением, включить снова.
-    await page.getByRole('link', { name: 'Услуги' }).click()
     await expect(page).toHaveURL(/\/settings\/services$/)
     await expect(page.getByRole('table', { name: 'Услуги организации' })).toContainText(
       'Полировка кузова',
@@ -831,7 +894,10 @@ test.describe('владелец организации', () => {
     // У организации есть точка, но нет графика на всю неделю и есть услуга: сервер ведёт к источнику.
     await expect(page).toHaveURL(/\/onboarding\/channel$/)
     await expect(page.getByRole('heading', { name: 'Источник сообщений' })).toBeVisible()
-    await expect(page.getByRole('list', { name: 'Шаги настройки' })).toContainText('Точка и график')
+    // Ряд шагов показывает «Шаг 4 из 4»: пройденные шаги отмечены, текущий — «Источник сообщений».
+    await expect(page.getByRole('navigation', { name: 'Шаги начала работы' })).toContainText(
+      'Шаг 4 из 4',
+    )
     // Обязательное подключение — главное действие страницы, а не ссылка в плашке.
     await expect(page.getByRole('button', { name: 'Подключить Telegram' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Перейти к подключению' })).toHaveCount(0)
@@ -839,12 +905,12 @@ test.describe('владелец организации', () => {
     if ((page.viewportSize()?.width ?? 0) >= 768) {
       const steps = page.getByRole('navigation', { name: 'Шаги начала работы' })
       await expect(steps).toBeVisible()
-      // Нумеруются только обязательные шаги, как в «Шаг 4 из 4».
+      // Показаны четыре обязательных шага; необязательной привязки уведомлений в ряду нет.
       await expect(steps).toContainText('4')
-      await expect(steps).not.toContainText('5')
+      await expect(steps).not.toContainText('Уведомления в Telegram')
     }
     await expectNoAxeViolations(page)
-    await page.getByRole('link', { name: 'Назад' }).click()
+    await page.getByRole('button', { name: 'Назад' }).click()
     await expect(page).toHaveURL(/\/onboarding\/services$/)
     await expect(page.getByRole('list', { name: 'Добавленные услуги' })).toContainText(
       'Полировка кузова',
@@ -889,17 +955,32 @@ test.describe('владелец организации', () => {
     // Иерархия: подключение — главное, уведомления тихие, выход без источника не главный.
     const connect = page.getByRole('button', { name: 'Подключить Telegram' })
     await expect(connect).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Подключить уведомления' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Уведомления в Telegram' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Перейти в Radar' })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Подключу позже' })).toBeVisible()
-    await expect(page.getByText('Без источника в Radar не появится ни одного риска')).toBeVisible()
+    await expect(
+      page.getByText('Без источника в LidRadar не появится ни одного риска.'),
+    ).toBeVisible()
     await expectNoAxeViolations(page)
 
     // Подключение прямо на шаге: подсказка про токен рядом с полем.
     await connect.click()
     const dialog = page.getByRole('dialog', { name: 'Подключить Telegram' })
-    await dialog.getByText('Где взять токен бота').click()
+    await expect(dialog.getByRole('heading', { name: 'Где взять токен бота' })).toBeVisible()
     await expect(dialog.getByText('@BotFather').first()).toBeVisible()
+    await expectNoAxeViolations(page)
+
+    // Подробная инструкция открывается поверх формы и возвращает к ней, введённое сохраняется.
+    await dialog.getByLabel('Название подключения').fill('Telegram · переписка клиентов')
+    await dialog.getByRole('button', { name: 'Подробная инструкция со скриншотами' }).click()
+    const guide = page.getByRole('dialog', { name: 'Подключение бота' })
+    await expect(guide.getByRole('heading', { name: /Откройте Telegram/ })).toBeVisible()
+    await expectNoAxeViolations(page)
+    await guide.getByRole('button', { name: 'Вернуться к подключению' }).click()
+    await expect(guide).toHaveCount(0)
+    await expect(dialog.getByLabel('Название подключения')).toHaveValue(
+      'Telegram · переписка клиентов',
+    )
     await dialog.getByLabel('Название подключения').fill('Telegram · переписка клиентов')
     await dialog.getByLabel('Токен бота').fill('123456789:AAHf1234567890abcdefghijklmnop')
     await dialog.getByRole('button', { name: 'Подключить' }).click()
@@ -908,16 +989,69 @@ test.describe('владелец организации', () => {
     await dialog.getByRole('button', { name: 'Готово' }).click()
 
     // Страница перешла в состояние «источник подключён»: видны подключение и главная кнопка.
-    await expect(page.getByRole('heading', { name: 'Источник подключён' })).toBeVisible()
-    await expect(page.getByRole('list', { name: 'Подключённые источники' })).toContainText(
-      'Telegram · переписка клиентов',
-    )
+    await expect(page.getByRole('heading', { name: 'Telegram подключён' })).toBeVisible()
+    // Кнопка подключения исчезла вместе с состоянием «источника нет»: фокус на заголовке нового состояния.
+    await expect(page.getByRole('heading', { name: 'Telegram подключён' })).toBeFocused()
+    await expect(page.getByText('Источник переписки · Telegram · переписка клиентов')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Перейти в Radar' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Подключу позже' })).toHaveCount(0)
-    await expect(page.getByText('Без источника в Radar не появится')).toHaveCount(0)
+    await expect(page.getByText('Без источника в LidRadar не появится')).toHaveCount(0)
     await expectNoAxeViolations(page)
     await page.getByRole('button', { name: 'Перейти в Radar' }).click()
     await expect(page).toHaveURL(/\/radar$/)
+  })
+
+  test('«Подключу позже» → Radar с баннером → «Продолжить настройку» ведёт обратно на шаг 4', async ({
+    page,
+  }) => {
+    await page.goto('/onboarding/channel')
+    await page.getByRole('button', { name: 'Подключу позже' }).click()
+    await expect(page).toHaveURL(/\/radar$/)
+    const banner = page.getByRole('status').filter({ hasText: 'Настройка не завершена' })
+    await expect(banner).toContainText('Следующий шаг — источник сообщений.')
+    await banner.getByRole('link', { name: 'Продолжить настройку' }).click()
+    await expect(page).toHaveURL(/\/onboarding\/channel$/)
+    await expect(page.getByRole('heading', { name: 'Подключите Telegram' })).toBeVisible()
+  })
+
+  test('US-M02-04: прервали на шаге 2 → Radar с баннером → «Продолжить настройку» ведёт на шаг 2', async ({
+    page,
+  }) => {
+    // Пройден только шаг «Компания»: точки ещё нет.
+    await page.route('**/api/v1/organization/onboarding', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          complete: false,
+          nextStep: 'LOCATION',
+          steps: [
+            { key: 'ORGANIZATION', required: true, done: true },
+            { key: 'LOCATION', required: true, done: false },
+            { key: 'SERVICES', required: true, done: false },
+            { key: 'CHANNEL', required: true, done: false },
+            { key: 'TELEGRAM_LINK', required: false, done: false },
+          ],
+          facts: {
+            activeLocations: 0,
+            locationsWithSchedule: 0,
+            activeServices: 0,
+            connections: 0,
+            liveConnections: 0,
+            telegramLinked: false,
+          },
+          computedAt: '2026-10-23T12:40:00Z',
+        }),
+      }),
+    )
+    await page.goto('/radar')
+    const banner = page.getByRole('status').filter({ hasText: 'Настройка не завершена' })
+    await expect(banner).toContainText('Следующий шаг — точка и график.')
+    await banner.getByRole('link', { name: 'Продолжить настройку' }).click()
+    await expect(page).toHaveURL(/\/onboarding\/location$/)
+    await expect(page.getByText('Шаг 2 из 4')).toBeVisible()
+    // Созданная организация не потерялась: шаг «Компания» остаётся пройденным.
+    await expect(page.getByText('Компания выполнено')).toBeVisible()
   })
 
   test('Radar без источника не успокаивает, а ведёт к подключению', async ({ page }) => {
@@ -1022,23 +1156,15 @@ test.describe('владелец организации', () => {
 
     // Шаг онбординга «Источник сообщений» закрыт подключением.
     await page.goto('/onboarding/channel')
-    await expect(
-      page
-        .getByRole('list', { name: 'Шаги настройки' })
-        .getByRole('listitem')
-        .filter({ hasText: 'Источник сообщений' }),
-    ).toContainText('готово')
-    // Точка, услуга и источник есть: сервер считает обязательные шаги выполненными.
-    await expect(page.getByText('Настройка завершена')).toBeVisible()
+    // Источник подключён: карточка «Telegram подключён» и «Перейти в Radar» вместо «Подключу позже».
+    await expect(page.getByRole('heading', { name: 'Telegram подключён' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Перейти в Radar' })).toBeVisible()
   })
 
   test('уведомления: личная привязка Telegram и настройки по типам рисков', async ({ page }) => {
     await page.goto('/settings/notifications')
     await expect(page.getByRole('heading', { name: 'Уведомления без лишнего шума' })).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Уведомления' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    )
+    await expectSettingsSection(page, 'Уведомления')
     const telegram = page.getByRole('region', { name: 'Ваши уведомления в Telegram' })
     await expect(telegram).toContainText('Не подключены')
     const rows = page
@@ -1307,7 +1433,7 @@ test.describe('владелец организации', () => {
   test('данные и согласие: выдача, повтор и отзыв с честным текстом', async ({ page }) => {
     await page.goto('/settings/privacy')
     await expect(page.getByRole('heading', { name: 'Данные и согласие на обучение' })).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Данные' })).toHaveAttribute('aria-current', 'page')
+    await expectSettingsSection(page, 'Данные')
     const card = page.getByRole('region', { name: 'Согласие на использование данных в наборах' })
     await expect(card).toContainText('Не дано')
     await expect(card).toContainText('используются только для работы сервиса')
@@ -1561,8 +1687,11 @@ test.describe('менеджер организации', () => {
   test('настройки открываются на личных уведомлениях без разделов владельца', async ({ page }) => {
     await page.goto('/settings')
     await expect(page).toHaveURL(/\/settings\/notifications$/)
+    const sectionSelect = page.getByLabel('Раздел настроек')
     await expect(
-      page.getByRole('navigation', { name: 'Разделы настроек' }).getByRole('link'),
+      (await sectionSelect.isVisible())
+        ? sectionSelect.locator('option')
+        : page.getByRole('navigation', { name: 'Разделы настроек' }).getByRole('link'),
     ).toHaveText(['Уведомления', 'Данные', 'Аккаунт'])
     await expect(page.getByRole('region', { name: 'Ваши уведомления в Telegram' })).toBeVisible()
     await expect(
@@ -1579,7 +1708,7 @@ test.describe('менеджер организации', () => {
       await expect(sections.getByRole('link', { name: 'Интеграции' })).toHaveCount(0)
     }
     // Согласие менеджер читает, но не меняет.
-    await page.getByRole('link', { name: 'Данные' }).click()
+    await openSettingsSection(page, 'Данные')
     await expect(page).toHaveURL(/\/settings\/privacy$/)
     await expect(page.getByText('Не дано')).toBeVisible()
     await expect(page.getByTestId('consent-readonly')).toContainText('может владелец')

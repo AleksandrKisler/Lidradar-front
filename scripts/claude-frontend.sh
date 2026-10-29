@@ -102,7 +102,7 @@ if [[ ! -t 0 || ! -t 1 ]]; then
   printf 'Start/resume requires an interactive terminal for login and workspace trust.\n' >&2
   exit 1
 fi
-args=(--model sonnet --add-dir "$backend_docs" --add-dir "$design_root")
+args=(--model sonnet --permission-mode auto --add-dir "$backend_docs" --add-dir "$design_root")
 if [[ "$mode" == resume ]]; then
   exec "$claude_bin" "${args[@]}" --resume
 fi

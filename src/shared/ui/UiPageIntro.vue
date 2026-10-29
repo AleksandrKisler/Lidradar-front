@@ -12,6 +12,8 @@ defineProps<{
   compact?: boolean
   /** Широкое пояснение (макет «Точка и график»): строка около 640 px. */
   wide?: boolean
+  /** Точная ширина строки пояснения в px (перекрывает размеры выше). */
+  measure?: number | undefined
 }>()
 </script>
 
@@ -30,6 +32,7 @@ defineProps<{
       {{ title }}
     </h1>
     <p
+      :style="measure ? { width: `${measure}px`, maxWidth: 'calc(100vw - 32px)' } : undefined"
       :class="[
         'text-field leading-[25px] text-secondary md:whitespace-pre-line',
         wide

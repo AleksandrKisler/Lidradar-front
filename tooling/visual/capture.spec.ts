@@ -40,6 +40,7 @@ const json = (route: Route, body: unknown, status = 200) =>
 /** Шрифты загружены, фокуса и наведения нет; состояния запросов к этому моменту уже конечные. */
 async function settle(page: Page): Promise<void> {
   await page.mouse.move(0, 0)
+  await page.evaluate(() => window.scrollTo(0, 0))
   await page.evaluate(() => document.fonts.ready)
   // Переходы (например, после переключения «Список/Плитки») должны закончиться: кадр — только в конечном состоянии.
   // Бесконечные анимации (спиннер состояния «отправка») не ждём: только конечные переходы.
@@ -612,57 +613,401 @@ const servicesFlows: AccessFlow[] = [
   },
 ]
 
-/** Без эталона: «Настройки → Компания и график» (общий редактор графика), для проверки регрессии. */
-for (const [device, width, height] of registerDevices) {
-  test(`F03 settings-company-${device}`, async ({ page }) => {
-    await page.setViewportSize({ width, height })
-    await mockOwner(page)
-    await page.goto('/settings/company')
-    await page.locator('input[name="opens-1"]').first().waitFor()
-    await page.locator('input[name="opens-1"]').first().fill('20:00')
-    await page.locator('input[name="closes-1"]').first().fill('09:00')
-    await page.getByRole('button', { name: 'Сохранить график' }).click()
-    await page.getByText('Время окончания должно быть позже начала.').waitFor()
-    await settle(page)
-    await page.screenshot({
-      path: `${OUT}/F03/actual/settings-company-${device}.png`,
-      fullPage: true,
-    })
+/** Шаг 4: пройдены три шага; источник и личные уведомления — по параметрам кадра. */
+async function mockOwnerAtChannelStep(
+  page: Page,
+  options: { channel: boolean; linked: boolean },
+): Promise<void> {
+  await mockOwner(page)
+  const status = () => ({
+    complete: options.channel,
+    nextStep: options.channel ? 'TELEGRAM_LINK' : 'CHANNEL',
+    steps: [
+      { key: 'ORGANIZATION', required: true, done: true },
+      { key: 'LOCATION', required: true, done: true },
+      { key: 'SERVICES', required: true, done: true },
+      { key: 'CHANNEL', required: true, done: options.channel },
+      { key: 'TELEGRAM_LINK', required: false, done: options.linked },
+    ],
+    facts: {
+      activeLocations: 1,
+      locationsWithSchedule: 1,
+      activeServices: 1,
+      connections: options.channel ? 1 : 0,
+      liveConnections: options.channel ? 1 : 0,
+      telegramLinked: options.linked,
+    },
+    computedAt: '2026-10-23T12:40:00Z',
   })
+  await page.route('**/api/v1/organization/onboarding', (route) => json(route, status()))
+  const connection = {
+    id: '01990000-0000-7000-8000-000000000701',
+    locationId: null,
+    provider: 'CONNECTED_BUSINESS_BOT',
+    name: '@LidradarExample_bot',
+    status: 'ACTIVE',
+    capabilities: ['CAN_RECEIVE_MESSAGES'],
+    lastEventAt: null,
+    lastSuccessAt: null,
+    lastErrorAt: null,
+    lastErrorCode: null,
+    createdAt: '2026-10-23T12:00:00Z',
+    updatedAt: '2026-10-23T12:00:00Z',
+  }
+  await page.route('**/api/v1/integrations', (route) =>
+    json(route, { items: options.channel ? [connection] : [] }),
+  )
 }
 
-/** Состояния без кадров Figma: результат сброса при действующей сессии (решение владельца 28.10). */
-for (const [device, width, height] of registerDevices) {
-  test(`F03 reset-done-signed-in-${device}`, async ({ page }) => {
-    await page.setViewportSize({ width, height })
-    await page.route('**/api/v1/auth/me', (route) =>
-      json(route, {
-        canCreateOrganization: true,
-        user: {
-          id: '01990000-0000-7000-8000-000000000f01',
-          email: 'owner@example.test',
-          displayName: 'Мария',
-          status: 'ACTIVE',
-          emailVerifiedAt: '2026-10-13T08:00:00Z',
-          deletionDueAt: null,
-          createdAt: '2026-10-13T00:00:00Z',
-          updatedAt: '2026-10-13T00:00:00Z',
-        },
-        memberships: [],
-      }),
+const channelFlows: AccessFlow[] = [
+  {
+    name: 'channel',
+    path: '/onboarding/channel',
+    states: {
+      '': async (page) => {
+        await mockOwnerAtChannelStep(page, { channel: false, linked: false })
+        await page.goto('/onboarding/channel')
+        await page.getByRole('button', { name: 'Подключить Telegram' }).waitFor()
+      },
+      error: async (page) => {
+        await mockOwnerAtChannelStep(page, { channel: false, linked: false })
+        await page.route('**/api/v1/integrations', (route) => route.abort('failed'))
+        await page.goto('/onboarding/channel')
+        await page.getByText('Не удалось проверить подключение').waitFor()
+      },
+      // «Проверяем…» — явный повтор после сбоя чтения: второй запрос подключений не отвечает.
+      busy: async (page) => {
+        await mockOwnerAtChannelStep(page, { channel: false, linked: false })
+        let hang = false
+        await page.route('**/api/v1/integrations', (route) =>
+          hang ? new Promise(() => {}) : route.abort('failed'),
+        )
+        await page.goto('/onboarding/channel')
+        await page.getByRole('button', { name: 'Повторить проверку' }).waitFor()
+        hang = true
+        await page.getByRole('button', { name: 'Повторить проверку' }).click()
+        await page.locator('button[aria-busy="true"]').waitFor()
+      },
+      loading: async (page) => {
+        await mockOwnerAtChannelStep(page, { channel: false, linked: false })
+        await page.route('**/api/v1/organization/onboarding', () => new Promise(() => {}))
+        await page.goto('/onboarding/channel')
+        await page.getByRole('status', { name: 'Загрузка статуса источника' }).waitFor()
+      },
+      bot: async (page) => {
+        await mockOwnerAtChannelStep(page, { channel: true, linked: false })
+        await page.goto('/onboarding/channel')
+        await page.getByText('Telegram подключён').waitFor()
+      },
+      done: async (page) => {
+        await mockOwnerAtChannelStep(page, { channel: true, linked: true })
+        await page.goto('/onboarding/channel')
+        await page.getByText('Telegram подключён').waitFor()
+      },
+    },
+  },
+]
+
+/** Диалоги шага 4: «Подключить Telegram» и «Уведомления в Telegram» поверх страницы. */
+const SYNTHETIC_TOKEN = '123456789:AAHsyntheticTokenForVisualQa0000000'
+
+/** `setup` вешает свои маршруты после общих моков: у Playwright побеждает последний. */
+async function openConnectDialog(page: Page, setup?: () => Promise<unknown>): Promise<void> {
+  await mockOwnerAtChannelStep(page, { channel: false, linked: false })
+  await setup?.()
+  await page.goto('/onboarding/channel')
+  await page.getByRole('button', { name: 'Подключить Telegram' }).click()
+  await page.getByRole('dialog', { name: 'Подключить Telegram' }).waitFor()
+}
+
+const telegramFlows: AccessFlow[] = [
+  {
+    name: 'telegram',
+    path: '/onboarding/channel',
+    states: {
+      '': openConnectDialog,
+      error: async (page) => {
+        await openConnectDialog(page, () =>
+          page.route('**/api/v1/integrations/*/connect', (route) =>
+            json(
+              route,
+              {
+                error: {
+                  code: 'CHANNEL_CREDENTIALS_REJECTED',
+                  message: 'rejected',
+                  traceId: 't-1',
+                },
+              },
+              400,
+            ),
+          ),
+        )
+        await page.getByLabel('Название подключения').fill('Telegram · переписка клиентов')
+        await page.getByLabel('Токен бота').fill(SYNTHETIC_TOKEN)
+        await page.getByRole('button', { name: 'Подключить', exact: true }).click()
+        await page.getByText('Токен не принят.').waitFor()
+      },
+      busy: async (page) => {
+        await openConnectDialog(page, () =>
+          page.route('**/api/v1/integrations/*/connect', () => new Promise(() => {})),
+        )
+        await page.getByLabel('Название подключения').fill('Telegram · переписка клиентов')
+        await page.getByLabel('Токен бота').fill(SYNTHETIC_TOKEN)
+        await page.getByRole('button', { name: 'Подключить', exact: true }).click()
+        await page.getByRole('button', { name: 'Подключаем…' }).waitFor()
+      },
+      loading: async (page) => {
+        await openConnectDialog(page, () =>
+          page.route('**/api/v1/locations', () => new Promise(() => {})),
+        )
+        await page.getByRole('status', { name: 'Загружаем точки' }).waitFor()
+      },
+    },
+  },
+]
+
+const instructionFlows: AccessFlow[] = [
+  {
+    name: 'instruction',
+    path: '/onboarding/channel',
+    states: {
+      '': async (page) => {
+        await openConnectDialog(page)
+        await page.getByRole('button', { name: 'Подробная инструкция со скриншотами' }).click()
+        await page.getByRole('dialog', { name: 'Подключение бота' }).waitFor()
+        await page.locator('img[src*="step-01"]').waitFor()
+        await page.waitForFunction(() =>
+          [...document.images].every((image) => image.complete || image.loading === 'lazy'),
+        )
+      },
+    },
+  },
+]
+
+async function mockTelegramLink(
+  page: Page,
+  options: {
+    linked?: boolean
+    ttlMs?: number
+    hangStatusAfterFirst?: boolean
+    hangFirst?: boolean
+  },
+): Promise<void> {
+  let reads = 0
+  await page.route('**/api/v1/notifications/telegram-link', (route) => {
+    if (route.request().method() !== 'GET') return route.fallback()
+    reads += 1
+    if (options.hangFirst || (options.hangStatusAfterFirst && reads > 1))
+      return new Promise(() => {})
+    return json(
+      route,
+      options.linked ? { linked: true, linkedAt: '2026-10-23T12:00:00Z' } : { linked: false },
     )
-    await page.route('**/api/v1/auth/password/reset', (route) => route.fulfill({ status: 204 }))
-    await page.goto(`/reset-password#token=${TOKEN}`)
-    await page.getByLabel('Новый пароль').fill('password-123')
-    await page.getByLabel('Повторите пароль').fill('password-123')
-    await page.getByRole('button', { name: 'Сменить пароль' }).click()
-    await page.getByText('В этом браузере вы вошли как').waitFor()
-    await settle(page)
-    await page.screenshot({
-      path: `${OUT}/F03/actual/reset-done-signed-in-${device}.png`,
-      fullPage: true,
-    })
   })
+  await page.route('**/api/v1/notifications/telegram-link-token', (route) =>
+    json(route, {
+      startUrl: 'https://t.me/LidradarExample_bot?start=synthetic',
+      expiresAt: new Date(
+        new Date(NOW).getTime() + (options.ttlMs ?? 15 * 60_000) - 5_000,
+      ).toISOString(),
+    }),
+  )
+}
+
+async function openNotifyDialog(page: Page, setup?: () => Promise<unknown>): Promise<void> {
+  await mockOwnerAtChannelStep(page, { channel: true, linked: false })
+  await setup?.()
+  await page.goto('/onboarding/channel')
+  await page.getByRole('button', { name: 'Уведомления в Telegram' }).click()
+  await page.getByRole('dialog', { name: 'Уведомления в Telegram' }).waitFor()
+}
+
+const notifyFlows: AccessFlow[] = [
+  {
+    name: 'notify',
+    path: '/onboarding/channel',
+    states: {
+      '': async (page) => {
+        await openNotifyDialog(page, () => mockTelegramLink(page, {}))
+        await page.getByText('Ссылка действует ещё').waitFor()
+      },
+      error: async (page) => {
+        await openNotifyDialog(page, () => mockTelegramLink(page, { ttlMs: 6_500 }))
+        await page.getByText('Ссылка больше не действует').waitFor({ timeout: 10_000 })
+      },
+      busy: async (page) => {
+        await openNotifyDialog(page, () => mockTelegramLink(page, { hangStatusAfterFirst: true }))
+        await page.getByRole('button', { name: 'Проверить привязку' }).click()
+        await page.getByRole('button', { name: 'Проверяем…' }).waitFor()
+      },
+      loading: async (page) => {
+        await openNotifyDialog(page, () => mockTelegramLink(page, { hangFirst: true }))
+        await page.getByRole('status', { name: 'Загружаем статус' }).waitFor()
+      },
+      linked: async (page) => {
+        await openNotifyDialog(page, () => mockTelegramLink(page, { linked: true }))
+        await page.getByText('Уведомления успешно подключены').waitFor()
+      },
+    },
+  },
+]
+
+/** «Настройки → Компания и график»: точка из макета без сохранённого графика. */
+const settingsLocation = {
+  id: '01990000-0000-7000-8000-000000000201',
+  name: 'Студия на Тверской',
+  timezone: 'Europe/Moscow',
+  responseThresholdMinutes: 45,
+  agreementThresholdMinutes: 120,
+  active: true,
+  businessHours: [],
+  createdAt: '2026-10-23T12:00:00Z',
+  updatedAt: '2026-10-23T12:00:00Z',
+}
+
+/** Режим ответов на повторное чтение: `ok` — как обычно, `fail` — сбой сети, `hang` — без ответа. */
+interface SettingsControl {
+  mode: 'ok' | 'fail' | 'hang'
+}
+
+async function mockSettingsCompany(
+  page: Page,
+  options: { items?: unknown[]; hang?: boolean; saveHang?: boolean } = {},
+): Promise<SettingsControl> {
+  const control: SettingsControl = { mode: 'ok' }
+  await mockOwner(page)
+  const serve = (route: Route, body: unknown) => {
+    if (control.mode === 'fail') return route.abort('failed')
+    if (control.mode === 'hang') return new Promise(() => {})
+    return json(route, body)
+  }
+  await page.route('**/api/v1/locations', (route) => {
+    if (options.hang) return new Promise(() => {})
+    return serve(route, { items: options.items ?? [settingsLocation] })
+  })
+  if (options.hang) await page.route('**/api/v1/organization', () => new Promise(() => {}))
+  else {
+    // Организацию отдаёт общий мок; повторное чтение перехватывается тем же режимом.
+    await page.route('**/api/v1/organization', (route) =>
+      control.mode === 'ok'
+        ? route.fallback()
+        : control.mode === 'fail'
+          ? route.abort('failed')
+          : new Promise(() => {}),
+    )
+  }
+  await page.route('**/api/v1/locations/*/business-hours', (route) => {
+    if (options.saveHang) return new Promise(() => {})
+    return json(route, { ...settingsLocation, businessHours: [] })
+  })
+  return control
+}
+
+/** Повторное чтение без сохранения: время уходит за срок свежести данных, вкладка «возвращается в фокус». */
+async function triggerRefresh(page: Page, control: SettingsControl, mode: 'fail' | 'hang') {
+  control.mode = mode
+  await page.clock.setFixedTime(new Date(NOW.getTime() + 10 * 60_000))
+  await page.evaluate(() =>
+    document.dispatchEvent(new Event('visibilitychange', { bubbles: true })),
+  )
+}
+
+async function openSettingsCompany(page: Page): Promise<void> {
+  await page.goto('/settings/company')
+  await page.getByRole('button', { name: 'Сохранить график' }).waitFor()
+}
+
+const settingsFlows: AccessFlow[] = [
+  {
+    name: 'settings-company',
+    path: '/settings/company',
+    states: {
+      '': async (page) => {
+        await mockSettingsCompany(page)
+        await openSettingsCompany(page)
+      },
+      'refresh-error': async (page) => {
+        const control = await mockSettingsCompany(page)
+        await openSettingsCompany(page)
+        await triggerRefresh(page, control, 'fail')
+        await page.getByRole('button', { name: 'Повторить обновление' }).waitFor()
+      },
+      refreshing: async (page) => {
+        const control = await mockSettingsCompany(page)
+        await openSettingsCompany(page)
+        await triggerRefresh(page, control, 'hang')
+        await page.getByText('Обновляем данные. Предыдущие значения остаются на экране.').waitFor()
+      },
+      loading: async (page) => {
+        await mockSettingsCompany(page, { hang: true })
+        await page.goto('/settings/company')
+        await page.getByRole('status', { name: 'Загрузка графика' }).waitFor()
+      },
+      nolocations: async (page) => {
+        await mockSettingsCompany(page, { items: [] })
+        await page.goto('/settings/company')
+        await page.getByText('График появится после добавления точки').waitFor()
+      },
+      saving: async (page) => {
+        await mockSettingsCompany(page, { saveHang: true })
+        await openSettingsCompany(page)
+        await page.getByRole('button', { name: 'Сохранить график' }).click()
+        await page.locator('button[aria-busy="true"]').waitFor()
+      },
+      timeerror: async (page) => {
+        await mockSettingsCompany(page)
+        await openSettingsCompany(page)
+        await page.locator('input[name="closes-2"]').fill('08:00')
+        await page.getByRole('button', { name: 'Сохранить график' }).click()
+        await page.getByText('Вторник: окончание рабочего дня должно быть позже начала.').waitFor()
+      },
+    },
+  },
+]
+
+/** Окна настроек: на десктопе сравнивается само окно (эталон — кадр окна 640 px), на планшете и телефоне — экран. */
+const settingsDialogs: Record<string, (page: Page) => Promise<void>> = {
+  'location-add': async (page) => {
+    await mockSettingsCompany(page)
+    await openSettingsCompany(page)
+    await page.getByRole('button', { name: 'Добавить точку' }).click()
+    await page.getByRole('dialog', { name: 'Добавить точку' }).waitFor()
+  },
+  'location-edit': async (page) => {
+    await mockSettingsCompany(page)
+    await openSettingsCompany(page)
+    await page.getByRole('button', { name: 'Изменить точку' }).click()
+    await page.getByRole('dialog', { name: 'Изменить точку' }).waitFor()
+  },
+  'org-change': async (page) => {
+    await mockSettingsCompany(page)
+    await openSettingsCompany(page)
+    await page.getByLabel('Основная валюта').selectOption('KZT')
+    await page.getByRole('button', { name: 'Сохранить компанию' }).click()
+    await page.getByRole('dialog', { name: 'Изменить валюту и часовой пояс?' }).waitFor()
+  },
+  unsaved: async (page) => {
+    await mockSettingsCompany(page)
+    await openSettingsCompany(page)
+    await page.locator('input[name="opens-1"]').fill('08:00')
+    const select = page.getByLabel('Раздел настроек')
+    if (await select.isVisible()) await select.selectOption({ label: 'Услуги' })
+    else await page.getByRole('link', { name: 'Услуги', exact: true }).click()
+    await page.getByRole('dialog', { name: 'Сохранить изменения графика?' }).waitFor()
+  },
+}
+
+for (const [device, width, height] of registerDevices) {
+  for (const [key, prepare] of Object.entries(settingsDialogs)) {
+    test(`F03 dialog-${key}-${device}`, async ({ page }) => {
+      await page.setViewportSize({ width, height })
+      await prepare(page)
+      await settle(page)
+      const path = `${OUT}/F03/actual/dialog-${key}-${device}.png`
+      if (device === 'desktop') await page.getByRole('dialog').screenshot({ path })
+      else await page.screenshot({ path })
+    })
+  }
 }
 
 for (const flow of [
@@ -671,6 +1016,11 @@ for (const flow of [
   ...onboardingFlows,
   ...locationFlows,
   ...servicesFlows,
+  ...channelFlows,
+  ...telegramFlows,
+  ...instructionFlows,
+  ...settingsFlows,
+  ...notifyFlows,
 ]) {
   for (const [device, width, height] of registerDevices) {
     for (const [state, prepare] of Object.entries(flow.states)) {

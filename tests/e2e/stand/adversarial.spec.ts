@@ -1696,7 +1696,7 @@ test('UI: диалог услуги — двойная отправка и кл�
   })
   await page.goto('/settings/company')
   await page.getByRole('button', { name: 'Добавить точку' }).click()
-  const locationDialog = page.getByRole('dialog', { name: 'Новая точка' })
+  const locationDialog = page.getByRole('dialog', { name: 'Добавить точку' })
   await locationDialog.getByLabel('Название точки').fill('Точка двойного клика')
   const locationSubmit = locationDialog.getByRole('button', { name: /Создать|Сохранить|Добавить/ })
   await locationSubmit.dblclick()

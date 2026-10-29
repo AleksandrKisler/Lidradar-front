@@ -1,56 +1,72 @@
 <script setup lang="ts">
 /**
- * Шаг 4: источник сообщений и итог настройки. Подключение выполняется здесь же,
- * в том же диалоге, что и в «Интеграциях»: уходить из мастера не нужно. Пока
- * источника нет, главное действие страницы — подключить его, а выход в Radar
- * подписан честно: без источника рисков не будет. Страница показывает серверный
- * статус и не объявляет настройку завершённой, пока обязательные шаги не
- * выполнены. Личная привязка Telegram необязательна, поэтому у неё тихая кнопка.
+ * Шаг 4 по макету «Источник сообщений» (Figma 477:8322 и состояния «Подключён», «Всё подключено»).
+ * Подключение выполняется здесь же, в том же диалоге, что и в «Интеграциях»: уходить из мастера не нужно.
+ * Пока источника нет, главное действие страницы — подключить его, а выход в Radar подписан честно:
+ * без источника рисков не будет. Страница показывает серверный статус и не объявляет настройку
+ * завершённой, пока обязательные шаги не выполнены. Личная привязка Telegram необязательна:
+ * ссылка «Уведомления в Telegram» открывает её в окне. MAX в макете — недоступная карточка «В работе».
  */
 import { computed, nextTick, ref, watch } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
-import { UiAlert, UiBadge, UiButton, UiCard, UiErrorState, UiSkeleton } from '@/shared/ui'
+import { useRouter } from 'vue-router'
+import { UiButton, UiChannelMark, UiIcon, UiPageIntro } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
 import { useLocationsQuery } from '@/entities/location'
-import { connectionStatusView, providerLabel, useConnectionsQuery } from '@/entities/integration'
+import { connectionStatusLabel, useConnectionsQuery } from '@/entities/integration'
 import { ConnectChannelDialog } from '@/features/connect-channel'
-import { TelegramLinkCard } from '@/features/link-telegram'
-import {
-  ONBOARDING_STEP_ORDER,
-  isOnboardingStepDone,
-  onboardingStepLabel,
-  useOnboardingQuery,
-  useOrganizationQuery,
-} from '@/entities/organization'
+import { TelegramNotifyDialog } from '@/features/link-telegram'
+import { isOnboardingStepDone, useOnboardingQuery } from '@/entities/organization'
 
 const router = useRouter()
 const session = useSessionStore()
 const tenantId = computed(() => session.tenantId ?? '')
 const status = useOnboardingQuery(() => session.tenantId)
-const organization = useOrganizationQuery(() => session.tenantId)
 const locations = useLocationsQuery(() => session.tenantId)
-const timeZone = computed(() => organization.data.value?.defaultTimezone ?? 'UTC')
 
 /** Подключать источники может только тот, у кого есть право на «Интеграции». */
 const canConnect = computed(() => session.can('integration.manage'))
 const connections = useConnectionsQuery(() => (canConnect.value ? session.tenantId : null))
-const liveConnections = computed(() =>
+const live = computed(() =>
   (connections.data.value ?? []).filter((item) => item.status !== 'DISCONNECTED'),
 )
-
-const channelDone = computed(() => isOnboardingStepDone(status.data.value ?? null, 'CHANNEL'))
-const complete = computed(() => status.data.value?.complete === true)
-
-const rows = computed(() =>
-  ONBOARDING_STEP_ORDER.map((key) => ({
-    key,
-    label: onboardingStepLabel(key),
-    done: key === 'ORGANIZATION' ? true : isOnboardingStepDone(status.data.value ?? null, key),
-    required: status.data.value?.steps.find((step) => step.key === key)?.required ?? true,
-  })),
+const connection = computed(
+  () =>
+    live.value.find((item) => item.provider === 'CONNECTED_BUSINESS_BOT') ?? live.value[0] ?? null,
 )
 
+/** Явная повторная проверка («Повторить проверку»): фоновые обновления кнопку не трогают. */
+const retrying = ref(false)
+/** Повторное чтение после сбоя снова переводит запрос в «ожидание»: пока идёт явный повтор, каркас не возвращается. */
+const loading = computed(() => status.isPending.value && !retrying.value)
+/** Сбой чтения статуса или подключений: источник неизвестен, предлагается повторить проверку. */
+const failed = computed(
+  () => status.isError.value || (canConnect.value && connections.isError.value),
+)
+const channelDone = computed(() => isOnboardingStepDone(status.data.value ?? null, 'CHANNEL'))
+const linked = computed(() => isOnboardingStepDone(status.data.value ?? null, 'TELEGRAM_LINK'))
+/** «Слушает входящие» — только у работающего подключения; иначе честно показывается его состояние. */
+const healthy = computed(() => connection.value?.status === 'ACTIVE')
+/** Подключение известно и не работает: без данных о подключении (нет права, сбой чтения) о состоянии ничего не утверждается. */
+const needsAttention = computed(() => connection.value !== null && !healthy.value)
+const statusLabel = computed(() =>
+  connection.value ? connectionStatusLabel(connection.value.status) : '',
+)
+
+const description = computed(() => {
+  if (!channelDone.value) {
+    return 'Риски появятся, когда LidRadar начнёт получать переписку.\nПока источник не подключён, лента рисков пустая.'
+  }
+  if (needsAttention.value) {
+    return 'Источник подключён, но работает не полностью.\nСостояние и инструкция — в разделе «Интеграции».'
+  }
+  if (!healthy.value) return 'Источник подключён. Состояние и инструкция — в разделе «Интеграции».'
+  return linked.value
+    ? 'Бот подключён к автоматизации чатов Telegram.\nLidRadar получает входящие сообщения из выбранных чатов.'
+    : 'Бот подключён и слушает входящие сообщения из выбранных чатов. Личные уведомления можно подключить отдельно.'
+})
+
 const connectOpen = ref(false)
+const notifyOpen = ref(false)
 const sourceTitle = ref<HTMLElement | null>(null)
 
 // Кнопка подключения исчезает вместе с состоянием «источника нет»: после
@@ -61,136 +77,225 @@ watch(connectOpen, async (isOpen) => {
   sourceTitle.value?.focus()
 })
 
+async function retry(): Promise<void> {
+  retrying.value = true
+  try {
+    await Promise.all([status.refetch(), canConnect.value ? connections.refetch() : null])
+  } finally {
+    retrying.value = false
+  }
+}
 function toRadar(): void {
   void router.push({ name: 'radar' })
 }
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
-    <div>
-      <p class="text-xs font-semibold tracking-wide text-brand-dark">Шаг 4 из 4</p>
-      <h1 class="mt-2 text-2xl font-bold text-ink">Источник сообщений</h1>
-      <p class="mt-2 text-sm leading-6 text-muted">
-        Риски появятся, когда LidRadar начнёт получать переписку из подключённого канала.
-      </p>
-    </div>
+  <div>
+    <UiPageIntro
+      :measure="channelDone && healthy && !linked ? 840 : undefined"
+      wide
+      title="Источник сообщений"
+      :description="description"
+    />
 
-    <UiCard v-if="status.isPending.value" role="status" aria-label="Загрузка статуса источника">
-      <UiSkeleton class="h-6 w-56" />
-      <UiSkeleton class="mt-4 h-4 w-full max-w-md" />
-      <UiSkeleton class="mt-6 h-input w-44" />
-    </UiCard>
+    <section
+      aria-labelledby="source-title"
+      class="rounded-card border border-line bg-paper px-5 py-3.5 md:px-6"
+    >
+      <template v-if="loading">
+        <div class="flex items-center gap-3" role="status" aria-label="Загрузка статуса источника">
+          <UiChannelMark kind="telegram" />
+          <div class="flex flex-col gap-2.5">
+            <div class="h-3 w-[216px] rounded-full bg-line" />
+            <div class="h-3 w-[164px] rounded-full bg-line" />
+          </div>
+        </div>
+        <div class="mt-3.5 flex flex-col gap-2.5">
+          <div class="h-3 max-w-full rounded-full bg-line md:w-[641px]" />
+          <div class="h-3 max-w-full rounded-full bg-line md:w-[484px]" />
+          <div class="h-3 w-[252px] rounded-full bg-line md:hidden" />
+        </div>
+        <div class="mt-2 h-[46px] w-full rounded-button bg-line md:w-[228px]" />
+      </template>
 
-    <UiCard v-else-if="!channelDone" as="section" aria-labelledby="source-title">
-      <h2 id="source-title" ref="sourceTitle" tabindex="-1" class="text-lg font-bold text-ink">
-        Подключите Telegram
-      </h2>
-      <p class="mt-1 text-sm text-muted">
-        Radar ищет риски в переписке с клиентами. Пока источника нет, лента рисков остаётся пустой.
-      </p>
-      <p class="mt-4 text-sm text-ink">
-        Подключите переписку бизнес-аккаунта Telegram. Понадобится бот и его токен — инструкция есть
-        в окне подключения.
-      </p>
-      <div v-if="canConnect" class="mt-5">
-        <UiButton @click="connectOpen = true">Подключить Telegram</UiButton>
-      </div>
-      <p v-else class="mt-5 text-sm text-muted">
-        Источник подключает владелец организации в разделе «Интеграции».
-      </p>
-    </UiCard>
-
-    <UiCard v-else as="section" aria-labelledby="source-title">
-      <h2 id="source-title" ref="sourceTitle" tabindex="-1" class="text-lg font-bold text-ink">
-        Источник подключён
-      </h2>
-      <ul
-        v-if="liveConnections.length"
-        class="mt-3 divide-y divide-line"
-        aria-label="Подключённые источники"
-      >
-        <li
-          v-for="connection in liveConnections"
-          :key="connection.id"
-          class="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm"
-        >
-          <span class="min-w-0">
-            <span class="font-medium break-words text-ink">{{ connection.name }}</span>
-            <span class="text-muted"> · {{ providerLabel(connection.provider) }}</span>
+      <template v-else-if="channelDone">
+        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div class="flex items-start gap-3">
+            <UiChannelMark kind="telegram" />
+            <div>
+              <h2
+                id="source-title"
+                ref="sourceTitle"
+                tabindex="-1"
+                class="text-field leading-6 font-semibold text-ink focus:outline-none"
+              >
+                Telegram подключён
+              </h2>
+              <p class="text-xs leading-[18px] break-words text-secondary">
+                Источник переписки<template v-if="connection"> · {{ connection.name }}</template>
+              </p>
+            </div>
+          </div>
+          <span
+            v-if="connection && !linked"
+            :class="[
+              'inline-flex w-fit rounded-full px-3 py-1 text-xs leading-[18px] font-medium',
+              healthy ? 'bg-success-pale text-success' : 'bg-warning-pale text-warning',
+            ]"
+          >
+            {{ healthy ? 'Слушает входящие' : statusLabel }}
           </span>
-          <UiBadge :tone="connectionStatusView(connection.provider, connection).tone">
-            {{ connectionStatusView(connection.provider, connection).label }}
-          </UiBadge>
-        </li>
-      </ul>
-      <p v-else class="mt-1 text-sm text-muted">Подключение создано.</p>
-      <RouterLink
-        :to="{ name: 'integrations' }"
-        class="mt-3 inline-flex font-medium text-brand-dark hover:underline"
-      >
-        Статус и инструкция в «Интеграциях»
-      </RouterLink>
-    </UiCard>
+        </div>
+        <p class="mt-2.5 text-sm leading-5 text-secondary">
+          {{
+            healthy
+              ? 'Бот подключён к автоматизации чатов и получает новые входящие сообщения из выбранных чатов.'
+              : needsAttention
+                ? 'Подключение требует внимания: проверьте его состояние и инструкцию в «Интеграциях».'
+                : 'Состояние подключения смотрите в «Интеграциях».'
+          }}
+        </p>
+        <div v-if="failed" class="mt-3 flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+          <UiButton variant="secondary" :loading="retrying" @click="retry">
+            <template v-if="retrying">
+              <span aria-hidden="true">Проверяем…</span
+              ><span class="sr-only">Повторить проверку</span>
+            </template>
+            <template v-else>Повторить проверку</template>
+          </UiButton>
+          <p
+            class="flex items-center gap-2.5 text-sm leading-5 font-medium text-danger-ink"
+            role="alert"
+          >
+            <UiIcon name="error" class="size-5 shrink-0" />Не удалось проверить состояние
+          </p>
+        </div>
+        <RouterLink
+          :to="{ name: 'integrations' }"
+          class="mt-3 inline-block text-sm leading-5 text-link hover:underline"
+        >
+          Управлять в «Интеграциях»
+        </RouterLink>
+      </template>
 
-    <UiCard as="section" aria-labelledby="status-title">
-      <h2 id="status-title" class="text-lg font-bold text-ink">Что уже настроено</h2>
-      <div v-if="status.isPending.value" class="mt-4" role="status" aria-label="Загрузка статуса">
-        <UiSkeleton class="h-24 w-full" />
+      <template v-else>
+        <div class="flex items-center gap-3">
+          <UiChannelMark kind="telegram" />
+          <div>
+            <h2
+              id="source-title"
+              ref="sourceTitle"
+              tabindex="-1"
+              class="text-field leading-6 font-semibold text-ink focus:outline-none"
+            >
+              Подключите Telegram
+            </h2>
+            <p class="text-meta leading-[18px] text-link">Источник переписки</p>
+          </div>
+        </div>
+        <p class="mt-2.5 text-sm leading-5 text-secondary">
+          Подключается переписка бизнес-аккаунта Telegram. Понадобится бот и его токен — инструкция
+          находится в окне подключения.
+        </p>
+        <div
+          v-if="failed || retrying"
+          class="mt-2 flex flex-col gap-3 md:flex-row md:items-center md:gap-4"
+        >
+          <UiButton class="w-full md:w-[228px]" :loading="retrying" @click="retry">
+            <template v-if="retrying">
+              <span aria-hidden="true">Проверяем…</span
+              ><span class="sr-only">Повторить проверку</span>
+            </template>
+            <template v-else>Повторить проверку</template>
+          </UiButton>
+          <p
+            v-if="!retrying"
+            class="flex items-center gap-2.5 text-sm leading-5 font-medium text-danger-ink"
+            role="alert"
+          >
+            <UiIcon name="error" class="size-5 shrink-0" />Не удалось проверить подключение
+          </p>
+        </div>
+        <div v-else-if="canConnect" class="mt-2">
+          <UiButton class="w-full md:w-[228px]" @click="connectOpen = true">
+            Подключить Telegram
+          </UiButton>
+        </div>
+        <p v-else class="mt-3 text-sm leading-5 text-secondary">
+          Источник подключает владелец организации в разделе «Интеграции».
+        </p>
+      </template>
+    </section>
+
+    <section
+      aria-labelledby="max-title"
+      class="mt-4 rounded-card border border-line bg-paper/50 px-5 py-3.5 text-secondary md:px-6"
+    >
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <UiChannelMark kind="max" />
+          <div>
+            <h2 id="max-title" class="text-field leading-6 font-semibold">Подключите MAX</h2>
+            <p class="text-meta leading-[18px] font-medium">Источник переписки</p>
+          </div>
+        </div>
+        <span class="rounded-full bg-segment px-3 py-1 text-meta leading-[18px] font-medium">
+          В работе
+        </span>
       </div>
-      <UiErrorState
-        v-else-if="status.isError.value"
-        class="mt-4"
-        :error="status.error.value"
-        title="Не удалось загрузить статус"
-        @retry="status.refetch()"
+      <p class="mt-3 text-sm leading-5">
+        Интеграция с MAX в работе. Подключение переписки станет доступно позже.
+      </p>
+      <UiButton
+        :class="[
+          'w-full bg-line! text-muted! opacity-100! md:w-[228px]',
+          channelDone ? 'mt-3' : 'mt-[22px]',
+        ]"
+        variant="secondary"
+        disabled
+        >Подключить MAX</UiButton
+      >
+    </section>
+
+    <p class="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm leading-5 text-secondary">
+      <UiIcon
+        :name="linked ? 'notifications-filled' : 'notifications'"
+        :class="['size-4', linked ? 'text-success' : '']"
       />
-      <ul v-else class="mt-4 divide-y divide-line" aria-label="Шаги настройки">
-        <li
-          v-for="row in rows"
-          :key="row.key"
-          class="flex items-center justify-between gap-4 py-2.5 text-sm"
-        >
-          <span class="text-ink">
-            {{ row.label }}
-            <span v-if="!row.required" class="text-muted">· необязательно</span>
-          </span>
-          <span :class="row.done ? 'font-semibold text-success' : 'text-muted'">
-            {{ row.done ? 'готово' : 'не выполнено' }}
-          </span>
-        </li>
-      </ul>
-    </UiCard>
-
-    <UiAlert v-if="complete" tone="success" title="Настройка завершена">
-      Обязательные шаги выполнены. Radar начнёт анализ после получения сообщений из Telegram.
-    </UiAlert>
-    <UiAlert v-else-if="channelDone" tone="info" title="Источник подключён">
-      Настройка ещё не завершена: посмотрите, какие шаги не выполнены, в списке выше. Первый приём
-      сообщения можно проверить в «Интеграциях».
-    </UiAlert>
-
-    <UiCard v-if="session.tenantId">
-      <TelegramLinkCard :tenant-id="session.tenantId" :time-zone="timeZone" quiet />
-      <p class="mt-3 text-xs text-muted">
-        Необязательно: личные уведомления можно настроить позже.
-      </p>
-    </UiCard>
-
-    <p v-if="!status.isPending.value && !channelDone" class="text-sm text-muted">
-      Без источника в Radar не появится ни одного риска. Подключить его можно и позже, в разделе
-      «Интеграции».
+      <button type="button" class="text-link hover:underline" @click="notifyOpen = true">
+        Уведомления в Telegram
+      </button>
+      <span>— {{ linked ? 'подключены' : 'личные, необязательно' }}</span>
+    </p>
+    <p class="mt-4 px-1 text-sm leading-5 text-secondary md:pl-6">
+      <template v-if="!channelDone">
+        Без источника в LidRadar не появится ни одного риска.<br />
+        Подключить его можно позже в разделе «Интеграции».
+      </template>
+      <template v-else-if="linked">
+        Источник и личные уведомления подключены. Можно перейти в Radar.
+      </template>
+      <template v-else>Источник подключён. Личные уведомления можно настроить позже.</template>
     </p>
 
-    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
-      <RouterLink
-        :to="{ name: 'onboarding-services' }"
-        class="inline-flex h-input items-center rounded-control border border-line px-5 text-sm font-semibold text-ink hover:bg-canvas"
+    <div
+      :class="[
+        'mt-4 flex items-center justify-between gap-3 md:flex-row',
+        channelDone ? 'flex-col-reverse items-stretch md:items-center' : 'flex-wrap md:flex-nowrap',
+      ]"
+    >
+      <UiButton
+        variant="secondary"
+        class="md:w-[100px]"
+        @click="router.push({ name: 'onboarding-services' })"
       >
         Назад
-      </RouterLink>
-      <UiButton v-if="channelDone" @click="toRadar">Перейти в Radar</UiButton>
-      <UiButton v-else variant="secondary" @click="toRadar">Подключу позже</UiButton>
+      </UiButton>
+      <UiButton v-if="channelDone" class="md:w-[190px]" @click="toRadar">
+        Перейти в Radar
+      </UiButton>
+      <UiButton v-else variant="plain" class="md:mr-2.5" @click="toRadar">Подключу позже</UiButton>
     </div>
 
     <ConnectChannelDialog
@@ -198,6 +303,12 @@ function toRadar(): void {
       v-model:open="connectOpen"
       :tenant-id="tenantId"
       :locations="locations.data.value ?? []"
+      :loading="locations.isPending.value"
+    />
+    <TelegramNotifyDialog
+      v-if="notifyOpen && session.tenantId"
+      :tenant-id="session.tenantId"
+      @close="notifyOpen = false"
     />
   </div>
 </template>

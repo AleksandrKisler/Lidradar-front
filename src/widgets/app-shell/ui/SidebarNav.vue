@@ -15,9 +15,11 @@ const emit = defineEmits<{ navigate: [] }>()
 
 const session = useSessionStore()
 const route = useRoute()
-/** Карточка риска принадлежит разделу Radar: пункт остаётся выбранным (Figma 199:11280). */
+/** Карточка риска принадлежит разделу Radar (Figma 199:11280), вкладки настроек — разделу «Настройки»: пункт остаётся выбранным. */
 const isCurrent = (to: string, linkActive: boolean) =>
-  linkActive || (to === '/radar' && route.name === 'risk')
+  linkActive ||
+  (to === '/radar' && route.name === 'risk') ||
+  (to === '/settings' && String(route.name ?? '').startsWith('settings-'))
 const items = computed(() =>
   visibleNavItems((permission) => session.can(permission)).filter(
     (item) => item.group === props.group,

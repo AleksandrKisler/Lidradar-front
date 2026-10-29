@@ -13,7 +13,7 @@ import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { describeError, isApiError, tenantScope } from '@/shared/api'
-import { UiAlert, UiButton, UiDialog, UiField, UiInput, UiSelect } from '@/shared/ui'
+import { UiAlert, UiButton, UiField, UiInput, UiSelect, UiSheetDialog } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
 import {
   CURRENCY_OPTIONS,
@@ -31,8 +31,13 @@ const emit = defineEmits<{ saved: [organization: Organization] }>()
 const session = useSessionStore()
 const queryClient = useQueryClient()
 const zones = timeZoneOptions()
+/** Валюта в макете подписана кодом и знаком: «RUB · ₽». */
+const currencies = CURRENCY_OPTIONS.map((option) => ({
+  value: option.value,
+  label: `${option.value} · ${option.label.split(' · ').at(-1)}`,
+}))
 
-const { defineField, handleSubmit, errors, resetForm, values, meta } = useForm({
+const { defineField, handleSubmit, errors, resetForm, setFieldValue, values, meta } = useForm({
   validationSchema: toTypedSchema(organizationSchema),
   initialValues: {
     name: props.organization.name,
@@ -93,16 +98,14 @@ const errorView = computed(() =>
 const traceId = computed(() =>
   isApiError(mutation.error.value) ? mutation.error.value.traceId : '',
 )
-const consequences = computed(() => {
-  const list: string[] = []
-  if (pendingBody.value?.defaultTimezone) {
-    list.push('Календарные окна аналитики и часы уведомлений будут считаться в новом поясе.')
-  }
-  if (pendingBody.value?.defaultCurrency) {
-    list.push('Исторические суммы не конвертируются: они останутся в прежней валюте.')
-  }
-  return list
-})
+/** «Оставить прежние»: пояс и валюта возвращаются к сохранённым значениям, название остаётся как набрано. */
+function keepPrevious(): void {
+  setFieldValue('defaultTimezone', props.organization.defaultTimezone)
+  setFieldValue('defaultCurrency', props.organization.defaultCurrency)
+  pendingBody.value = null
+  mutation.reset()
+  confirmOpen.value = false
+}
 
 /** Тело PATCH из изменённых полей; пустое — сохранять нечего. */
 function diff(formValues: { name: string; defaultTimezone: string; defaultCurrency: string }) {
@@ -141,7 +144,7 @@ async function send(body: UpdateOrganizationRequest): Promise<void> {
 const hasChanges = computed(() => {
   const current = values
   return (
-    current.name !== props.organization.name ||
+    current.name?.trim() !== props.organization.name ||
     current.defaultTimezone !== props.organization.defaultTimezone ||
     (current.defaultCurrency ?? '').toUpperCase() !== props.organization.defaultCurrency
   )
@@ -149,8 +152,17 @@ const hasChanges = computed(() => {
 </script>
 
 <template>
-  <form class="flex flex-col gap-5" novalidate @submit.prevent="onSubmit">
-    <UiField v-slot="{ id, describedBy, invalid }" label="Название компании" :error="errors.name">
+  <form
+    class="flex flex-col gap-4 max-lg:[&_label]:text-base max-lg:[&_label]:leading-6"
+    novalidate
+    @submit.prevent="onSubmit"
+  >
+    <UiField
+      v-slot="{ id, describedBy, invalid }"
+      label="Название компании"
+      label-style="compact"
+      :error="errors.name"
+    >
       <UiInput
         :id="id"
         v-model="name"
@@ -161,17 +173,18 @@ const hasChanges = computed(() => {
         :disabled="mutation.isPending.value"
       />
     </UiField>
-    <div class="grid gap-5 sm:grid-cols-2">
+    <div class="flex flex-col gap-4 md:max-lg:gap-4 lg:grid lg:grid-cols-2">
       <UiField
         v-slot="{ id, describedBy, invalid }"
         label="Основная валюта"
+        label-style="compact"
         :error="errors.defaultCurrency"
       >
         <UiSelect
           :id="id"
           v-model="defaultCurrency"
           name="organizationCurrency"
-          :options="CURRENCY_OPTIONS"
+          :options="currencies"
           :described-by="describedBy"
           :invalid="invalid"
           :disabled="mutation.isPending.value"
@@ -180,6 +193,7 @@ const hasChanges = computed(() => {
       <UiField
         v-slot="{ id, describedBy, invalid }"
         label="Часовой пояс"
+        label-style="compact"
         :error="errors.defaultTimezone"
       >
         <UiSelect
@@ -193,28 +207,42 @@ const hasChanges = computed(() => {
         />
       </UiField>
     </div>
+    <p class="text-sm leading-5 text-secondary md:max-lg:text-[13px] lg:text-xs lg:leading-[18px]">
+      Валюта не пересчитывает прежние суммы. Часовой пояс используется в отчётах и уведомлениях.
+    </p>
 
     <UiAlert v-if="saved" tone="success">Настройки компании сохранены.</UiAlert>
     <UiAlert v-if="errorView" tone="danger" :title="errorView.title" :trace-id="traceId">
       {{ errorView.description }}
     </UiAlert>
 
-    <div class="flex items-center justify-between gap-4">
-      <p class="text-xs text-muted">Изменения применяются к новым проверкам риска.</p>
-      <UiButton type="submit" :disabled="!hasChanges" :loading="mutation.isPending.value">
-        Сохранить
+    <div class="flex lg:justify-end">
+      <UiButton
+        type="submit"
+        class="w-full lg:w-[220px]"
+        :disabled="!hasChanges"
+        :loading="mutation.isPending.value"
+      >
+        Сохранить компанию
       </UiButton>
     </div>
 
-    <UiDialog
+    <UiSheetDialog
       v-model:open="confirmOpen"
-      title="Изменить пояс или валюту?"
-      description="Это влияет на расчёты, а не только на подписи."
+      title="Изменить валюту и часовой пояс?"
+      description="Эти параметры общие для всей компании."
+      description-in-body
+      description-strong
+      size="sm"
+      footer-fill
       :dismissible="!mutation.isPending.value"
     >
-      <ul class="list-disc pl-5 [&>li+li]:mt-1 text-sm text-ink">
-        <li v-for="line in consequences" :key="line">{{ line }}</li>
-      </ul>
+      <p
+        class="text-base leading-6 font-semibold text-ink lg:text-sm lg:leading-5 lg:font-normal lg:text-secondary"
+      >
+        Новая валюта не пересчитывает прежние суммы. Часовой пояс компании влияет на отчёты, сводки
+        и тихие часы; часовые пояса точек задаются отдельно.
+      </p>
       <UiAlert
         v-if="errorView"
         tone="danger"
@@ -225,17 +253,13 @@ const hasChanges = computed(() => {
         {{ errorView.description }}
       </UiAlert>
       <template #footer>
-        <UiButton
-          variant="secondary"
-          :disabled="mutation.isPending.value"
-          @click="confirmOpen = false"
-        >
-          Отмена
+        <UiButton variant="secondary" :disabled="mutation.isPending.value" @click="keepPrevious">
+          Оставить прежние
         </UiButton>
         <UiButton :loading="mutation.isPending.value" @click="pendingBody && send(pendingBody)">
           Сохранить изменения
         </UiButton>
       </template>
-    </UiDialog>
+    </UiSheetDialog>
   </form>
 </template>

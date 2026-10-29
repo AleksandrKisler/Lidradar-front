@@ -4,7 +4,7 @@
  * отправляются только изменённые поля; флаг активности доступен только
  * существующей точке — при создании сервер его отклоняет.
  */
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { describeError, isApiError } from '@/shared/api'
@@ -24,8 +24,14 @@ const props = defineProps<{
   location: Location | null
   defaultTimezone: string
   submitLabel?: string | undefined
+  /**
+   * `dialog` — поля окна «Добавить/Изменить точку» (Figma «Настройки»): без собственных кнопок, форма
+   * отправляется кнопкой нижней панели окна по `formId`, а занятость отдаётся событием `busy`.
+   */
+  variant?: 'inline' | 'dialog' | undefined
+  formId?: string | undefined
 }>()
-const emit = defineEmits<{ saved: [location: Location]; cancel: [] }>()
+const emit = defineEmits<{ saved: [location: Location]; cancel: []; busy: [busy: boolean] }>()
 
 const zones = timeZoneOptions()
 const save = useSaveLocation(() => props.tenantId)
@@ -54,6 +60,15 @@ const errorView = computed(() => (save.error.value ? describeError(save.error.va
 const traceId = computed(() => (isApiError(save.error.value) ? save.error.value.traceId : ''))
 
 const isSubmitting = ref(false)
+watch(isSubmitting, (busy) => emit('busy', busy))
+const activeValue = computed({
+  get: () => (active.value ? 'active' : 'inactive'),
+  set: (value) => (active.value = value === 'active'),
+})
+const stateOptions = [
+  { value: 'active', label: 'Активна' },
+  { value: 'inactive', label: 'Неактивна' },
+]
 const submit = handleSubmit(async (values) => {
   const minutes = Number(values.responseThresholdMinutes)
   const agreementMinutes = Number(values.agreementThresholdMinutes)
@@ -101,7 +116,111 @@ async function onSubmit(event: Event) {
 </script>
 
 <template>
-  <form class="flex flex-col gap-5" novalidate @submit.prevent="onSubmit">
+  <form
+    v-if="variant === 'dialog'"
+    :id="formId"
+    class="flex flex-col gap-4 max-lg:[&_label]:text-base max-lg:[&_label]:leading-6 max-md:[&_p]:text-base max-md:[&_p]:leading-6"
+    novalidate
+    @submit.prevent="onSubmit"
+  >
+    <UiField
+      v-slot="{ id, describedBy, invalid }"
+      label="Название точки"
+      label-style="compact"
+      :error="errors.name"
+    >
+      <UiInput
+        :id="id"
+        v-model="name"
+        name="locationName"
+        placeholder="Например, Студия на Арбате"
+        :maxlength="200"
+        :described-by="describedBy"
+        :invalid="invalid"
+        :disabled="isSubmitting"
+      />
+    </UiField>
+    <UiField
+      v-slot="{ id, describedBy, invalid }"
+      label="Часовой пояс"
+      label-style="compact"
+      :error="errors.timezone"
+    >
+      <UiSelect
+        :id="id"
+        v-model="timezone"
+        name="locationTimezone"
+        :options="zones"
+        :described-by="describedBy"
+        :invalid="invalid"
+        :disabled="isSubmitting"
+      />
+    </UiField>
+    <div class="grid grid-cols-2 gap-4">
+      <UiField
+        v-slot="{ id, describedBy, invalid }"
+        label="Нет ответа, мин"
+        label-style="compact"
+        description="От 1 до 1 440 рабочих минут"
+        :error="errors.responseThresholdMinutes"
+      >
+        <UiInput
+          :id="id"
+          v-model="responseThresholdMinutes"
+          name="responseThresholdMinutes"
+          inputmode="numeric"
+          :maxlength="4"
+          :described-by="describedBy"
+          :invalid="invalid"
+          :disabled="isSubmitting"
+        />
+      </UiField>
+      <UiField
+        v-slot="{ id, describedBy, invalid }"
+        label="Следующий шаг, мин"
+        label-style="compact"
+        description="От 1 до 1 440 рабочих минут"
+        :error="errors.agreementThresholdMinutes"
+      >
+        <UiInput
+          :id="id"
+          v-model="agreementThresholdMinutes"
+          name="agreementThresholdMinutes"
+          inputmode="numeric"
+          :maxlength="4"
+          :described-by="describedBy"
+          :invalid="invalid"
+          :disabled="isSubmitting"
+        />
+      </UiField>
+    </div>
+    <UiField
+      v-if="location"
+      v-slot="{ id, describedBy }"
+      label="Состояние точки"
+      label-style="compact"
+    >
+      <UiSelect
+        :id="id"
+        v-model="activeValue"
+        name="locationActive"
+        :options="stateOptions"
+        :described-by="describedBy"
+        :disabled="isSubmitting"
+      />
+    </UiField>
+    <p
+      v-if="location"
+      class="text-sm leading-5 text-muted max-lg:text-base max-lg:leading-6 max-lg:font-semibold max-lg:text-ink"
+    >
+      График этой точки настраивается отдельно, на странице «Компания и график».
+    </p>
+    <UiAlert v-if="errorView" tone="danger" :title="errorView.title" :trace-id="traceId">
+      {{ errorView.description }}
+    </UiAlert>
+  </form>
+
+  <form v-else class="flex flex-col gap-5" novalidate @submit.prevent="onSubmit">
     <UiField v-slot="{ id, describedBy, invalid }" label="Название точки" :error="errors.name">
       <UiInput
         :id="id"

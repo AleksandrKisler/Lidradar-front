@@ -51,11 +51,26 @@ describe('шаги начала работы', () => {
     wrapper.unmount()
   })
 
-  it('до загрузки статуса ничего не выполнено, текущий шаг берётся из маршрута', () => {
+  it('до загрузки статуса пройденными считаются шаги до текущего (мастер идёт по порядку), текущий берётся из маршрута', () => {
     const wrapper = mount(OnboardingProgress, { props: { status: null, current: 'LOCATION' } })
-    expect(circles(wrapper).map((circle) => circle.text)).toEqual(['1', '2', '3', '4'])
+    expect(circles(wrapper).map((circle) => circle.text)).toEqual(['', '2', '3', '4'])
+    expect(circles(wrapper)[0]!.icon).toBe(true)
     expect(wrapper.get('p').text()).toContain('Шаг 2 из 4')
     wrapper.unmount()
+  })
+
+  it('шаг «Источник» получает галочку, только когда подключены источник и личные уведомления', () => {
+    const connected = { ORGANIZATION: true, LOCATION: true, SERVICES: true, CHANNEL: true }
+    const withoutLink = mount(OnboardingProgress, {
+      props: { status: status(connected), current: 'CHANNEL' },
+    })
+    expect(circles(withoutLink)[3]).toEqual({ text: '4', icon: false })
+    withoutLink.unmount()
+    const withLink = mount(OnboardingProgress, {
+      props: { status: status({ ...connected, TELEGRAM_LINK: true }), current: 'CHANNEL' },
+    })
+    expect(circles(withLink)[3]).toEqual({ text: '', icon: true })
+    withLink.unmount()
   })
 
   it('выполненность и текущий шаг озвучиваются скрытым текстом', () => {

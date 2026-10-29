@@ -1086,6 +1086,510 @@
         "y0": 0,
         "y1": 844
       }
+    },
+    {
+      "stage": "F03",
+      "name": "channel-desktop",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "channel-desktop-error",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "channel-desktop-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "channel-desktop-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "channel-desktop-bot",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "channel-desktop-done",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "channel-tablet",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "channel-tablet-error",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "channel-tablet-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "channel-tablet-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "channel-tablet-bot",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "channel-tablet-done",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "channel-phone",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "channel-phone-error",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "channel-phone-busy",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "channel-phone-loading",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "channel-phone-bot",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "channel-phone-done",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "telegram-desktop",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "telegram-desktop-error",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "telegram-desktop-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "telegram-desktop-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "telegram-tablet",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "telegram-tablet-error",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "telegram-tablet-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "telegram-tablet-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "telegram-phone",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "telegram-phone-error",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "telegram-phone-busy",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "telegram-phone-loading",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "notify-desktop",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "notify-desktop-error",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "notify-desktop-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "notify-desktop-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "notify-desktop-linked",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "notify-tablet",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "notify-tablet-error",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "notify-tablet-busy",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "notify-tablet-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "notify-tablet-linked",
+      "region": {
+        "y0": 0,
+        "y1": 1194
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "notify-phone",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "notify-phone-error",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "notify-phone-busy",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "notify-phone-loading",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "notify-phone-linked",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "instruction-desktop",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "settings-company-desktop",
+      "region": {
+        "y0": 0,
+        "y1": 1414
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "settings-company-tablet",
+      "region": {
+        "y0": 0,
+        "y1": 1803
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "settings-company-phone",
+      "region": {
+        "y0": 0,
+        "y1": 2612
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "settings-company-desktop-refresh-error",
+      "region": {
+        "y0": 0,
+        "y1": 1414
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "settings-company-desktop-refreshing",
+      "region": {
+        "y0": 0,
+        "y1": 1414
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "settings-company-desktop-loading",
+      "region": {
+        "y0": 0,
+        "y1": 1412
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "settings-company-desktop-nolocations",
+      "region": {
+        "y0": 0,
+        "y1": 1000
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "settings-company-desktop-saving",
+      "region": {
+        "y0": 0,
+        "y1": 1414
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "settings-company-desktop-timeerror",
+      "region": {
+        "y0": 0,
+        "y1": 1440
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "dialog-location-add-desktop",
+      "region": {
+        "y0": 0,
+        "y1": 574
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "dialog-location-add-phone",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "dialog-location-edit-desktop",
+      "region": {
+        "y0": 0,
+        "y1": 680
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "dialog-location-edit-phone",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "dialog-org-change-desktop",
+      "region": {
+        "y0": 0,
+        "y1": 314
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "dialog-org-change-phone",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "dialog-unsaved-desktop",
+      "region": {
+        "y0": 0,
+        "y1": 314
+      }
+    },
+    {
+      "stage": "F03",
+      "name": "dialog-unsaved-phone",
+      "region": {
+        "y0": 0,
+        "y1": 844
+      }
     }
   ],
   "geometry": [

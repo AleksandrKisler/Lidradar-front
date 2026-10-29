@@ -10,7 +10,7 @@
  * работы собственная кнопка не нужна (`hideSubmit`): кнопка шага вызывает
  * `save()` и идёт дальше, только если неделя сохранена.
  */
-import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { describeError, isApiError } from '@/shared/api'
 import { UiAlert, UiButton } from '@/shared/ui'
@@ -34,7 +34,12 @@ const props = defineProps<{
   submitLabel?: string | undefined
   /** Убрать собственную кнопку: сохранением управляет внешняя кнопка через `save()`. */
   hideSubmit?: boolean | undefined
+  /** `settings` — вид «Настройки → Компания и график»: пояснение и подписи из макета настроек. */
+  appearance?: 'wizard' | 'settings' | undefined
+  /** Пояснение над рядами в виде `settings`; без него абзаца нет. */
+  intro?: string | undefined
 }>()
+const settings = computed(() => props.appearance === 'settings')
 const emit = defineEmits<{ saved: [location: Location]; 'update:dirty': [dirty: boolean] }>()
 
 const queryClient = useQueryClient()
@@ -52,14 +57,17 @@ const dirty = computed(() => !sameWeek(days.value, baseline(props.location)))
 watch(dirty, (value) => emit('update:dirty', value), { immediate: true })
 
 // Другая точка или свежий ответ сервера — новый черновик.
+// Черновик сбрасывается, только когда изменились точка или её график: правка порога или названия
+// точки не стирает несохранённые часы.
 watch(
-  () => props.location,
-  (location) => {
-    days.value = baseline(location)
+  () => `${props.location.id}|${JSON.stringify(props.location.businessHours)}`,
+  () => {
+    days.value = baseline(props.location)
     errors.value = {}
     saved.value = false
   },
 )
+onBeforeUnmount(() => emit('update:dirty', false))
 
 const mutation = useMutation({
   mutationFn: () =>
@@ -87,6 +95,7 @@ const traceId = computed(() =>
 
 function toggle(day: DayDraft, open: boolean): void {
   day.closed = !open
+  if (settings.value) delete errors.value[day.weekday]
   if (open && !day.opensAt && !day.closesAt) {
     day.opensAt = '09:00'
     day.closesAt = '20:00'
@@ -113,6 +122,7 @@ function applyToAll(): void {
   for (const day of openDays.value) {
     day.opensAt = first.opensAt
     day.closesAt = first.closesAt
+    if (settings.value) delete errors.value[day.weekday]
   }
   saved.value = false
 }
@@ -145,44 +155,99 @@ async function save(): Promise<boolean> {
 defineExpose({ save })
 
 /** Поле времени: на телефоне и планшете крупное, на десктопе компактное (Figma «Точка и график»). */
-const timeClass =
-  'h-[46px] min-w-0 flex-1 rounded-field border border-line bg-paper px-3 text-center text-field text-ink md:w-24 md:flex-none lg:h-[34px] lg:w-20 aria-invalid:border-danger disabled:text-muted [&::-webkit-calendar-picker-indicator]:hidden'
+const timeClass = computed(
+  () =>
+    'h-[46px] min-w-0 flex-1 rounded-field border border-line bg-paper px-3 text-center text-field text-ink md:flex-none lg:h-[34px] aria-invalid:border-danger disabled:text-muted [&::-webkit-calendar-picker-indicator]:hidden ' +
+    (settings.value ? 'md:w-32 lg:w-24' : 'md:w-24 lg:w-20'),
+)
+
+/** Ошибка порядка границ: в виде `settings` красным отмечено только поле закрытия (Figma «График · Ошибка времени»). */
+const ORDER_ERROR = 'Время окончания должно быть позже начала.'
+const opensInvalid = (weekday: number): boolean =>
+  Boolean(errors.value[weekday]) && !(settings.value && errors.value[weekday] === ORDER_ERROR)
+const errorText = (weekday: number): string => {
+  const message = errors.value[weekday] ?? ''
+  if (!settings.value) return message
+  const day = labelOf(weekday)
+  return message === ORDER_ERROR
+    ? `${day}: окончание рабочего дня должно быть позже начала.`
+    : `${day}: ${message.charAt(0).toLowerCase()}${message.slice(1)}`
+}
+/** Правка поля снимает ошибку дня: в виде `settings` кнопка «Сохранить график» ждёт исправления. */
+function clearError(weekday: number): void {
+  saved.value = false
+  if (settings.value) delete errors.value[weekday]
+}
+
+/** Кнопка неактивна из-за ошибки дня (а не из-за ожидания ответа): белая с рамкой, как в Figma. */
+const settingsErrors = computed(
+  () => settings.value && Object.keys(errors.value).length > 0 && !mutation.isPending.value,
+)
 
 const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === weekday)?.label ?? ''
 </script>
 
 <template>
   <form ref="formEl" class="flex flex-col" novalidate @submit.prevent="submit">
-    <p class="text-sm leading-5 text-secondary">
+    <p
+      v-if="settings && intro"
+      class="text-sm leading-5 text-secondary max-lg:text-base max-lg:leading-6"
+    >
+      {{ intro }}
+    </p>
+    <p v-if="settings && intro" class="mt-3 text-xs leading-[18px] text-secondary md:hidden">
+      Источник — первый рабочий день.
+    </p>
+    <p v-else-if="!settings" class="text-sm leading-5 text-secondary">
       Время указано для выбранной точки. Для копирования используется первый рабочий день.
     </p>
-    <div v-if="canApplyToAll" class="mt-4">
+    <div v-if="canApplyToAll" :class="settings ? 'mt-5' : 'mt-4'">
       <!-- Обычная кнопка, а не UiButton: длинная подпись должна переноситься, а не раздвигать страницу. -->
       <button
         type="button"
-        class="block max-w-full text-left text-sm leading-5 text-link hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+        :class="[
+          'block max-w-full text-left disabled:cursor-not-allowed disabled:opacity-60',
+          settings
+            ? 'h-[46px] px-3.5 text-field leading-5 text-secondary hover:text-ink'
+            : 'text-sm leading-5 text-link hover:underline',
+        ]"
         :disabled="mutation.isPending.value"
         @click="applyToAll"
       >
-        Применить ко всем рабочим дням
+        <template v-if="settings">
+          <span class="md:hidden">Применить ко всем рабочим дням</span>
+          <span class="hidden md:inline">Скопировать часы первого рабочего дня</span>
+        </template>
+        <template v-else>Применить ко всем рабочим дням</template>
       </button>
     </div>
-    <ul class="mt-5 flex flex-col" aria-label="Дни недели">
+    <ul :class="[settings ? 'mt-5' : 'mt-5', 'flex flex-col']" aria-label="Дни недели">
       <li
         v-for="day in days"
         :key="day.weekday"
-        class="border-t border-hairline py-3 md:max-lg:py-[8.5px] lg:py-[5.5px]"
+        :class="[
+          'border-t border-hairline',
+          settings
+            ? 'py-5 md:max-lg:py-[12.5px] lg:py-[9.5px]'
+            : 'py-3 md:max-lg:py-[8.5px] lg:py-[5.5px]',
+        ]"
       >
         <div class="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between md:gap-4">
           <label
-            class="flex items-center gap-3 pl-4 text-field leading-6 text-ink md:flex-1 md:pl-0"
+            :class="[
+              'flex items-center pl-4 leading-6 text-ink md:flex-1',
+              settings ? 'gap-3.5 text-note font-semibold' : 'gap-3 text-field md:pl-0',
+            ]"
           >
             <input
               type="checkbox"
               :name="`day-${day.weekday}`"
               class="size-4 accent-brand"
               :checked="!day.closed"
-              :disabled="mutation.isPending.value"
+              :disabled="mutation.isPending.value && !settings"
+              :aria-disabled="mutation.isPending.value || undefined"
+              :class="mutation.isPending.value ? 'opacity-60' : ''"
+              @click="mutation.isPending.value && $event.preventDefault()"
               @change="toggle(day, ($event.target as HTMLInputElement).checked)"
             />
             {{ labelOf(day.weekday) }}
@@ -198,10 +263,10 @@ const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === week
                 type="time"
                 :name="`opens-${day.weekday}`"
                 :class="timeClass"
-                :aria-invalid="errors[day.weekday] ? true : undefined"
+                :aria-invalid="opensInvalid(day.weekday) ? true : undefined"
                 :aria-describedby="errors[day.weekday] ? `day-error-${day.weekday}` : undefined"
                 :disabled="mutation.isPending.value"
-                @input="saved = false"
+                @input="clearError(day.weekday)"
               />
             </label>
             <label
@@ -217,7 +282,7 @@ const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === week
                 :aria-invalid="errors[day.weekday] ? true : undefined"
                 :aria-describedby="errors[day.weekday] ? `day-error-${day.weekday}` : undefined"
                 :disabled="mutation.isPending.value"
-                @input="saved = false"
+                @input="clearError(day.weekday)"
               />
             </label>
           </div>
@@ -230,10 +295,13 @@ const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === week
         <p
           v-if="errors[day.weekday]"
           :id="`day-error-${day.weekday}`"
-          class="mt-2 text-sm leading-5 text-danger lg:text-right"
+          :class="[
+            'mt-2 text-danger',
+            settings ? 'text-xs leading-[18px]' : 'text-sm leading-5 lg:text-right',
+          ]"
           role="alert"
         >
-          {{ errors[day.weekday] }}
+          {{ errorText(day.weekday) }}
         </p>
       </li>
     </ul>
@@ -250,13 +318,31 @@ const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === week
     </UiAlert>
 
     <div v-if="!hideSubmit" class="mt-4 flex flex-wrap items-center justify-between gap-4">
-      <p class="text-xs text-muted">Неделя сохраняется целиком, одним запросом.</p>
+      <p class="text-xs text-muted">
+        {{
+          settings
+            ? 'Сохраняется вся неделя. Один интервал в день.'
+            : 'Неделя сохраняется целиком, одним запросом.'
+        }}
+      </p>
       <UiButton
         type="submit"
-        :disabled="!dirty && !saved && Boolean(location.businessHours.length)"
+        :class="
+          settings
+            ? settingsErrors
+              ? 'w-full disabled:border disabled:border-hairline disabled:bg-paper disabled:text-[#c4c4c8] disabled:opacity-100 md:w-[203px] lg:w-[220px]'
+              : 'w-full md:w-[203px] lg:w-[220px]'
+            : ''
+        "
+        :disabled="
+          (!dirty && !saved && Boolean(location.businessHours.length)) ||
+          (settings && Object.keys(errors).length > 0)
+        "
         :loading="mutation.isPending.value"
       >
-        {{ submitLabel ?? 'Сохранить график' }}
+        {{
+          settings && mutation.isPending.value ? 'Сохраняем…' : (submitLabel ?? 'Сохранить график')
+        }}
       </UiButton>
     </div>
   </form>

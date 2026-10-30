@@ -3,6 +3,7 @@ import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import { createStageProxy } from './tooling/vite/stage-proxy.ts'
+import { treeShakingFixes } from './tooling/vite/tree-shaking-fixes.ts'
 
 export default defineConfig(({ mode, command, isPreview }) => {
   // Третий аргумент '' даёт доступ ко всем переменным, включая DEV_API_TARGET
@@ -15,7 +16,10 @@ export default defineConfig(({ mode, command, isPreview }) => {
     )
   }
   return {
-    plugins: [vue(), tailwindcss()],
+    plugins: [vue(), tailwindcss(), treeShakingFixes()],
+    // Options API в приложении и зависимостях не используется (только Composition API):
+    // флаг Vue убирает его из runtime-core, около 4 KB.
+    define: { __VUE_OPTIONS_API__: 'false' },
     resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
     server: {
       host: '127.0.0.1',

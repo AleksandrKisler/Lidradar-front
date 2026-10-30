@@ -14,6 +14,9 @@ defineProps<{
   wide?: boolean
   /** Точная ширина строки пояснения в px (перекрывает размеры выше). */
   measure?: number | undefined
+  /** Короткие заголовок и пояснение телефона (макет «Точки и графики» 390 px). */
+  titleMobile?: string | undefined
+  descriptionMobile?: string | undefined
 }>()
 </script>
 
@@ -29,7 +32,11 @@ defineProps<{
       class="text-metric font-semibold text-ink focus:outline-none md:text-4xl lg:text-display"
       data-testid="page-intro-title"
     >
-      {{ title }}
+      <template v-if="titleMobile">
+        <span class="md:hidden">{{ titleMobile }}</span
+        ><span class="max-md:hidden">{{ title }}</span>
+      </template>
+      <template v-else>{{ title }}</template>
     </h1>
     <p
       :style="measure ? { width: `${measure}px`, maxWidth: 'calc(100vw - 32px)' } : undefined"
@@ -44,7 +51,11 @@ defineProps<{
               : 'max-w-[586px]',
       ]"
     >
-      {{ description }}
+      <template v-if="descriptionMobile">
+        <span class="md:hidden">{{ descriptionMobile }}</span
+        ><span class="max-md:hidden">{{ description }}</span>
+      </template>
+      <template v-else>{{ description }}</template>
     </p>
   </div>
 </template>

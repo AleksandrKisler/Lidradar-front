@@ -10,9 +10,14 @@ import {
   type OnboardingStatus,
 } from '@/entities/organization'
 import {
+  completeWeekFromHours,
   createLocation,
   defaultWeek,
   describeDay,
+  normalizeWeek,
+  onboardingDefaultWeek,
+  sameServerWeek,
+  weekIssues,
   replaceBusinessHours,
   sameWeek,
   toBusinessHoursRequest,
@@ -120,6 +125,95 @@ describe('недельный график', () => {
       '09:00–20:00',
     )
     expect(describeDay({ weekday: 7, closed: true })).toBe('выходной')
+  })
+
+  it('стартовая неделя мастера (US-M02-04): 10:00–19:00 у рабочих дней прежней маски, шаблон настроек не меняется', () => {
+    const week = onboardingDefaultWeek()
+    const mask = defaultWeek().map((day) => day.closed)
+    expect(week.map((day) => day.closed)).toEqual(mask)
+    expect(mask).toEqual([false, false, false, false, false, false, true])
+    for (const day of week.filter((item) => !item.closed)) {
+      expect([day.opensAt, day.closesAt]).toEqual(['10:00', '19:00'])
+    }
+    expect(defaultWeek()[0]).toEqual({
+      weekday: 1,
+      closed: false,
+      opensAt: '09:00',
+      closesAt: '20:00',
+    })
+    expect(weekIssues(week)).toBeNull()
+  })
+
+  it('строгая неделя: семь уникальных дней, HH:MM, начало раньше конца, ночной интервал не принимается', () => {
+    const week = onboardingDefaultWeek()
+    expect(weekIssues(week.slice(0, 6))?.[0]).toBe('time')
+    expect(weekIssues([...week.slice(0, 6), { ...week[0]! }])?.[0]).toBe('time')
+    expect(
+      weekIssues(week.map((day) => (day.weekday === 1 ? { ...day, opensAt: '9:00' } : day))),
+    ).toEqual({ 1: 'time' })
+    expect(
+      weekIssues(week.map((day) => (day.weekday === 2 ? { ...day, closesAt: '' } : day))),
+    ).toEqual({ 2: 'time' })
+    expect(
+      weekIssues(week.map((day) => (day.weekday === 3 ? { ...day, opensAt: '19:00' } : day))),
+    ).toEqual({ 3: 'order' })
+    expect(
+      weekIssues(
+        week.map((day) =>
+          day.weekday === 4 ? { ...day, opensAt: '20:00', closesAt: '09:00' } : day,
+        ),
+      ),
+    ).toEqual({ 4: 'order' })
+    // У выходного время не проверяется и не отправляется.
+    const closed = week.map((day) =>
+      day.weekday === 5 ? { ...day, closed: true, opensAt: 'x' } : day,
+    )
+    expect(weekIssues(closed)).toBeNull()
+    expect(normalizeWeek(closed)[4]).toEqual({
+      weekday: 5,
+      closed: true,
+      opensAt: '',
+      closesAt: '',
+    })
+  })
+
+  it('F-03: состав недели — ровно целые дни 1..7 без пропусков и повторов', () => {
+    const week = onboardingDefaultWeek()
+    const shifted = (by: number) => week.map((day) => ({ ...day, weekday: day.weekday + by }))
+    // Корректная неделя в любом порядке остаётся валидной.
+    expect(weekIssues(week)).toBeNull()
+    expect(weekIssues([...week].reverse())).toBeNull()
+    // Семь уникальных, но сдвинутых дней: нет понедельника, есть восьмой день.
+    expect(weekIssues(shifted(1))?.[0]).toBe('time')
+    // Выход за диапазон: 0..6.
+    expect(weekIssues(shifted(-1))?.[0]).toBe('time')
+    // Дробный номер вместо понедельника.
+    expect(
+      weekIssues(week.map((day) => (day.weekday === 1 ? { ...day, weekday: 1.5 } : day)))?.[0],
+    ).toBe('time')
+    // Повтор дня вместо пропущенного.
+    expect(
+      weekIssues(week.map((day) => (day.weekday === 7 ? { ...day, weekday: 6 } : day)))?.[0],
+    ).toBe('time')
+    // Неполная неделя.
+    expect(weekIssues(week.slice(1))?.[0]).toBe('time')
+    expect(weekIssues([])?.[0]).toBe('time')
+  })
+
+  it('полная серверная неделя и смысловое сравнение без ID строк и порядка', () => {
+    const hours = [7, 1, 2, 3, 4, 5, 6].map((weekday) =>
+      weekday === 7
+        ? { weekday, closed: true }
+        : { weekday, closed: false, opensAt: '10:00:00', closesAt: '19:00:00' },
+    )
+    expect(completeWeekFromHours(hours)).toEqual(onboardingDefaultWeek())
+    expect(completeWeekFromHours([])).toBeNull()
+    expect(completeWeekFromHours(hours.slice(1))).toBeNull()
+    expect(completeWeekFromHours([...hours.slice(1), { ...hours[1]! }])).toBeNull()
+    const location = { timezone: 'Europe/Moscow', businessHours: hours }
+    expect(sameServerWeek(location, 'Europe/Moscow', onboardingDefaultWeek())).toBe(true)
+    expect(sameServerWeek(location, 'Asia/Yekaterinburg', onboardingDefaultWeek())).toBe(false)
+    expect(sameServerWeek(location, 'Europe/Moscow', defaultWeek())).toBe(false)
   })
 })
 

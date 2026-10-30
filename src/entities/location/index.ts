@@ -16,13 +16,18 @@ export {
 export {
   WEEKDAYS,
   defaultWeek,
+  onboardingDefaultWeek,
   weekFromHours,
+  completeWeekFromHours,
   validateWeek,
+  weekIssues,
+  normalizeWeek,
   toBusinessHoursRequest,
   sameWeek,
+  sameServerWeek,
   describeDay,
 } from './model/hours'
-export type { DayDraft } from './model/hours'
+export type { DayDraft, DayIssue } from './model/hours'
 export {
   locationKeys,
   fetchLocations,

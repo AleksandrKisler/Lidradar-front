@@ -422,71 +422,10 @@ const onboardingFlows: AccessFlow[] = [
   },
 ]
 
-/** Шаг 2 «Точка и график»: владелец с готовой точкой (как в макете «Студия на Тверской»). */
-/** Как в макете: пройден только шаг «Компания». */
-async function mockOwnerAtLocationStep(page: Page): Promise<void> {
-  await mockOwner(page)
-  await page.route('**/api/v1/organization/onboarding', (route) =>
-    json(route, {
-      complete: false,
-      nextStep: 'LOCATION',
-      steps: [
-        { key: 'ORGANIZATION', required: true, done: true },
-        { key: 'LOCATION', required: true, done: false },
-        { key: 'SERVICES', required: true, done: false },
-        { key: 'CHANNEL', required: true, done: false },
-        { key: 'TELEGRAM_LINK', required: false, done: false },
-      ],
-      facts: {
-        activeLocations: 1,
-        locationsWithSchedule: 0,
-        activeServices: 0,
-        connections: 0,
-        liveConnections: 0,
-        telegramLinked: false,
-      },
-      computedAt: '2026-10-23T12:40:00Z',
-    }),
-  )
-}
-
-const locationFlows: AccessFlow[] = [
-  {
-    name: 'location',
-    path: '/onboarding/location',
-    states: {
-      '': async (page) => {
-        await mockOwnerAtLocationStep(page)
-        await page.goto('/onboarding/location')
-        await page.getByText('График точки').first().waitFor()
-      },
-      error: async (page) => {
-        await mockOwnerAtLocationStep(page)
-        await page.goto('/onboarding/location')
-        await page.locator('input[name="opens-1"]').fill('20:00')
-        await page.locator('input[name="closes-1"]').fill('09:00')
-        await page.getByRole('button', { name: 'Сохранить и продолжить' }).click()
-        await page.getByText('Время окончания должно быть позже начала.').waitFor()
-      },
-      busy: async (page) => {
-        await mockOwnerAtLocationStep(page)
-        await page.route('**/api/v1/locations/*/business-hours', () => new Promise(() => {}))
-        await page.goto('/onboarding/location')
-        await page.locator('input[name="opens-6"]').fill('10:00')
-        await page.locator('input[name="closes-6"]').fill('18:30')
-        await page.locator('input[name="closes-6"]').fill('18:00')
-        await page.getByRole('button', { name: 'Сохранить и продолжить' }).click()
-        await page.locator('button[aria-busy="true"]').waitFor()
-      },
-      loading: async (page) => {
-        await mockOwnerAtLocationStep(page)
-        await page.route('**/api/v1/locations', () => new Promise(() => {}))
-        await page.goto('/onboarding/location')
-        await page.getByRole('status', { name: 'Загрузка точек' }).waitFor()
-      },
-    },
-  },
-]
+/**
+ * Шаг 2 «Точки и графики» снимается отдельным пакетом US-M02-04 (`us-m02-04.capture.spec.ts`):
+ * 12 согласованных состояний × 3 размера. Прежние кадры S4b этого шага больше не эталон.
+ */
 
 /** Как в макете шага 3: пройдены «Компания» и «Точка и график». */
 async function mockOwnerAtServicesStep(page: Page): Promise<void> {
@@ -957,7 +896,6 @@ for (const flow of [
   ...accessFlows,
   ...plainFlows,
   ...onboardingFlows,
-  ...locationFlows,
   ...servicesFlows,
   ...channelFlows,
   ...telegramFlows,

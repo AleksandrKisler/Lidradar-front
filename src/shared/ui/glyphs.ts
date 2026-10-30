@@ -8,6 +8,8 @@ import refresh from './assets/refresh.svg'
 import banknote from './assets/banknote.svg'
 import clock from './assets/clock.svg'
 import circleAlert from './assets/circle-alert.svg'
+import plus from './assets/plus.svg'
+import pencil from './assets/pencil.svg'
 
 export const GLYPHS = {
   'nav-radar': navRadar,
@@ -19,6 +21,9 @@ export const GLYPHS = {
   banknote,
   clock,
   'circle-alert': circleAlert,
+  // Шаг «Точки и графики»: плюс «Добавить точку» (Figma 943:18891) и карандаш точки (940:18895).
+  plus,
+  pencil,
 } as const
 
 export type GlyphName = keyof typeof GLYPHS

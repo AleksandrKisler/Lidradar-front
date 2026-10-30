@@ -338,6 +338,69 @@ test.describe('владелец организации', () => {
     ).toBe(true)
   })
 
+  test('окна UiDialog: Tab и Option+Tab не выводят фокус из меню, фильтров и формы приглашения', async ({
+    page,
+    browserName,
+  }) => {
+    // Codex-R2, пункт 2: в WebKit Tab пропускает кнопки и ссылки (их обходит Option+Tab), и без
+    // собственного обхода фокус уходил из окна за подложку.
+    const keys = (browserName === 'webkit' ? ['Tab', 'Alt+Tab'] : ['Tab']).flatMap((tab) => [
+      tab,
+      `Shift+${tab}`,
+    ])
+    async function expectTabCycle(dialog: Locator, presses: number): Promise<void> {
+      for (const key of keys) {
+        for (let index = 0; index < presses; index += 1) {
+          await page.keyboard.press(key)
+          const inside = await dialog.evaluate((element) =>
+            element.contains(document.activeElement),
+          )
+          expect(inside, `${key} №${index + 1}`).toBe(true)
+        }
+      }
+    }
+    /** Открывает окно с клавиатуры: так возврат фокуса проверяется одинаково во всех движках. */
+    async function openWithKeyboard(trigger: Locator): Promise<void> {
+      await trigger.focus()
+      await page.keyboard.press('Enter')
+    }
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/radar')
+    await expect(page.getByRole('heading', { name: 'Radar' })).toBeVisible()
+
+    const menuButton = page.getByRole('button', { name: 'Меню' })
+    await openWithKeyboard(menuButton)
+    const menu = page.getByRole('dialog', { name: 'Меню' })
+    await expect(menu).toBeVisible()
+    await expectTabCycle(menu, 12)
+    await page.keyboard.press('Escape')
+    await expect(menu).toBeHidden()
+    await expect(menuButton).toBeFocused()
+
+    const filtersButton = page.getByRole('button', { name: 'Фильтры' })
+    await openWithKeyboard(filtersButton)
+    const filters = page.getByRole('dialog', { name: 'Фильтры' })
+    await expect(filters).toBeVisible()
+    await expectTabCycle(filters, 8)
+    await page.keyboard.press('Escape')
+    await expect(filters).toBeHidden()
+    await expect(filtersButton).toBeFocused()
+
+    // Форма с полями и кнопками нижней панели.
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.goto('/settings/team')
+    await expect(page.getByRole('heading', { name: 'Команда и доступ' })).toBeVisible()
+    const inviteButton = page.getByRole('button', { name: 'Пригласить' })
+    await openWithKeyboard(inviteButton)
+    const invite = page.getByRole('dialog', { name: 'Пригласить в команду' })
+    await expect(invite).toBeVisible()
+    await expectTabCycle(invite, 6)
+    // Клик снаружи закрывает окно, пока нет отправки.
+    await page.mouse.click(5, 5)
+    await expect(invite).toBeHidden()
+  })
+
   test('карточка риска: контекст, команды и история', async ({ page }) => {
     await page.goto('/radar?severity=CRITICAL')
     await page.getByRole('link', { name: 'Дмитрий Соколов' }).first().click()
@@ -779,7 +842,7 @@ test.describe('владелец организации', () => {
     await expect(page.getByRole('heading', { name: 'Дмитрий Соколов' })).toBeVisible()
   })
 
-  test('настройки: компания, точка, график и услуги', async ({ page }) => {
+  test('настройки: компания, точка, график и услуги', async ({ page, browserName }) => {
     await page.goto('/settings')
     await expect(page).toHaveURL(/\/settings\/company$/)
     await expect(page.getByRole('heading', { name: 'Компания и график' })).toBeVisible()
@@ -802,6 +865,17 @@ test.describe('владелец организации', () => {
     // Новая точка через диалог появляется в списке.
     await page.getByRole('button', { name: 'Добавить точку' }).click()
     const locationDialog = page.getByRole('dialog', { name: 'Добавить точку' })
+    await expect(locationDialog).toBeVisible()
+    // Фокус не уходит за подложку ни по Tab, ни в WebKit по Option+Tab (кнопки и ссылки).
+    const tabs = browserName === 'webkit' ? ['Tab', 'Alt+Tab'] : ['Tab']
+    for (const key of tabs.flatMap((tab) => [tab, `Shift+${tab}`]))
+      for (let index = 0; index < 10; index += 1) {
+        await page.keyboard.press(key)
+        expect(
+          await locationDialog.evaluate((dialog) => dialog.contains(document.activeElement)),
+          `${key} №${index + 1}`,
+        ).toBe(true)
+      }
     await locationDialog.getByLabel('Название точки').fill('Студия на Пресне')
     await locationDialog.getByLabel('Нет ответа, мин').fill('45')
     await locationDialog.getByRole('button', { name: 'Добавить точку' }).click()
@@ -917,34 +991,51 @@ test.describe('владелец организации', () => {
     )
     await page.getByRole('button', { name: 'Назад' }).click()
     await expect(page).toHaveURL(/\/onboarding\/location$/)
-    await expect(page.getByRole('heading', { name: 'График точки' })).toBeVisible()
-    // У времени видимые подписи, а отдельной кнопки сохранения в мастере нет.
-    await expect(page.getByRole('button', { name: 'Сохранить график' })).toHaveCount(0)
-    await expect(page.getByText('График ещё не сохранён')).toHaveCount(0)
+    // US-M02-04: у точки без серверной недели — стандартный черновик и отдельное сохранение только PUT.
+    await expect(page.getByRole('heading', { name: 'График · Студия на Тверской' })).toBeVisible()
+    await expect(page.getByText('График точки ещё не сохранён')).toBeVisible()
+    const next = page.getByRole('button', { name: 'Сохранить и продолжить' })
+    await expect(next).toBeDisabled()
     await expectNoAxeViolations(page)
-    // «Сохранить и продолжить» сам отправляет неделю одним запросом и ведёт дальше.
     const putHours = page.waitForRequest(
       (request) => request.method() === 'PUT' && request.url().includes('/business-hours'),
     )
-    await page.getByRole('button', { name: 'Сохранить и продолжить' }).click()
+    await page.getByRole('button', { name: 'Сохранить график' }).click()
     expect(((await putHours).postDataJSON() as { days: unknown[] }).days).toHaveLength(7)
+    await expect(page.getByText('График точки ещё не сохранён')).toHaveCount(0)
+    await expect(next).toBeEnabled()
+    await next.click()
     await expect(page).toHaveURL(/\/onboarding\/services$/)
   })
 
   test('онбординг: график с ошибкой не пускает дальше и объясняет причину', async ({ page }) => {
     await page.goto('/onboarding/location')
-    await expect(page.getByRole('heading', { name: 'График точки' })).toBeVisible()
-    await page.getByLabel('Понедельник, открытие').fill('21:00')
-    await page.getByRole('button', { name: 'Сохранить и продолжить' }).click()
-    await expect(page.getByText('Время окончания должно быть позже начала.')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'График · Студия на Тверской' })).toBeVisible()
+    await page.getByRole('button', { name: 'Сохранить график' }).click()
+    const next = page.getByRole('button', { name: 'Сохранить и продолжить' })
+    await expect(next).toBeEnabled()
+    await page.getByLabel('Понедельник, начало').fill('21:00')
+    await expect(page.getByText('Время окончания должно быть позже времени начала.')).toBeVisible()
+    // Codex-R2 п.5: телефон называет точку (Figma phone-08), desktop и планшет — день.
+    const phone = (page.viewportSize()?.width ?? 0) < 768
+    await expect(page.locator('#location-step-hint')).toHaveText(
+      phone
+        ? 'Исправьте график: Студия на Тверской.'
+        : 'Исправьте время в понедельник, чтобы продолжить.',
+      { useInnerText: true },
+    )
+    await expect(next).toBeDisabled()
     await expect(page).toHaveURL(/\/onboarding\/location$/)
+    // Копирование недоступно, пока у образца (первого рабочего дня) неверный интервал.
+    const copy = page.getByRole('button', { name: 'Применить ко всем рабочим дням' })
+    await expect(copy).toBeDisabled()
     // Одинаковое время для всех рабочих дней задаётся одним действием.
-    await page.getByLabel('Понедельник, открытие').fill('08:00')
-    await page.getByLabel('Понедельник, закрытие').fill('19:00')
-    await page.getByRole('button', { name: 'Применить ко всем рабочим дням' }).click()
-    await expect(page.getByLabel('Суббота, открытие')).toHaveValue('08:00')
-    await expect(page.getByLabel('Пятница, закрытие')).toHaveValue('19:00')
-    await expect(page.getByRole('button', { name: /Применить ко всем/ })).toHaveCount(0)
+    await page.getByLabel('Понедельник, начало').fill('08:00')
+    await page.getByLabel('Понедельник, окончание').fill('19:00')
+    await copy.click()
+    await expect(page.getByLabel('Суббота, начало')).toHaveValue('08:00')
+    await expect(page.getByLabel('Пятница, окончание')).toHaveValue('19:00')
+    await expect(next).toBeEnabled()
   })
 
   test('онбординг: источник подключается на шаге, а выход без него подписан честно', async ({

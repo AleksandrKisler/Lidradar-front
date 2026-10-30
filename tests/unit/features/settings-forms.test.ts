@@ -10,7 +10,8 @@ import type { ServiceCatalogItem } from '@/entities/service'
 import { OrganizationForm } from '@/features/edit-organization'
 import { BusinessHoursEditor } from '@/features/edit-business-hours'
 import { ServiceForm } from '@/features/manage-services'
-import { LocationForm } from '@/features/manage-locations'
+import { LocationForm, locationSchema } from '@/features/manage-locations'
+import * as v from 'valibot'
 
 vi.mock('@/entities/session/api/auth-api', () => ({
   fetchMe: vi.fn(),
@@ -204,6 +205,55 @@ describe('формы настроек', () => {
     edit.unmount()
   })
 
+  it('M-1 / US-M02-02 B1–B3: в настройках оба порога дают ошибки US-M02-02 без PATCH; границы 1 и 1440 уходят', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ ...location })))
+    const edit = mountWith(LocationForm, {
+      tenantId: 'tenant-a',
+      location,
+      defaultTimezone: 'Europe/Moscow',
+    })
+    const fieldError = (name: string) => {
+      const id = edit
+        .get(`input[name="${name}"]`)
+        .attributes('aria-describedby')
+        ?.split(' ')
+        .find((part) => part.endsWith('-error'))
+      return id ? document.getElementById(id)!.textContent?.trim() : null
+    }
+    const fields = ['responseThresholdMinutes', 'agreementThresholdMinutes'] as const
+    for (const field of fields) {
+      const other = fields.find((item) => item !== field)!
+      for (const [value, message] of [
+        ['0', 'От 1 до 1440 минут.'],
+        ['1441', 'От 1 до 1440 минут.'],
+        ['abc', 'Порог — целое число минут.'],
+      ] as const) {
+        await edit.get(`input[name="${field}"]`).setValue(value)
+        await edit.get('form').trigger('submit')
+        await settle()
+        expect(fieldError(field), `${field} = ${value}`).toBe(message)
+        expect(fieldError(other)).toBeNull()
+        expect(fetchMock).not.toHaveBeenCalled()
+      }
+      // Значение можно исправить: ошибка уходит вместе с неверным вводом.
+      await edit.get(`input[name="${field}"]`).setValue(String(location[field]))
+      await edit.get('form').trigger('submit')
+      await settle()
+      expect(fieldError(field)).toBeNull()
+    }
+    await edit.get('input[name="responseThresholdMinutes"]').setValue('1')
+    await edit.get('input[name="agreementThresholdMinutes"]').setValue('1440')
+    await edit.get('form').trigger('submit')
+    await settle()
+    const patches = fetchMock.mock.calls.filter(([request]) => request.method === 'PATCH')
+    expect(patches).toHaveLength(1)
+    expect(await patches[0]![0].json()).toEqual({
+      responseThresholdMinutes: 1,
+      agreementThresholdMinutes: 1440,
+    })
+    edit.unmount()
+  })
+
   it('точка в окне: подписи макета, состояние выбирается списком, форма сообщает о занятости', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ ...location, active: false }, 200))
     const wrapper = mountWith(LocationForm, {
@@ -265,6 +315,44 @@ describe('формы настроек', () => {
       await settle()
       expect(wrapper.emitted('saved')).toHaveLength(1)
       expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+      wrapper.unmount()
+    },
+  )
+
+  it.each(['create', 'update'] as const)(
+    'F-01: точка %s начата в A, контекст сменился на B до отправки — запрос и инвалидация в A, поздний ответ не применяется',
+    async (kind) => {
+      fetchMock.mockImplementation(async () =>
+        jsonResponse({ ...location, name: 'Новая точка' }, kind === 'create' ? 201 : 200),
+      )
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+      const wrapper = mount(LocationForm, {
+        props: {
+          tenantId: 'tenant-a',
+          location: kind === 'update' ? location : null,
+          defaultTimezone: 'Europe/Moscow',
+        },
+        global: { plugins: [[VueQueryPlugin, { queryClient }]] },
+        attachTo: document.body,
+      })
+      await wrapper.get('input[name="locationName"]').setValue('Новая точка')
+      // Команда начата в A; выбранная организация меняется до dispatch запроса.
+      const submitted = wrapper.get('form').trigger('submit')
+      await wrapper.setProps({ tenantId: 'tenant-b' })
+      await submitted
+      await settle()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      const request = fetchMock.mock.calls[0]![0]
+      expect(request.method).toBe(kind === 'create' ? 'POST' : 'PATCH')
+      expect(request.headers.get('X-Tenant-ID')).toBe('tenant-a')
+      const keys = invalidate.mock.calls.map(
+        ([filters]) => (filters as { queryKey?: readonly unknown[] } | undefined)?.queryKey,
+      )
+      expect(keys.length).toBeGreaterThan(0)
+      expect(keys.every((key) => key?.includes('tenant-a') && !key.includes('tenant-b'))).toBe(true)
+      // Ответ команды A не обновляет интерфейс организации B.
+      expect(wrapper.emitted('saved')).toBeUndefined()
       wrapper.unmount()
     },
   )
@@ -607,5 +695,52 @@ describe('формы настроек', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3)
     expect(wrapper.emitted('saved')).toHaveLength(2)
     wrapper.unmount()
+  })
+})
+
+/** AC-M02-04-04: название точки 1..200 символов, как в контракте (символы, а не UTF-16). */
+describe('схема точки: длина названия', () => {
+  const values = (name: string) => ({
+    name,
+    timezone: 'Europe/Moscow',
+    responseThresholdMinutes: '45',
+    agreementThresholdMinutes: '120',
+    active: true,
+  })
+  const issues = (name: string) =>
+    v.safeParse(locationSchema, values(name)).issues?.map((issue) => issue.message) ?? []
+
+  it('200 символов допустимо, 201 — нет; эмодзи считаются одним символом', () => {
+    expect(issues('а'.repeat(200))).toEqual([])
+    expect(issues('а'.repeat(201))).toEqual(['Слишком длинное название'])
+    expect(issues('🏠'.repeat(200))).toEqual([])
+    expect(issues('🏠'.repeat(201))).toEqual(['Слишком длинное название'])
+    expect(issues('   ')).toEqual(['Введите название точки.'])
+  })
+})
+
+/** M-1: тексты ошибок порогов — US-M02-02, ветка B (B1–B3), одинаковые для обоих полей. */
+describe('схема точки: пороги', () => {
+  const issues = (field: string, value: string) =>
+    v
+      .safeParse(locationSchema, {
+        name: 'Студия',
+        timezone: 'Europe/Moscow',
+        responseThresholdMinutes: '45',
+        agreementThresholdMinutes: '120',
+        active: true,
+        [field]: value,
+      })
+      .issues?.map((issue) => issue.message) ?? []
+
+  it.each(['responseThresholdMinutes', 'agreementThresholdMinutes'])('%s', (field) => {
+    expect(issues(field, '0')).toEqual(['От 1 до 1440 минут.'])
+    expect(issues(field, '1441')).toEqual(['От 1 до 1440 минут.'])
+    expect(issues(field, 'abc')[0]).toBe('Порог — целое число минут.')
+    expect(issues(field, '-5')[0]).toBe('Порог — целое число минут.')
+    expect(issues(field, '1.5')[0]).toBe('Порог — целое число минут.')
+    expect(issues(field, '1')).toEqual([])
+    expect(issues(field, '1440')).toEqual([])
+    expect(issues(field, ' 45 ')).toEqual([])
   })
 })

@@ -58,9 +58,37 @@ Stories про email, Telegram, фоновые задачи и AI дели на 
 
 `design-index.json` — компактный указатель, а не экспорт всех свойств Figma.
 Access/Onboarding: approved `id` из ledger, не legacy `sourceId` из plan.
-Onboarding: учти `latestCorrection` и последующие исправления skeleton.
+Для согласованных 30.10.2026 US-M01-03–08 используй также
+`access.userStoryFlows`: шесть точных путей, 47 desktop-сцен и версия
+канонических требований в `Lidradar/docs/user-stories/10-access.md`.
+Согласование этого пакета не означает новый runtime PASS или отдельное
+согласование tablet/mobile; сохранённые адаптивные эталоны продолжают действовать.
+Согласованные 30.10.2026 пути US-M02-01/02/03 указаны в
+`onboarding.userStoryFlows`: 25 desktop-сцен, версия требований и ссылки на
+`Lidradar/docs/user-stories/11-onboarding.md`. Для общих состояний шага 2,
+адаптивов и поведения US-M02-04 сохраняются `onboarding.step2` и его уточнение
+от 30.10; новые пути не отменяют этот пакет или открытые findings реализации.
+Onboarding: для второго шага используй `onboarding.step2` — 36 текущих кадров,
+согласованные правила и компактные компоненты; этот блок заменяет прежние
+ledger/correction/skeleton-эталоны только шага 2. Уточнение пользователя
+30.10.2026 в [US-M02-04](../../../Lidradar/docs/user-stories/11-onboarding.md#us-m02-04)
+и [решении](../../../Lidradar/docs/engineering/US-M02-04-IMPLEMENTATION.md)
+имеет приоритет над старыми подписями unset в кадрах 03/04: default 10:00–19:00,
+POST → PUT, повтор только PUT; backend/ADR 0045 прежние, ADR 0069 отозван.
+`onboarding.step2.behaviorClarification` фиксирует это расхождение без
+переименования живых кадров. Для остальных шагов учти `latestCorrection`
+и последующие исправления skeleton.
 Radar: действующие оригинальные эталоны и новые адаптивы указаны отдельно;
 не импортируй исторический radar-hig-review ledger как утверждённый пакет.
+30.10.2026 владелец выбрал оболочку C и поручил перенести её в основные макеты:
+белая панель навигации, аккаунт/шестерёнка в хедере, workspace внизу. Перенос
+на 23 desktop/tablet/phone экрана и меню записан в `radar.shellSelection`;
+[карта и ограничения](evidence/radar-shell-c-2026-10-30.md). Остальной контент
+канонических Radar frames сохранён; runtime этим дизайн-поручением не менялся.
+Следующая итерация того же дня переработала 14 tablet/phone frames: единый app bar,
+touch-меню и компактный layout. Текущая компактная оболочка —
+`radar.shellSelection.adaptiveRework`, [evidence](evidence/radar-adaptive-rework-2026-10-30.md).
+Обзор viewport: `1050:16004` (834×1194) и `1050:16073` (390×844). Desktop C прежний.
 Остальные разделы требуют выбора актуального финального frame в своих ledgers.
 
 В начале этапа получи metadata/design context/screenshot только выбранных nodes.

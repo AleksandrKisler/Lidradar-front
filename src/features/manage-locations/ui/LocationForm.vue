@@ -30,11 +30,19 @@ const props = defineProps<{
    */
   variant?: 'inline' | 'dialog' | undefined
   formId?: string | undefined
+  /** `onboarding` — окно на шаге «Точка и график»: пояснение о графике относится к этому шагу. */
+  context?: 'settings' | 'onboarding' | undefined
 }>()
-const emit = defineEmits<{ saved: [location: Location]; cancel: []; busy: [busy: boolean] }>()
+const emit = defineEmits<{
+  saved: [location: Location]
+  cancel: []
+  busy: [busy: boolean]
+  /** Отправка не удалась: вызывающий сам решает, нужна ли сверка при неизвестном исходе. */
+  failed: [error: unknown]
+}>()
 
 const zones = timeZoneOptions()
-const save = useSaveLocation(() => props.tenantId)
+const save = useSaveLocation()
 
 const { defineField, handleSubmit, errors } = useForm({
   validationSchema: toTypedSchema(locationSchema),
@@ -69,7 +77,14 @@ const stateOptions = [
   { value: 'active', label: 'Активна' },
   { value: 'inactive', label: 'Неактивна' },
 ]
+/**
+ * Организация команды фиксируется при нажатии, до асинхронной валидации и запроса: смена
+ * выбранной организации не перенаправляет начатую команду, а её ответ не применяется к новой.
+ */
+let commandTenant = ''
 const submit = handleSubmit(async (values) => {
+  const tenantId = commandTenant
+  const sameContext = () => props.tenantId === tenantId
   const minutes = Number(values.responseThresholdMinutes)
   const agreementMinutes = Number(values.agreementThresholdMinutes)
   let result: Location | null
@@ -82,15 +97,19 @@ const submit = handleSubmit(async (values) => {
       body.agreementThresholdMinutes = agreementMinutes
     if (values.active !== props.location.active) body.active = values.active
     if (Object.keys(body).length === 0) {
-      emit('saved', props.location)
+      if (sameContext()) emit('saved', props.location)
       return
     }
     result = await save
-      .mutateAsync({ kind: 'update', locationId: props.location.id, body })
-      .catch(() => null)
+      .mutateAsync({ tenantId, kind: 'update', locationId: props.location.id, body })
+      .catch((error: unknown) => {
+        if (sameContext()) emit('failed', error)
+        return null
+      })
   } else {
     result = await save
       .mutateAsync({
+        tenantId,
         kind: 'create',
         body: {
           name: values.name,
@@ -99,14 +118,18 @@ const submit = handleSubmit(async (values) => {
           agreementThresholdMinutes: agreementMinutes,
         },
       })
-      .catch(() => null)
+      .catch((error: unknown) => {
+        if (sameContext()) emit('failed', error)
+        return null
+      })
   }
-  if (result) emit('saved', result)
+  if (result && sameContext()) emit('saved', result)
 })
 
 async function onSubmit(event: Event) {
   if (isSubmitting.value) return
   isSubmitting.value = true
+  commandTenant = props.tenantId
   try {
     await submit(event)
   } finally {
@@ -119,7 +142,12 @@ async function onSubmit(event: Event) {
   <form
     v-if="variant === 'dialog'"
     :id="formId"
-    class="flex flex-col gap-4 max-lg:[&_label]:text-base max-lg:[&_label]:leading-6 max-md:[&_p]:text-base max-md:[&_p]:leading-6"
+    :class="[
+      'flex flex-col gap-4 max-md:[&_p]:text-base max-md:[&_p]:leading-6',
+      context === 'onboarding'
+        ? 'max-md:[&_label]:text-base max-md:[&_label]:leading-6'
+        : 'max-lg:[&_label]:text-base max-lg:[&_label]:leading-6',
+    ]"
     novalidate
     @submit.prevent="onSubmit"
   >
@@ -134,7 +162,6 @@ async function onSubmit(event: Event) {
         v-model="name"
         name="locationName"
         placeholder="Например, Студия на Арбате"
-        :maxlength="200"
         :described-by="describedBy"
         :invalid="invalid"
         :disabled="isSubmitting"
@@ -211,9 +238,17 @@ async function onSubmit(event: Event) {
     </UiField>
     <p
       v-if="location"
-      class="text-sm leading-5 text-muted max-lg:text-base max-lg:leading-6 max-lg:font-semibold max-lg:text-ink"
+      :class="
+        context === 'onboarding'
+          ? 'text-sm leading-5 text-muted max-md:text-base max-md:leading-6 max-md:font-semibold'
+          : 'text-sm leading-5 text-muted max-lg:text-base max-lg:leading-6 max-lg:font-semibold max-lg:text-ink'
+      "
     >
-      График этой точки настраивается отдельно, на странице «Компания и график».
+      {{
+        context === 'onboarding'
+          ? 'График этой точки настраивается справа на шаге «Точка и график».'
+          : 'График этой точки настраивается отдельно, на странице «Компания и график».'
+      }}
     </p>
     <UiAlert v-if="errorView" tone="danger" :title="errorView.title" :trace-id="traceId">
       {{ errorView.description }}
@@ -227,7 +262,6 @@ async function onSubmit(event: Event) {
         v-model="name"
         name="locationName"
         placeholder="Студия на Пресне"
-        :maxlength="200"
         :described-by="describedBy"
         :invalid="invalid"
         :disabled="isSubmitting"

@@ -5,7 +5,7 @@
  * нижняя панель с разделителем. На телефоне занимает весь экран, кнопки панели идут столбцом
  * (основное сверху), знак скрыт; от планшета — карточка по центру с радиусом 24.
  *
- * Ограничение закрытия и начальный фокус работают как у `UiDialog`.
+ * Ограничение закрытия, начальный фокус и обход Tab по кругу (`keepTabInside`) — как у `UiDialog`.
  */
 import { computed } from 'vue'
 import {
@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from 'reka-ui'
 import UiIcon from './UiIcon.vue'
+import { keepTabInside } from './UiDialog.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -37,6 +38,8 @@ const props = withDefaults(
     footerFill?: boolean | undefined
     /** Окно скрыто, но живёт: его перекрывает вложенное окно (подложка остаётся). */
     concealed?: boolean | undefined
+    /** На планшете — поля и пояснение как на десктопе (окна шага «Точки и графики»). */
+    tabletAsDesktop?: boolean | undefined
   }>(),
   {
     description: '',
@@ -48,12 +51,19 @@ const props = withDefaults(
     descriptionInBody: false,
     descriptionStrong: false,
     concealed: false,
+    tabletAsDesktop: false,
   },
 )
 
 const open = defineModel<boolean>('open', { default: false })
 /** Боковые поля: диалоги настроек уже (17/24/32 px), диалоги подключения — 24/32 px. */
-const pad = computed(() => (props.footerFill ? 'px-4 md:px-6 lg:px-8' : 'px-6 md:px-8'))
+const pad = computed(() =>
+  props.footerFill
+    ? props.tabletAsDesktop
+      ? 'px-4 md:px-8'
+      : 'px-4 md:px-6 lg:px-8'
+    : 'px-6 md:px-8',
+)
 
 const widths = {
   sm: 'md:max-w-[640px]',
@@ -83,14 +93,20 @@ function guard(event: Event): void {
       <DialogContent
         :class="[
           'fixed inset-0 z-50 flex h-dvh w-full flex-col bg-paper',
-          'md:inset-auto md:top-[calc(50%+2.5rem)] md:left-1/2 md:max-h-[calc(100dvh-8rem)] md:w-[calc(100%-4rem)] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-3xl md:shadow-xl',
+          'md:inset-auto md:left-1/2 md:max-h-[calc(100dvh-8rem)] md:w-[calc(100%-4rem)] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-3xl md:shadow-xl',
           widths[size],
-          size === 'xl' ? 'md:top-[calc(50%+52px)] md:h-[800px]' : 'md:h-auto',
+          // Окна шага «Точки и графики» — точно по центру окна браузера (Figma 02/06/07).
+          size === 'xl'
+            ? 'md:top-[calc(50%+52px)] md:h-[800px]'
+            : tabletAsDesktop
+              ? 'md:top-1/2 md:h-auto'
+              : 'md:top-[calc(50%+2.5rem)] md:h-auto',
           concealed ? 'invisible' : '',
         ]"
         @escape-key-down="guard"
         @interact-outside="guard"
         @open-auto-focus="focusInitial"
+        @keydown.capture="keepTabInside"
       >
         <header
           :class="[
@@ -127,15 +143,21 @@ function guard(event: Event): void {
           :class="[
             'min-h-0 flex-1 overflow-y-auto pb-6',
             pad,
-            footerFill ? 'md:pb-8' : 'md:pb-7',
+            footerFill ? (tabletAsDesktop ? 'md:pb-6' : 'md:pb-8') : 'md:pb-7',
             $slots.toolbar ? 'pt-4' : 'pt-[22px] md:pt-[30px]',
           ]"
         >
           <DialogDescription
             v-if="description && descriptionInBody"
             :class="[
-              'mb-4 text-base leading-6 text-muted lg:text-sm lg:leading-5',
-              descriptionStrong ? 'font-semibold lg:font-normal' : '',
+              tabletAsDesktop
+                ? 'mb-4 text-field leading-6 text-muted md:mb-6 md:text-sm md:leading-5'
+                : 'mb-4 text-base leading-6 text-muted lg:text-sm lg:leading-5',
+              descriptionStrong
+                ? tabletAsDesktop
+                  ? 'font-semibold md:font-normal'
+                  : 'font-semibold lg:font-normal'
+                : '',
             ]"
             >{{ description }}</DialogDescription
           >
@@ -145,7 +167,7 @@ function guard(event: Event): void {
           v-if="$slots.footer"
           :class="[
             'flex shrink-0 flex-col gap-3 border-t border-hairline py-4 md:flex-row md:items-center md:justify-between',
-            footerFill ? 'mx-4 md:mx-6 lg:mx-8' : pad,
+            footerFill ? (tabletAsDesktop ? 'mx-4 md:mx-8' : 'mx-4 md:mx-6 lg:mx-8') : pad,
             size === 'xl' ? 'md:py-[13px]' : footerFill ? 'md:pt-6 md:pb-8' : 'md:py-5',
           ]"
         >

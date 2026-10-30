@@ -1,9 +1,79 @@
+<script lang="ts">
+/*
+ * Обход Tab внутри окна — общий для `UiDialog` и `UiSheetDialog`. Ловушка фокуса reka-ui замыкает
+ * только простой Tab на крайнем элементе, а WebKit/Safari по Tab пропускает кнопки и ссылки (их
+ * обходит Option+Tab): с последнего поля фокус уходил из окна. Поэтому окно само переводит фокус по
+ * своим доступным элементам в порядке документа.
+ * Верхний уровень модуля — без вызовов (список селекторов — литерал, а не `[...].join()`): вызов
+ * считается побочным эффектом, и Rolldown затягивал модуль вместе с общим чанком `ui` в критическую
+ * загрузку (бюджет `audit:release`, 329 691 B > 304 800).
+ * Вложенное окно открывается в своём портале, вне DOM родителя: его Tab родитель не видит.
+ */
+const CANDIDATES =
+  'a[href],area[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),' +
+  'select:not([disabled]),textarea:not([disabled]),iframe,summary,' +
+  '[contenteditable=""],[contenteditable="true"],[tabindex]'
+
+function isVisible(element: HTMLElement): boolean {
+  if (element.closest('[hidden], [inert]')) return false
+  // jsdom не умеет checkVisibility: там видимость не проверяется.
+  if (typeof element.checkVisibility !== 'function') return true
+  return element.checkVisibility({ visibilityProperty: true } as Parameters<
+    HTMLElement['checkVisibility']
+  >[0])
+}
+
+/** Доступные по Tab элементы окна; из группы радиокнопок — только отмеченная (или первая). */
+function tabbables(container: HTMLElement): HTMLElement[] {
+  return [...container.querySelectorAll<HTMLElement>(CANDIDATES)].filter((element) => {
+    if (element.tabIndex < 0 || !isVisible(element)) return false
+    if (element instanceof HTMLInputElement && element.type === 'radio' && element.name) {
+      const group = [
+        ...container.querySelectorAll<HTMLInputElement>(
+          `input[type="radio"][name="${CSS.escape(element.name)}"]:not([disabled])`,
+        ),
+      ]
+      return element === (group.find((radio) => radio.checked) ?? group[0])
+    }
+    return true
+  })
+}
+
+/**
+ * Обработчик keydown окна в фазе захвата: Tab/Option+Tab вперёд, с Shift — назад, по кругу.
+ * Ctrl/Cmd+Tab остаются командами браузера.
+ */
+export function keepTabInside(event: KeyboardEvent): void {
+  if (event.key !== 'Tab' || event.ctrlKey || event.metaKey) return
+  const container = event.currentTarget as HTMLElement
+  const items = tabbables(container)
+  event.preventDefault()
+  event.stopPropagation()
+  if (items.length === 0) {
+    container.focus()
+    return
+  }
+  const current = items.indexOf(document.activeElement as HTMLElement)
+  const step = event.shiftKey ? -1 : 1
+  const next =
+    current === -1
+      ? event.shiftKey
+        ? items[items.length - 1]!
+        : items[0]!
+      : items[(current + step + items.length) % items.length]!
+  next.focus()
+  // Как при обычном Tab: текст поля выделяется целиком.
+  if (next instanceof HTMLInputElement) next.select()
+}
+</script>
+
 <script setup lang="ts">
 /**
  * Модальное окно на Reka UI: ловушка фокуса, возврат фокуса, Escape и
  * портал обеспечены библиотекой. Заголовок обязателен для доступного имени.
  * `dismissible: false` запрещает закрытие Escape, кликом снаружи и крестиком —
  * на время неделимой отправки, чтобы черновик с ключом не потерялся.
+ * Tab и Option+Tab окно обходит само по кругу (`keepTabInside`), Ctrl/Cmd+Tab не перехватывает.
  * `initialFocus` — CSS-селектор элемента внутри окна, который получает фокус при открытии вместо
  * первого доступного (кнопки «Закрыть»): окну с единственным полем ввода удобнее начинать с него.
  */
@@ -89,6 +159,7 @@ const open = defineModel<boolean>('open', { default: false })
         @escape-key-down="guard"
         @interact-outside="guard"
         @open-auto-focus="focusInitial"
+        @keydown.capture="keepTabInside"
       >
         <div
           :class="[

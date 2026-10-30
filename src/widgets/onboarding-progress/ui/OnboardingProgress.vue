@@ -45,14 +45,14 @@ const currentStep = computed(() => steps.value.find((step) => step.current) ?? n
 </script>
 
 <template>
-  <nav aria-label="Шаги начала работы" class="flex flex-col items-center gap-2 md:gap-3">
-    <p v-if="currentStep" class="text-meta leading-[18px] text-secondary">
+  <nav aria-label="Шаги начала работы" class="flex flex-col items-center gap-2 md:gap-3.5">
+    <p v-if="currentStep" class="text-meta leading-4 font-medium text-secondary">
       Шаг {{ currentStep.number }} из {{ steps.length }}
       <span class="md:hidden">· {{ currentStep.label }}</span>
     </p>
     <div class="relative w-full">
       <div class="absolute top-[15px] right-[12.5%] left-[12.5%] h-px bg-line" aria-hidden="true" />
-      <ol class="grid grid-cols-4">
+      <ol class="grid grid-cols-4 md:h-[60px]">
         <!-- Линия между центрами крайних кружков; кружки лежат поверх неё. -->
         <li
           v-for="step in steps"
@@ -72,7 +72,7 @@ const currentStep = computed(() => steps.value.find((step) => step.current) ?? n
           </span>
           <span
             :class="[
-              'hidden text-meta leading-[18px] md:block',
+              'hidden text-sm leading-[17px] md:block',
               step.current ? 'font-semibold text-link' : 'text-secondary',
             ]"
             aria-hidden="true"

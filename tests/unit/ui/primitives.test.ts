@@ -10,6 +10,7 @@ import {
   UiField,
   UiInput,
   UiPasswordInput,
+  UiSheetDialog,
 } from '@/shared/ui'
 
 describe('UiButton', () => {
@@ -154,5 +155,192 @@ describe('UiDialog: начальный фокус', () => {
     const missing = await open('input[name="nothing"]')
     expect(missing?.getAttribute('aria-label')).toBe('Закрыть')
     expect(body().find('[role="dialog"]').exists()).toBe(false)
+  })
+})
+
+/** Имя элемента в фокусе и нажатие Tab с модификаторами из него — для тестов обхода окна. */
+const focusedName = () => {
+  const element = document.activeElement as HTMLElement
+  return element.getAttribute('aria-label') ?? element.getAttribute('name') ?? element.textContent
+}
+const pressTab = (init: KeyboardEventInit = {}) => {
+  const event = new KeyboardEvent('keydown', {
+    key: 'Tab',
+    bubbles: true,
+    cancelable: true,
+    ...init,
+  })
+  document.activeElement!.dispatchEvent(event)
+  return event
+}
+const settleDialog = async () => {
+  await flushPromises()
+  await new Promise((resolve) => setTimeout(resolve, 30))
+}
+
+describe('UiDialog: фокус не покидает окно (Codex-R2, пункт 2)', () => {
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('Tab и Option+Tab обходят доступные элементы по кругу, пропуская скрытые и недоступные', async () => {
+    const wrapper = mount(UiDialog, {
+      props: { open: true, title: 'Окно' },
+      slots: {
+        default:
+          '<input name="first" aria-label="Первое" /><input name="off" aria-label="Недоступное" disabled />' +
+          '<button type="button" hidden>Скрытая</button><div inert><input aria-label="Инертное" /></div>' +
+          '<a href="#help">Справка</a>',
+        footer: '<button type="button">Отмена</button><button type="button">Сохранить</button>',
+      },
+      attachTo: document.body,
+    })
+    await settleDialog()
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+    expect(focusedName()).toBe('Закрыть')
+    const forward: (string | null)[] = []
+    for (let index = 0; index < 5; index += 1) {
+      expect(pressTab().defaultPrevented).toBe(true)
+      forward.push(focusedName())
+    }
+    expect(forward).toEqual(['Первое', 'Справка', 'Отмена', 'Сохранить', 'Закрыть'])
+    pressTab({ shiftKey: true })
+    expect(focusedName()).toBe('Сохранить')
+    pressTab({ altKey: true })
+    expect(focusedName()).toBe('Закрыть')
+    pressTab({ altKey: true, shiftKey: true })
+    expect(focusedName()).toBe('Сохранить')
+    expect(dialog.contains(document.activeElement)).toBe(true)
+    expect(pressTab({ ctrlKey: true }).defaultPrevented).toBe(false)
+    expect(pressTab({ metaKey: true }).defaultPrevented).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('окно без кнопки «Закрыть» (идёт отправка) держит фокус на своих элементах', async () => {
+    const wrapper = mount(UiDialog, {
+      props: { open: true, title: 'Окно', dismissible: false },
+      slots: { default: '<input name="only" aria-label="Единственное" />' },
+      attachTo: document.body,
+    })
+    await settleDialog()
+    expect(focusedName()).toBe('Единственное')
+    pressTab()
+    expect(focusedName()).toBe('Единственное')
+    pressTab({ shiftKey: true, altKey: true })
+    expect(focusedName()).toBe('Единственное')
+    wrapper.unmount()
+  })
+
+  it('вложенное окно ведёт обход само, родительское его не перехватывает', async () => {
+    // Функциональный компонент: второй defineComponent в файле нарушил бы vue/one-component-per-file.
+    const nested = () =>
+      h(
+        UiDialog,
+        { open: true, title: 'Родитель' },
+        {
+          default: () => [
+            h('input', { name: 'parent', 'aria-label': 'Поле родителя' }),
+            h(
+              UiDialog,
+              { open: true, title: 'Дочернее' },
+              {
+                default: () => h('input', { name: 'child', 'aria-label': 'Поле дочернего' }),
+              },
+            ),
+          ],
+        },
+      )
+    const wrapper = mount(nested, { attachTo: document.body })
+    await settleDialog()
+    const child = [...document.querySelectorAll<HTMLElement>('[role="dialog"]')].find((element) =>
+      element.textContent?.includes('Дочернее'),
+    )!
+    child.querySelector<HTMLElement>('input')!.focus()
+    const visited: (string | null)[] = []
+    for (let index = 0; index < 3; index += 1) {
+      pressTab()
+      visited.push(focusedName())
+    }
+    expect(visited).toEqual(['Закрыть', 'Поле дочернего', 'Закрыть'])
+    expect(child.contains(document.activeElement)).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('Escape и клик снаружи закрывают окно, а при отправке (dismissible: false) — нет', async () => {
+    const escape = async (dismissible: boolean) => {
+      const wrapper = mount(UiDialog, {
+        props: { open: true, title: 'Окно', dismissible },
+        slots: { default: '<input name="field" aria-label="Поле" />' },
+        attachTo: document.body,
+      })
+      await settleDialog()
+      document.activeElement!.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      )
+      await flushPromises()
+      const emitted = wrapper.emitted('update:open') ?? []
+      wrapper.unmount()
+      document.body.innerHTML = ''
+      return emitted
+    }
+    expect(await escape(true)).toEqual([[false]])
+    expect(await escape(false)).toEqual([])
+  })
+})
+
+describe('UiSheetDialog: фокус не покидает окно (F-04)', () => {
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  /** Tab, Option+Tab и Shift-варианты: окно само ведёт обход, не полагаясь на порядок браузера. */
+  it('Tab и Option+Tab обходят поля и кнопки по кругу, Shift — в обратную сторону', async () => {
+    const wrapper = mount(UiSheetDialog, {
+      props: { open: true, title: 'Окно' },
+      slots: {
+        default:
+          '<input name="first" aria-label="Первое" /><input name="off" aria-label="Скрытое" disabled /><select name="second" aria-label="Второе"><option>1</option></select>',
+        footer: '<button type="button">Отмена</button><button type="button">Сохранить</button>',
+      },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+    const name = () => {
+      const element = document.activeElement as HTMLElement
+      return (
+        element.getAttribute('aria-label') ?? element.getAttribute('name') ?? element.textContent
+      )
+    }
+    const press = (init: KeyboardEventInit) => {
+      const event = new KeyboardEvent('keydown', {
+        key: 'Tab',
+        bubbles: true,
+        cancelable: true,
+        ...init,
+      })
+      document.activeElement!.dispatchEvent(event)
+      return event
+    }
+    expect(name()).toBe('Закрыть')
+    const forward: (string | null)[] = []
+    for (let index = 0; index < 5; index += 1) {
+      expect(press({}).defaultPrevented).toBe(true)
+      forward.push(name())
+    }
+    expect(forward).toEqual(['Первое', 'Второе', 'Отмена', 'Сохранить', 'Закрыть'])
+    // Option+Tab (WebKit: обход кнопок) с последней кнопки тоже возвращается в начало окна.
+    press({ shiftKey: true })
+    expect(name()).toBe('Сохранить')
+    press({ altKey: true })
+    expect(name()).toBe('Закрыть')
+    press({ altKey: true, shiftKey: true })
+    expect(name()).toBe('Сохранить')
+    expect(dialog.contains(document.activeElement)).toBe(true)
+    // Ctrl/Cmd+Tab — команды браузера, окно их не перехватывает.
+    expect(press({ ctrlKey: true }).defaultPrevented).toBe(false)
+    expect(press({ metaKey: true }).defaultPrevented).toBe(false)
+    wrapper.unmount()
   })
 })

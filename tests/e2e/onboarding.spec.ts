@@ -129,34 +129,287 @@ test.describe('шаг 1 «Компания» (US-M02-01)', () => {
   }
 })
 
-test.describe('шаг 2 «Точка и график» (US-M02-02)', () => {
-  test('экран по макету: карточка графика, пояс, подсказки, ряд шагов; ошибка границ с фокусом и «Назад»', async ({
+test.describe('шаг 2 «Точки и графики» (US-M02-04)', () => {
+  test('восстановление default, создание POST → PUT, черновики по точкам, ошибка другой точки, переход к услугам', async ({
     page,
   }) => {
+    // Сценарий раскладки desktop/tablet (карточки точек) — и в проекте mobile.
+    await page.setViewportSize({ width: 1440, height: 1000 })
     await mockOwner(page)
+    const writes: string[] = []
+    page.on('request', (request) => {
+      if (
+        ['POST', 'PUT', 'PATCH'].includes(request.method()) &&
+        request.url().includes('/locations')
+      )
+        writes.push(`${request.method()} ${new URL(request.url()).pathname}`)
+    })
     await page.goto('/onboarding/location')
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Когда вы отвечаете клиентам?' }),
+      page.getByRole('heading', { level: 1, name: 'Точки и графики работы' }),
     ).toBeVisible()
-    await expect(page.getByRole('heading', { level: 2 })).toHaveText(
-      'График точки · Студия на Тверской',
-    )
-    await expect(page.getByText('Москва · UTC+3')).toBeVisible()
-    await expect(page.getByText('Для копирования используется первый рабочий день.')).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Шаги начала работы' })).toContainText(
       'Шаг 2 из 4',
     )
+    // У точки без серверной недели — стандартный черновик 10:00–19:00 и повтор только PUT.
+    await expect(page.locator('#hours-title')).toHaveText('График · Студия на Тверской')
+    await expect(page.locator('input[name="opens-1"]')).toHaveValue('10:00')
+    await expect(page.getByText('График точки ещё не сохранён')).toBeVisible()
+    const next = page.getByTestId('location-continue')
+    await expect(next).toBeDisabled()
     const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()
     expect(axe.violations).toEqual([])
+    await page.getByRole('button', { name: 'Сохранить график' }).click()
+    await expect(next).toBeEnabled()
 
+    // Плюс → «Добавить точку» → одна новая точка, выбрана, неделя сохранена.
+    await page.getByRole('button', { name: 'Добавить точку' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Добавить точку' })
+    await dialog.getByLabel('Название точки').fill('Студия на Арбате')
+    await dialog.getByRole('button', { name: 'Добавить точку' }).dblclick()
+    await expect(dialog).toBeHidden()
+    await expect(page.locator('#hours-title')).toHaveText('График · Студия на Арбате')
+    await expect(page.getByTestId('location-card')).toHaveCount(2)
+    await expect(next).toBeEnabled()
+    expect(writes.filter((item) => item === 'POST /api/v1/locations')).toHaveLength(1)
+
+    // Неверный интервал второй точки: переключение разрешено, ошибка остаётся у неё.
     await page.locator('input[name="opens-1"]').fill('20:00')
     await page.locator('input[name="closes-1"]').fill('09:00')
-    await page.getByRole('button', { name: 'Сохранить и продолжить' }).click()
-    await expect(page.getByText('Время окончания должно быть позже начала.')).toBeVisible()
-    await expect(page.locator('input[name="opens-1"]')).toBeFocused()
-    await expect(page).toHaveURL(/\/onboarding\/location$/)
+    await expect(page.getByText('Время окончания должно быть позже времени начала.')).toBeVisible()
+    await expect(page.locator('input[name="opens-1"]')).toHaveAttribute('aria-invalid', 'true')
+    const cards = page.getByTestId('location-card')
+    await cards.filter({ hasText: 'Студия на Тверской' }).click()
+    await expect(page.locator('input[name="opens-1"]')).toHaveValue('10:00')
+    await expect(cards.filter({ hasText: 'Студия на Арбате' })).toContainText(
+      'График заполнен неверно',
+    )
+    await expect(page.locator('#location-step-hint')).toHaveText(
+      'Исправьте график: Студия на Арбате.',
+    )
+    await expect(next).toBeDisabled()
+    // Клавиатура: выбор карточки Enter.
+    await cards.filter({ hasText: 'Студия на Арбате' }).focus()
+    await page.keyboard.press('Enter')
+    await expect(page.locator('input[name="opens-1"]')).toHaveValue('20:00')
+    await page.locator('input[name="opens-1"]').fill('08:00')
+    await expect(next).toBeEnabled()
 
+    await next.click()
+    await expect(page).toHaveURL(/\/onboarding\/services$/)
+    // POST один, PUT — инициализации и одна изменённая неделя; подтверждённые не повторяются.
+    expect(writes.filter((item) => item.startsWith('POST'))).toHaveLength(1)
+    expect(writes.filter((item) => item.startsWith('PUT'))).toHaveLength(3)
+  })
+
+  test('Codex-R2 п.3 / AC-04: пустое название — ошибка по клику и по Enter без POST, затем точка создаётся', async ({
+    page,
+  }) => {
+    await mockOwner(page)
+    const posts: string[] = []
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/locations')
+        posts.push(request.url())
+    })
+    await page.goto('/onboarding/location')
+    await page.getByRole('button', { name: 'Добавить точку' }).click()
+    const create = page.getByRole('dialog', { name: 'Добавить точку' })
+    const submit = create.getByRole('button', { name: 'Добавить точку' })
+    const name = create.getByLabel('Название точки')
+    // Кнопка доступна и до ввода не выглядит недоступной (не серая и не прозрачная).
+    await expect(submit).toBeEnabled()
+    const look = await submit.evaluate((element) => {
+      const style = getComputedStyle(element)
+      return { opacity: style.opacity, cursor: style.cursor }
+    })
+    expect(look).toEqual({ opacity: '1', cursor: expect.not.stringMatching('not-allowed') })
+
+    await submit.click()
+    await expect(create.getByText('Введите название точки.')).toBeVisible()
+    await expect(name).toHaveAttribute('aria-invalid', 'true')
+    await name.focus()
+    await page.keyboard.press('Enter')
+    await expect(create.getByText('Введите название точки.')).toBeVisible()
+    await expect(submit).toBeEnabled()
+    expect(posts).toHaveLength(0)
+
+    await name.fill('Студия на Арбате')
+    await page.keyboard.press('Enter')
+    await expect(create).toBeHidden()
+    await expect(page.locator('#hours-title')).toHaveText('График · Студия на Арбате')
+    expect(posts).toHaveLength(1)
+  })
+
+  test('«Назад» ведёт к компании; модалка изменения возвращает на тот же шаг', async ({ page }) => {
+    await mockOwner(page)
+    await page.goto('/onboarding/location')
+    await page.getByRole('button', { name: 'Изменить точку «Студия на Тверской»' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Изменить точку' })
+    await expect(dialog.getByLabel('Состояние точки')).toBeVisible()
+    await dialog.getByRole('button', { name: 'Отмена' }).click()
+    await expect(dialog).toBeHidden()
+    await expect(page).toHaveURL(/\/onboarding\/location$/)
     await page.getByRole('button', { name: 'Назад' }).click()
     await expect(page).toHaveURL(/\/onboarding\/company$/)
   })
+
+  /**
+   * Клавиша перехода фокуса: WebKit, как Safari без «полного доступа с клавиатуры», по Tab
+   * обходит только поля, а кнопки и ссылки — по Option+Tab.
+   */
+  const tabKey = (browserName: string) => (browserName === 'webkit' ? 'Alt+Tab' : 'Tab')
+
+  /** Фокус внутри открытого окна: Tab и Shift+Tab не выводят его наружу. */
+  async function expectFocusTrapped(
+    page: Page,
+    browserName: string,
+    name: string,
+    presses = 14,
+  ): Promise<void> {
+    // В WebKit проверяются оба способа: обычный Tab (только поля) и Option+Tab (все элементы).
+    const tabs = browserName === 'webkit' ? ['Tab', 'Alt+Tab'] : ['Tab']
+    for (const key of tabs.flatMap((tab) => [tab, `Shift+${tab}`])) {
+      for (let index = 0; index < presses; index += 1) {
+        await page.keyboard.press(key)
+        const inside = await page.evaluate(
+          (title) =>
+            [...document.querySelectorAll('[role="dialog"]')].some(
+              (dialog) =>
+                dialog.getAttribute('aria-labelledby') !== null &&
+                document.getElementById(dialog.getAttribute('aria-labelledby')!)?.textContent ===
+                  title &&
+                dialog.contains(document.activeElement),
+            ),
+          name,
+        )
+        expect(inside, `${key} №${index + 1}: фокус внутри «${name}»`).toBe(true)
+      }
+    }
+  }
+
+  test('AC-23: клавиатура — окна держат и возвращают фокус, создание точки и выбор без мыши', async ({
+    page,
+    browserName,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await mockOwner(page)
+    await page.goto('/onboarding/location')
+    const add = page.getByRole('button', { name: 'Добавить точку' })
+    await expect(add).toBeEnabled()
+
+    // «Добавить точку»: Enter открывает окно, фокус заперт в нём, Escape возвращает его на плюс.
+    await add.focus()
+    await page.keyboard.press('Enter')
+    const create = page.getByRole('dialog', { name: 'Добавить точку' })
+    await expect(create).toBeVisible()
+    await expectFocusTrapped(page, browserName, 'Добавить точку')
+    await page.keyboard.press('Escape')
+    await expect(create).toBeHidden()
+    await expect(add).toBeFocused()
+
+    // Карандаш: то же для «Изменить точку».
+    const pencil = page.getByRole('button', { name: 'Изменить точку «Студия на Тверской»' })
+    await pencil.focus()
+    await page.keyboard.press('Enter')
+    const edit = page.getByRole('dialog', { name: 'Изменить точку' })
+    await expect(edit).toBeVisible()
+    await expectFocusTrapped(page, browserName, 'Изменить точку')
+    await page.keyboard.press('Escape')
+    await expect(edit).toBeHidden()
+    await expect(pencil).toBeFocused()
+
+    // Создание только клавиатурой: ввод названия и Enter на кнопке окна.
+    await add.focus()
+    await page.keyboard.press('Enter')
+    await expect(create.getByLabel('Название точки')).toBeVisible()
+    await create.getByLabel('Название точки').focus()
+    await page.keyboard.type('Студия на Арбате')
+    await create.getByRole('button', { name: 'Добавить точку' }).focus()
+    await page.keyboard.press('Enter')
+    await expect(create).toBeHidden()
+    await expect(page.locator('#hours-title')).toHaveText('График · Студия на Арбате')
+
+    // Выбор точки и правка часов с клавиатуры.
+    const cards = page.getByTestId('location-card')
+    await cards.filter({ hasText: 'Студия на Тверской' }).focus()
+    await page.keyboard.press('Space')
+    await expect(page.locator('#hours-title')).toHaveText('График · Студия на Тверской')
+    await expect(cards.filter({ hasText: 'Студия на Тверской' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    // Tab от выбранной карточки доходит до её карандаша.
+    await page.keyboard.press(tabKey(browserName))
+    await expect(pencil).toBeFocused()
+  })
+
+  test('AC-23: на телефоне селектор точки и карандаш доступны с клавиатуры', async ({
+    page,
+    browserName,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await mockOwner(page)
+    await page.goto('/onboarding/location')
+    await page.getByRole('button', { name: 'Добавить точку' }).click()
+    const create = page.getByRole('dialog', { name: 'Добавить точку' })
+    await create.getByLabel('Название точки').fill('Студия на Арбате')
+    await create.getByRole('button', { name: 'Добавить точку' }).click()
+    await expect(create).toBeHidden()
+    await expect(page.locator('#hours-title')).toHaveText('График · Студия на Арбате')
+
+    const select = page.getByRole('combobox', { name: 'Точка' })
+    await expect(select).toBeVisible()
+    // Селектор — нативный <select>: клавиатура и вспомогательные технологии платформы. Он в
+    // порядке Tab сразу после плюса; выбор платформенным событием change меняет график,
+    // фокус остаётся на селекте. Системное меню Chromium/macOS автоматизацией не нажимается.
+    expect(await select.evaluate((element) => element.tagName)).toBe('SELECT')
+    await page.getByRole('button', { name: 'Добавить точку' }).focus()
+    await page.keyboard.press(tabKey(browserName))
+    await expect(select).toBeFocused()
+    await select.selectOption({ label: 'Студия на Тверской' })
+    await expect(page.locator('#hours-title')).toHaveText('График · Студия на Тверской')
+    await expect(select).toBeFocused()
+
+    // Tab от селектора — карандаш выбранной точки; окно держит и возвращает фокус.
+    await page.keyboard.press(tabKey(browserName))
+    const pencil = page.getByRole('button', { name: 'Изменить точку «Студия на Тверской»' })
+    await expect(pencil).toBeFocused()
+    await page.keyboard.press('Enter')
+    const edit = page.getByRole('dialog', { name: 'Изменить точку' })
+    await expect(edit).toBeVisible()
+    await expectFocusTrapped(page, browserName, 'Изменить точку')
+    await page.keyboard.press('Escape')
+    await expect(edit).toBeHidden()
+    await expect(pencil).toBeFocused()
+  })
+
+  for (const width of [320, 390, 834, 1024, 1440]) {
+    test(`без горизонтальной прокрутки и с длинным названием (${width} px)`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await mockOwner(page)
+      await page.goto('/onboarding/location')
+      await page
+        .getByRole('button', { name: /Изменить точку/ })
+        .first()
+        .waitFor()
+      await page.getByRole('button', { name: 'Добавить точку' }).click()
+      const dialog = page.getByRole('dialog', { name: 'Добавить точку' })
+      await dialog.getByLabel('Название точки').fill('Студия '.repeat(28).trim())
+      await dialog.getByRole('button', { name: 'Добавить точку' }).click()
+      await expect(dialog).toBeHidden()
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      )
+      expect(overflow).toBeLessThanOrEqual(0)
+      if (width < 768) {
+        await expect(page.getByTestId('location-card').first()).toBeHidden()
+        await expect(page.locator('select[name="location"]')).toBeVisible()
+        await expect(page.getByTestId('location-continue')).toBeInViewport()
+      } else {
+        const box = await page.getByTestId('location-card').first().boundingBox()
+        expect(box?.height).toBe(76)
+        expect(box?.width).toBe(width >= 1024 ? 272 : 248)
+      }
+    })
+  }
 })

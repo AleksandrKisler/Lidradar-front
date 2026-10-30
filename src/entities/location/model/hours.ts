@@ -43,6 +43,84 @@ export function defaultWeek(): DayDraft[] {
 }
 
 /**
+ * Стартовая неделя новой точки в мастере начала работы (US-M02-04): рабочие часы 10:00–19:00,
+ * а рабочие и выходные дни — те же, что у `defaultWeek()`. Шаблон настроек не меняется.
+ */
+export function onboardingDefaultWeek(): DayDraft[] {
+  return defaultWeek().map((day) =>
+    day.closed ? day : { ...day, opensAt: '10:00', closesAt: '19:00' },
+  )
+}
+
+/**
+ * Полная сохранённая неделя: ровно семь уникальных weekday 1..7, у рабочего дня обе границы
+ * `HH:MM` и начало раньше конца. Неполный или повреждённый ответ даёт `null` — его нельзя
+ * достраивать выходными и считать подтверждённой неделей.
+ */
+export function completeWeekFromHours(hours: readonly BusinessHour[]): DayDraft[] | null {
+  if (!isFullWeekdaySet(hours.map((hour) => hour.weekday))) return null
+  const week = weekFromHours(hours)
+  return week && weekIssues(week) === null ? week : null
+}
+
+/** Причина ошибки дня: нет границы или неверный формат (`time`), начало не раньше конца (`order`). */
+export type DayIssue = 'time' | 'order'
+
+/** Ровно дни 1..7, каждый один раз: сдвинутый, дробный, повторный или неполный состав — нет. */
+function isFullWeekdaySet(weekdays: readonly number[]): boolean {
+  const unique = new Set(weekdays)
+  return (
+    weekdays.length === WEEKDAYS.length &&
+    unique.size === WEEKDAYS.length &&
+    WEEKDAYS.every((day) => unique.has(day.weekday))
+  )
+}
+
+/**
+ * Строгая проверка недели: ровно дни 1..7 без пропусков и повторов и корректные интервалы
+ * рабочих дней. `null` — неделя корректна; иначе причины по дням (`0` — нарушен сам состав недели).
+ */
+export function weekIssues(days: readonly DayDraft[]): Record<number, DayIssue> | null {
+  const issues: Record<number, DayIssue> = {}
+  if (!isFullWeekdaySet(days.map((day) => day.weekday))) issues[0] = 'time'
+  for (const day of days) {
+    if (day.closed) continue
+    if (!TIME_PATTERN.test(day.opensAt) || !TIME_PATTERN.test(day.closesAt))
+      issues[day.weekday] = 'time'
+    else if (day.opensAt >= day.closesAt) issues[day.weekday] = 'order'
+  }
+  return Object.keys(issues).length > 0 ? issues : null
+}
+
+/** Неделя по дням недели без скрытых часов у выходных: основа сравнения и отправки. */
+export function normalizeWeek(days: readonly DayDraft[]): DayDraft[] {
+  return [...days]
+    .sort((left, right) => left.weekday - right.weekday)
+    .map((day) =>
+      day.closed
+        ? { weekday: day.weekday, closed: true, opensAt: '', closesAt: '' }
+        : { weekday: day.weekday, closed: false, opensAt: day.opensAt, closesAt: day.closesAt },
+    )
+}
+
+/**
+ * Совпадает ли сохранённый на сервере график с ожидаемой неделей: пояс и семь дней
+ * по weekday/выходному/часам, без учёта ID строк, порядка и `updatedAt`.
+ */
+export function sameServerWeek(
+  location: { timezone: string; businessHours: readonly BusinessHour[] },
+  timezone: string,
+  days: readonly DayDraft[],
+): boolean {
+  const stored = completeWeekFromHours(location.businessHours)
+  return (
+    location.timezone === timezone &&
+    stored !== null &&
+    sameWeek(normalizeWeek(stored), normalizeWeek(days))
+  )
+}
+
+/**
  * Черновик из сохранённого графика. Отсутствующие дни считаются выходными;
  * пустой график (`[]`) даёт `null`, чтобы вызывающий подставил стартовый.
  */

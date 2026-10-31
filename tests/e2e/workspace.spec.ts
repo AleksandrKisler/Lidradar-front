@@ -455,7 +455,7 @@ test.describe('владелец организации', () => {
     page,
     browserName,
   }) => {
-    type Stop = { name: string; x: number; y: number }
+    type Stop = { name: string; radioGroup: string | null; x: number; y: number }
     const tabStops = async (key: 'Tab' | 'Shift+Tab', limit: number): Promise<Stop[]> => {
       const stops: Stop[] = []
       for (let index = 0; index < limit; index += 1) {
@@ -474,7 +474,14 @@ test.describe('владелец организации', () => {
             (element as HTMLInputElement).labels?.[0]?.textContent ||
             element.textContent ||
             element.id
-          return { name: (name ?? '').trim().slice(0, 40), x: box.left, y: box.top + scrollY }
+          return {
+            name: (name ?? '').trim().slice(0, 40),
+            radioGroup: element.matches('input[type="radio"]')
+              ? `native-radio:${(element as HTMLInputElement).name}`
+              : null,
+            x: box.left,
+            y: box.top + scrollY,
+          }
         })
         if (!stop) break
         stops.push(stop)
@@ -499,6 +506,26 @@ test.describe('владелец организации', () => {
       await refresh.focus()
       await expect(refresh).toBeFocused()
     }
+
+    // Независимая native fixture определяет Tab policy текущего браузера/OS:
+    // macOS WebKit может пропускать radio при обычном Tab целиком. Продукт
+    // должен сохранять native policy, а не зависеть от платформы runner.
+    await page.setContent(`
+      <form>
+        <input id="native-before">
+        <input type="radio" name="native-verdict" value="first">
+        <input type="radio" name="native-verdict" value="last">
+        <input id="native-after">
+      </form>
+    `)
+    await page.locator('#native-before').focus()
+    await page.keyboard.press('Tab')
+    const nativeEntry = await page.evaluate(() => {
+      const active = document.activeElement as HTMLInputElement
+      return active.type === 'radio' ? 'radio' : active.id
+    })
+    expect(['radio', 'native-after']).toContain(nativeEntry)
+    const nativeRadioStops = nativeEntry === 'radio' ? 1 : 0
 
     await page.setViewportSize({ width: 1280, height: 900 })
     await page.goto(`/risks/${RISK_ID}`)
@@ -548,7 +575,29 @@ test.describe('владелец организации', () => {
       // Shift+Tab начинается с того же места, откуда вышел прямой проход: после выхода из документа
       // страница снова получает фокус, и обратный проход стартует с первого элемента после main.
       const backward = await tabStops('Shift+Tab', forward.length)
-      expect(backward.map((stop) => stop.name)).toEqual(forward.map((stop) => stop.name).reverse())
+      // Native unselected radio — один Tab-stop группы. Linux WebKit входит с конца
+      // по Shift+Tab, macOS может входить с начала (W3C APG radio pattern, Note):
+      // https://www.w3.org/WAI/ARIA/apg/patterns/radio/
+      // Проверяем точный обратный порядок групп/остальных элементов и отдельно
+      // единственный stop группы, первый radio вперёд и допустимый крайний назад.
+      const radios = page.locator('input[type="radio"][name="verdict"]')
+      await expect(radios).toHaveCount(2)
+      await expect(page.locator('input[type="radio"][name="verdict"]:checked')).toHaveCount(0)
+      const radioNames = await radios.evaluateAll((inputs) =>
+        inputs.map((input) =>
+          ((input as HTMLInputElement).labels?.[0]?.textContent ?? '').trim().slice(0, 40),
+        ),
+      )
+      const forwardRadio = forward.filter((stop) => stop.radioGroup === 'native-radio:verdict')
+      const backwardRadio = backward.filter((stop) => stop.radioGroup === 'native-radio:verdict')
+      expect(forwardRadio).toHaveLength(nativeRadioStops)
+      expect(backwardRadio).toHaveLength(nativeRadioStops)
+      if (nativeRadioStops) {
+        expect(forwardRadio[0]!.name).toBe(radioNames[0])
+        expect(radioNames).toContain(backwardRadio[0]!.name)
+      }
+      const tabIdentity = (stop: Stop) => stop.radioGroup ?? stop.name
+      expect(backward.map(tabIdentity)).toEqual(forward.map(tabIdentity).reverse())
     }
 
     // Черновик формы и состояние переживают смену раскладки.

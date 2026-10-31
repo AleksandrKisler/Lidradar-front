@@ -1497,9 +1497,23 @@ test.describe('владелец организации', () => {
       }
       // Две кнопки идут в одну строку, а не столбиком.
       const buttons = row.getByRole('button')
-      expect(
-        Math.abs((await centerY(buttons.nth(0))) - (await centerY(buttons.nth(1)))),
-      ).toBeLessThan(1)
+      await expect(buttons).toHaveCount(2)
+      // Один DOM snapshot: два отдельных boundingBox могут попасть по разные
+      // стороны WebKit layout commit. Ждём геометрию с прежним порогом <1px;
+      // устойчивые столбик/смещение/невидимая кнопка по-прежнему FAIL.
+      await expect
+        .poll(async () => {
+          const centers = await buttons.evaluateAll((elements) =>
+            elements.map((element) => {
+              const box = element.getBoundingClientRect()
+              return box.width && box.height ? box.y + box.height / 2 : null
+            }),
+          )
+          return centers.length === 2 && centers.every((value) => value !== null)
+            ? Math.abs(centers[0]! - centers[1]!)
+            : Number.POSITIVE_INFINITY
+        })
+        .toBeLessThan(1)
     }
     // Правый край действий совпадает с правым краем «Пригласить» над таблицей.
     const right = async (target: Locator) => {

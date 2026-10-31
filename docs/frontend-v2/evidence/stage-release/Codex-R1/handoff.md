@@ -1,5 +1,36 @@
 # Stage release candidate · 31.10.2026
 
+## Дополнение: первый GitHub CI и кандидат rc2
+
+`3317d58`/`release/2026-11-01-rc1` отправлены в stage обычным atomic push.
+[GitHub run41203856188](https://github.com/AleksandrKisler/Lidradar-front/actions/runs/41203856188):
+quality1162unit/Python10, build×3/audit/container PASS; E2E710PASS/2FAIL/1flaky/32skip
+(17.1min), stage-deploy SKIPPED. Stage не обновлялся, production не затронут.
+Это новый Linux CI FAIL; он не заменяет сохранённые локальные RC2 PASS evidence.
+
+Точечные test/CI fixes следующего immutable tag `release/2026-11-01-rc2`:
+
+- CI-RC1-01: Linux WebKit входит в unselected native radio с другого края по
+  Shift+Tab; macOS может пропускать radio при обычном Tab. Независимая native
+  fixture задаёт browser policy; продукт проверяется на тот же count группы,
+  первый пункт вперёд и допустимый край назад, точный обратный порядок остальных
+  элементов и групп. Полный обход, геометрия секций, отсутствие дублей и draft
+  resize assertions сохранены. [W3C APG, native radio note](https://www.w3.org/WAI/ARIA/apg/patterns/radio/).
+- CI-RC1-02: две раздельные geometry команды попали вокруг WebKit layout commit
+  (diff53px, screenshot уже aligned, retryPASS; поздняя загрузка Inter/CSS trace
+  не подтверждает причину). Atomic DOM snapshot и web-first ожидание сохраняют
+  порог<1px, видимость и все прежние геометрические assertions.
+- E2E CI делится на2shards с теми же projects/workers/retries; list proof:
+  745cases=373+372, overlap0, exact union. Оба shards обязательны до deployment,
+  fail-fastfalse и отдельные artifacts сохраняют оба результата при ошибке.
+
+Runtime/API/build inputs436/436 всё ещё равны S6. Проверка нового тестового
+снимка и команды/exits сохраняются в `CI-FIX/qa`, GitHub Linux результат отдельно.
+Неизменные UI/build/unit evidence переиспользуются только по hash invariance.
+Старый RC tag, первый FAIL, промежуточные локальные failures и traces сохранены.
+
+## Первичная локальная приёмка
+
 Поручение владельца: после PASS настроек заморозить версию, commit/push stage,
 включить автодеплой; production исключён. Только точечные исправления до релиза.
 Settings US-M02-05/06 S6: TEST/FUNCTIONAL frontend/mock PASS, desktop UI PASS;

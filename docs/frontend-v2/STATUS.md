@@ -1,5 +1,33 @@
 # Статус frontend v2
 
+## Stage RC · 31.10.2026 · локальные CI fixes приняты
+
+Кандидат `3317d58` и immutable tag `release/2026-11-01-rc1` отправлены обычным
+atomic push в stage/рабочую ветку. Repo flag включён после локального scoped PASS.
+Первый GitHub run41203856188: quality1162/Python10, build×3/audit/container PASS;
+E2E710PASS/2FAIL/1flaky/32skip, deployment SKIPPED. После первого CI stage оставался
+на2f3dea1, backend0d06d96b62b0; production не менялся.
+
+Следующий кандидат `release/2026-11-01-rc2`: только test/CI/prose fix.
+CI-RC1-01 — сравнение Tab/Shift+Tab native unselected radio по отдельным labels
+зависело от OS; проверка теперь сверяет независимую native fixture, один stop
+группы и точный обратный порядок остальных элементов/групп.
+CI-RC1-02 — WebKit layout race при двух раздельных измерениях кнопок команды;
+одновременное измерение и web-first ожидание сохраняют прежний порог<1px.
+Matrix разделена на2shards:745 случаев=373+372, overlap0, coverage union exact.
+Runtime/API/budgets/UI S6 неизменны; независимый результат исправлений и новый
+GitHub run фиксируются в `artifacts/frontend-v2/stage-freeze-2026-10-31/CI-FIX/`.
+
+Независимый CI-FIX qa-r2: **TEST PASS / FUNCTIONAL PASS**,30/30за43.7sec,
+30attempts,0retries/failed/flaky;731/731inputs unchanged sourceee5f69c4….
+Check1162/Python10/YAML13/shardproof reused только по invariance; UI/runtime436
+не менялись. Первый локальный repeat был BLOCKED из-за подтверждённого pmset сна
+Mac (24pass/6flaky); его evidence сохранён. Чистый rerun выполнен с caffeinate.
+Операционный следующий шаг после этого commit: atomic push stage/rc2, обязательный
+полный GitHub CI обоих shards, затем автоматический deploy и live health/revision
+verification. Результат deployment сверяется отдельно по GitHub SHA/RC tag;
+frontend/mock PASS не подтверждает live user journey/email/Telegram/AI.
+
 ## Релизный freeze и stage autodeploy · 31.10.2026 · RC принят
 
 По прямому поручению владельца S6 подтверждён: TEST/FUNCTIONAL frontend/mock

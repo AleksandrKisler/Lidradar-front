@@ -10,6 +10,8 @@ test-results/
 .idea
 .vscode
 artifacts/
+__pycache__/
+*.py[cod]
 
 # Локальные настройки Claude Code: только точный путь, остальной .claude версионируется
 .claude/settings.local.json

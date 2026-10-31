@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import AxeBuilder from '@axe-core/playwright'
 import { mockOwner, TENANT_ID, RISK_ID, CONVERSATION_ID } from './fixtures/api'
 
 const locationId = '01990000-0000-7000-8000-000000000201'
@@ -31,7 +32,9 @@ async function setup(
     enabled?: boolean
     failFirst?: boolean
     processing?: boolean
+    pending?: boolean
     failFirstSend?: boolean
+    limitFirstSend?: boolean
     role?: string
   } = {},
 ) {
@@ -73,6 +76,13 @@ async function setup(
         return
       }
       if (path.endsWith('/messages')) {
+        if (options.limitFirstSend && sendRequests++ === 0) {
+          await route.fulfill({
+            status: 429,
+            json: { error: { code: 'SANDBOX_LIMIT', message: 'Daily limit reached' } },
+          })
+          return
+        }
         if (options.failFirstSend && sendRequests++ === 0) {
           await route.abort('failed')
           return
@@ -82,6 +92,7 @@ async function setup(
           ...(item.messages as object[]),
           { ...body, id: crypto.randomUUID(), sequence: 2, sentAt: '2026-10-31T10:00:00Z' },
         ]
+        if (options.limitFirstSend) item.status = { ...(item.status as object), state: 'CLOSED' }
         await route.fulfill({ json: item })
         return
       }
@@ -130,13 +141,17 @@ async function setup(
         item.status.stage = 'ANALYZING' as never
         item.status.found = []
       }
+      if (options.pending) {
+        item.status.state = 'PENDING'
+        item.status.found = []
+      }
       items = [item]
       await route.fulfill({ status: 201, json: item })
       return
     }
     if (path.includes('/conversations/')) {
       const item = items[0]!
-      if (options.processing && ++detailReads > 1)
+      if ((options.processing || options.pending) && ++detailReads > 1)
         item.status = { ...(item.status as object), state: 'MATCH', stage: null }
       await route.fulfill({ json: item })
       return
@@ -196,6 +211,10 @@ for (const width of [1440, 834, 390, 320]) {
       page.getByRole('list', { name: 'Сообщения переписки' }).getByRole('listitem'),
     ).toHaveCount(2)
     await page.getByRole('button', { name: 'Удалить сообщение 2', exact: true }).click()
+    const accessibility = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze()
+    expect(accessibility.violations).toEqual([])
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0)
     await page.screenshot({
       path: testInfo.outputPath(`sandbox-draft-${width}.png`),
@@ -312,4 +331,59 @@ test('потеря ответа сообщения: reload и повтор со�
   ).toHaveCount(2)
   expect(calls).toHaveLength(3)
   expect(calls[2]).toEqual(calls[1])
+})
+
+test('отказ 429 сохраняет сообщение, явный повтор показывает CLOSED', async ({ page }) => {
+  const calls = await setup(page, { limitFirstSend: true })
+  await draft(page)
+  await page.getByRole('button', { name: 'Отправить в систему', exact: true }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Совпало с ожиданием' })).toBeVisible()
+  const field = page.getByLabel('Сообщение', { exact: true })
+  await field.fill('Я согласна')
+  await page.getByRole('button', { name: 'От клиента', exact: true }).click()
+  await expect(page.getByText('Исчерпан суточный лимит песочницы. Повторите позже.')).toBeVisible()
+  await expect(field).toHaveValue('Я согласна')
+  await expect(
+    page.getByRole('list', { name: 'Сообщения переписки' }).getByRole('listitem'),
+  ).toHaveCount(1)
+  expect(calls).toHaveLength(2)
+  await page.getByRole('button', { name: 'От клиента', exact: true }).click()
+  await expect(field).toHaveValue('')
+  await expect(page.getByRole('status').filter({ hasText: 'Риск закрыт' })).toBeVisible()
+  await expect(
+    page.getByRole('list', { name: 'Сообщения переписки' }).getByRole('listitem'),
+  ).toHaveCount(2)
+  expect(calls).toHaveLength(3)
+  expect(calls[2]!.body).toEqual(calls[1]!.body)
+})
+
+test('PENDING обновляется до MATCH через общий safety refetch без reload', async ({ page }) => {
+  // Держим SSE открытым: переход должен произойти по safety timer, без RECONNECTED resync.
+  await page.addInitScript(() => {
+    const networkFetch = window.fetch.bind(window)
+    window.fetch = async (input, init) => {
+      const request = input instanceof Request ? input : null
+      const url = new URL(request?.url ?? String(input), location.origin)
+      if (url.pathname !== '/api/v1/events') return networkFetch(input, init)
+      const signal = init?.signal ?? request?.signal
+      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(': connected\n\n'))
+            signal?.addEventListener('abort', () => controller.close(), { once: true })
+          },
+        }),
+        { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } },
+      )
+    }
+  })
+  await page.clock.install({ time: new Date('2026-10-31T10:00:00Z') })
+  await page.clock.pauseAt(new Date('2026-10-31T10:00:01Z'))
+  await setup(page, { pending: true })
+  await draft(page)
+  await page.getByRole('button', { name: 'Отправить в систему', exact: true }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Риск ещё не наступил' })).toBeVisible()
+  await page.clock.runFor(15_000)
+  await expect(page.getByRole('status').filter({ hasText: 'Совпало с ожиданием' })).toBeVisible()
 })

@@ -1,14 +1,14 @@
 name: Quality and build
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, stage]
   pull_request:
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/stage' }}
 jobs:
   quality:
     runs-on: ubuntu-latest
@@ -21,6 +21,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - name: Check staging deploy guards
+        run: python3 -m unittest discover -s scripts/tests -p test_stage_deploy.py -v
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -85,3 +87,42 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/test)" = "503"
       - if: always()
         run: docker compose logs && docker compose down
+
+  stage-deploy:
+    needs: [quality, builds, e2e, container]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/stage' && vars.STAGING_AUTODEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment:
+      name: staging
+      url: https://stage.app-lid-radar.ru
+    concurrency:
+      group: staging-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Deploy the checked frontend SHA to staging
+        env:
+          SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+          SSH_HOST: ${{ vars.STAGING_SSH_HOST }}
+          SSH_USER: ${{ vars.STAGING_SSH_USER }}
+          SSH_PORT: ${{ vars.STAGING_SSH_PORT || '22' }}
+          WEB_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          [ -n "$SSH_KEY" ] && [ -n "$KNOWN_HOSTS" ] || { echo '::error::Missing staging SSH secrets'; exit 1; }
+          [[ "$SSH_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]] || { echo '::error::Invalid staging host'; exit 1; }
+          [[ "$SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo '::error::Invalid staging user'; exit 1; }
+          [[ "$SSH_PORT" =~ ^[0-9]{1,5}$ ]] && ((SSH_PORT >= 1 && SSH_PORT <= 65535)) || { echo '::error::Invalid SSH port'; exit 1; }
+          [[ "$WEB_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo '::error::Invalid frontend SHA'; exit 1; }
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          chmod 700 "$tmp"
+          printf '%s\n' "$SSH_KEY" > "$tmp/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$tmp/known_hosts"
+          chmod 600 "$tmp/key" "$tmp/known_hosts"
+          ssh -T -i "$tmp/key" -p "$SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$tmp/known_hosts" -o ConnectTimeout=15 \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=6 \
+            "$SSH_USER@$SSH_HOST" "deploy-web $WEB_COMMIT"

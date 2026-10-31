@@ -1,0 +1,42 @@
+# Stage release candidate · 31.10.2026
+
+Поручение владельца: после PASS настроек заморозить версию, commit/push stage,
+включить автодеплой; production исключён. Только точечные исправления до релиза.
+Settings US-M02-05/06 S6: TEST/FUNCTIONAL frontend/mock PASS, desktop UI PASS;
+tablet/mobile redesign явно deferred. Source checkpoint `ee33540`, merge parent
+`2f3dea1`, итоговый annotated tag `release/2026-11-01-rc1`.
+
+Независимый интеграционный RC2: **TEST PASS / FUNCTIONAL PASS**.
+Fresh `npm run check`: exit0,1162unit; stock sandbox E2E3browser: exit0,30/30,
+30attempts,0retries/failed/flaky. Восстановлены wire API/tenant/key-body,
+WCAG Axe, сохранение текста после отказа, PENDING→MATCH по safety refetch и
+429→явный повтор→CLOSED (регрессия US-M17-02/03/05, не полный live US-M17 PASS).
+RC1-COV-01 закрыт; подтверждённого runtime-дефекта не было.
+
+RC1: полный stock CI E2E707PASS/32штатныхskip,0retries/failed/flaky, exit0;
+check1162unit, build:dev/pre-prod/prod, audit:release, Python10 и YAML/shell13 —
+exit0. RC2 переиспользует остальные683 E2E и32skip, сборки/audit/guards только
+по729 неизменным inputs; все24 прежнихsandbox E2E повторно прошли вместе с6новыми.
+Первые sandbox EMFILE/EPERM логи сохранены, те же команды разрешённо повторены
+в доступном окружении. Assertions, budgets, coverage, baseline не ослаблялись.
+
+RC2:730inputs aggregate SHA256
+`77a51498980cc4a818fc9bb377e694a8f611e6173f612ca55f719cf9e8c7d7af`;
+manifest JSON file SHA256
+`7b60a2fae5e5a61d24d3323a7c14f4a77739631d8734781355f3ce6d29ebecda`.
+До/после QA730/730 неизменны. Runtime/API/build436/436 byte parity S6;
+UI S6 переиспользуется в исходном desktop scope. RC3 после QA меняет только
+prose STATUS, шаг активации в staging-autodeploy и этот handoff, отдельно
+фиксирует delta/manifest и проверяет формат. Будущие prose bytes не входят в RC2 PASS.
+
+Workflow выкатывает только push stage с repo flagtrue после4CIjobs; strict
+known_hosts и отдельный restricted SSH key, staging environment branch policy.
+Helper SHA256 `db1a2498217866091d55130ec74305c45ec51cbb32d8e44a090886b4a9d262f9`.
+Backend pinned к deployed0d06d96b62b0, stage-only guards, exactSHA/tag, dry-run,
+backup/smoke/rollback release.sh. Новые backend commits/миграции не продвигаются.
+
+Живой deploy/health после push проверяются отдельно; email/Telegram/AI/persistence
+и пользовательский stage путь этим mock PASS не подтверждены. Исторический S5a
+WebKit lost-submit не воспроизведён, причина не установлена; evidence сохранено.
+Подробные snapshots/commands/exits/logs находятся в локальном ignored каталоге
+`artifacts/frontend-v2/stage-freeze-2026-10-31/RC1/qa` и `RC2/qa`.

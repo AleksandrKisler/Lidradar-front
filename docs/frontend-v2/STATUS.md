@@ -1,5 +1,30 @@
 # Статус frontend v2
 
+## Релизный freeze и stage autodeploy · 31.10.2026 · RC принят
+
+По прямому поручению владельца S6 подтверждён: TEST/FUNCTIONAL frontend/mock
+и desktop UI PASS; все 628 hashes совпали. Исходники, тесты и компактные
+evidence сохранены commit `ee33540`. История `origin/stage` включена обычным
+merge, без reset/stash/force push; принятые runtime/API/budgets сохранены.
+Старый sandbox prototype заменён текущим v2; значимые adapter/axe/recovery
+проверки перенесены, история остаётся в stage-parent. Независимый RC2:
+**TEST PASS / FUNCTIONAL PASS**, RC1-COV-01 закрыт. Fresh check1162 unit и
+sandbox30/30 (3browser,0retries/flaky); остальные683 E2E и32 штатныхskip,
+build×3/audit/Python10 переиспользованы из полного RC1 только по hash invariance.
+Runtime/API/build inputs436/436 совпадают с S6; новая UI-приёмка не заявляется.
+RC3 меняет только этот итог, операционный порядок в docs и компактный handoff;
+исходники/тесты/workflow/helper остаются побайтно RC2. Annotated tag:
+`release/2026-11-01-rc1`. После фиксации — только точечные bugfixes.
+
+GitHub staging environment и restricted Actions key подготовлены. Следующий
+операционный шаг после этого commit: включить repo flag, push stage и дождаться
+GitHub CI/deploy. Workflow требует quality/builds/e2e/container до деплоя точного
+stage SHA; backend pinned0d06d96b62b0. Факт live deployment/health фиксируется
+отдельно; на момент локальной приёмки UNVERIFIED. Production не меняется.
+[Компактный handoff](evidence/stage-release/Codex-R1/handoff.md).
+[Заморозка](CODE-FREEZE.md), [автодеплой](../staging-autodeploy.md),
+артефакты `artifacts/frontend-v2/stage-freeze-2026-10-31/`.
+
 ## Codex · Настройки «Компания и график» · 31.10.2026 · S6 завершён
 
 **US-M02-05/06: TEST PASS, FUNCTIONAL PASS frontend/mock, desktop UI PASS.**

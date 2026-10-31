@@ -320,3 +320,24 @@ it('устаревший detail GET не откатывает подтвержд
   await flushPromises()
   expect(m.selected.value?.messages).toEqual(updated.messages)
 })
+
+it('восстанавливаемый отказ отправки сохраняет текст; явный повтор отправляет его и очищает после успеха', async () => {
+  vi.mocked(sandboxApi.create).mockResolvedValue(result)
+  vi.mocked(sandboxApi.list).mockResolvedValue({ items: [result] })
+  vi.mocked(sandboxApi.detail).mockResolvedValue(result)
+  const m = await readyDraft()
+  await m.submit()
+  m.text.value = 'Сообщение после отказа'
+  vi.mocked(sandboxApi.send)
+    .mockRejectedValueOnce(new ApiError({ httpStatus: 409, code: 'SANDBOX_BUSY' }))
+    .mockResolvedValueOnce(result)
+  await m.add('OUTGOING')
+  expect(m.text.value).toBe('Сообщение после отказа')
+  expect(sandboxApi.send).toHaveBeenCalledTimes(1)
+  await m.add('OUTGOING')
+  expect(sandboxApi.send).toHaveBeenCalledTimes(2)
+  expect(vi.mocked(sandboxApi.send).mock.calls[1]!.slice(0, 3)).toEqual(
+    vi.mocked(sandboxApi.send).mock.calls[0]!.slice(0, 3),
+  )
+  expect(m.text.value).toBe('')
+})

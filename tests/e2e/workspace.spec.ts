@@ -1474,10 +1474,31 @@ test.describe('владелец организации', () => {
   test('команда: ряд выровнен по аватару, кнопки в линию, на телефоне без прокрутки', async ({
     page,
   }) => {
-    const centerY = async (target: Locator) => {
-      const box = await target.boundingBox()
-      if (!box) throw new Error('У элемента нет рамки: он не отрисован')
-      return box.y + box.height / 2
+    const stableBoxes = async (targets: Locator[]) => {
+      const handles = await Promise.all(targets.map((target) => target.elementHandle()))
+      try {
+        const { before, after } = await page.evaluate(async (elements) => {
+          await document.fonts.ready
+          const sample = () =>
+            elements.map((element) => {
+              if (!element?.isConnected) return null
+              const box = element.getBoundingClientRect()
+              if (!box.width || !box.height || getComputedStyle(element).visibility === 'hidden')
+                return null
+              return { x: box.x, y: box.y, width: box.width, height: box.height }
+            })
+          const before = sample()
+          await new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          )
+          return { before, after: sample() }
+        }, handles)
+        expect(after).toEqual(before)
+        expect(after.every((box) => box !== null)).toBe(true)
+        return after.map((box) => box!)
+      } finally {
+        await Promise.all(handles.map((handle) => handle?.dispose()))
+      }
     }
     // Широкая карточка — таблица: бейджи и кнопки на одной линии с центром аватара.
     await page.setViewportSize({ width: 1440, height: 900 })
@@ -1486,57 +1507,53 @@ test.describe('владелец организации', () => {
     await expect(rows).toHaveCount(3)
     for (const name of ['Мария Владелец', 'Анна Смирнова']) {
       const row = rows.filter({ hasText: name })
-      const axis = await centerY(row.locator('span.rounded-full').first())
       const aligned = [
         row.getByText(/^(Владелец|Менеджер)$/),
         row.getByText('Активен', { exact: true }),
         row.getByRole('button').first(),
       ]
-      for (const target of aligned) {
-        expect(Math.abs((await centerY(target)) - axis)).toBeLessThanOrEqual(2)
-      }
-      // Две кнопки идут в одну строку, а не столбиком.
       const buttons = row.getByRole('button')
       await expect(buttons).toHaveCount(2)
-      // Один DOM snapshot: два отдельных boundingBox могут попасть по разные
-      // стороны WebKit layout commit. Ждём геометрию с прежним порогом <1px;
-      // устойчивые столбик/смещение/невидимая кнопка по-прежнему FAIL.
-      await expect
-        .poll(async () => {
-          const centers = await buttons.evaluateAll((elements) =>
-            elements.map((element) => {
-              const box = element.getBoundingClientRect()
-              return box.width && box.height ? box.y + box.height / 2 : null
-            }),
-          )
-          return centers.length === 2 && centers.every((value) => value !== null)
-            ? Math.abs(centers[0]! - centers[1]!)
-            : Number.POSITIVE_INFINITY
-        })
-        .toBeLessThan(1)
+      // Вся строка измеряется атомарно и остаётся стабильной два кадра.
+      // Прежние пороги сохраняются для каждого бейджа и обеих кнопок.
+      await expect(async () => {
+        const boxes = await stableBoxes([
+          row.locator('span.rounded-full').first(),
+          ...aligned,
+          buttons.nth(1),
+        ])
+        const centers = boxes.map((box) => box.y + box.height / 2)
+        for (const center of centers.slice(1, 4)) {
+          expect(Math.abs(center - centers[0]!)).toBeLessThanOrEqual(2)
+        }
+        expect(Math.abs(centers[3]! - centers[4]!)).toBeLessThan(1)
+      }).toPass({ timeout: 5000 })
     }
     // Правый край действий совпадает с правым краем «Пригласить» над таблицей.
-    const right = async (target: Locator) => {
-      const box = await target.boundingBox()
-      return box ? box.x + box.width : Number.NaN
-    }
     const invite = page.getByRole('button', { name: 'Пригласить' })
     const lastAction = rows.filter({ hasText: 'Анна Смирнова' }).getByRole('button').last()
-    expect(Math.abs((await right(invite)) - (await right(lastAction)))).toBeLessThanOrEqual(1)
+    await expect(async () => {
+      const [inviteBox, actionBox] = await stableBoxes([invite, lastAction])
+      expect(
+        Math.abs(inviteBox!.x + inviteBox!.width - actionBox!.x - actionBox!.width),
+      ).toBeLessThanOrEqual(1)
+    }).toPass({ timeout: 5000 })
     await expectNoAxeViolations(page)
 
     // Телефон: блоки вместо таблицы, страница не прокручивается вбок, кнопки целиком на экране.
     await page.setViewportSize({ width: 375, height: 800 })
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
-    ).toBe(true)
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+      .toBe(true)
     const annaButtons = rows.filter({ hasText: 'Анна Смирнова' }).getByRole('button')
     await expect(annaButtons).toHaveCount(2)
-    for (const button of await annaButtons.all()) {
-      const box = await button.boundingBox()
-      expect(box?.x).toBeGreaterThanOrEqual(0)
-      expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(375)
-    }
+    await expect(async () => {
+      const boxes = await stableBoxes([annaButtons.nth(0), annaButtons.nth(1)])
+      for (const box of boxes) {
+        expect(box.x).toBeGreaterThanOrEqual(0)
+        expect(box.x + box.width).toBeLessThanOrEqual(375)
+      }
+    }).toPass({ timeout: 5000 })
     await expectNoAxeViolations(page)
   })
 

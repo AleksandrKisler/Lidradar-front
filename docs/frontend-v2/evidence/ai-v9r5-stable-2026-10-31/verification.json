@@ -1,0 +1,169 @@
+{
+  "date": "2026-10-31",
+  "scope": "R02 / RG-AI / US-M13; documentation and manifest approval",
+  "snapshot": {
+    "backendCommit": "ed577f84e992afb5b0564c685736976c0c3255d9",
+    "frontendCommit": "1040aa1e96a32b584b642f6b55aba569f5f51456",
+    "manifestSHA256": "f5d851c015106c9a1719dc0d3849f0b4171406010fcf6d603ad4209378d58007",
+    "approvalSHA256": "0e3e48fcfaf5afa090437862f00110fb2c61d2afd0b5d0aa7d5f1dd768c4d1b6",
+    "selectionTreeSHA256": "b0b57554e9593bd9889fef8cd96dd2a0244b8efa8da7cc6318ed9fd4449456fd",
+    "preApprovalManifestSHA256": "6abf8838996eac113e2d2e97035bda7acc9dde2372883172c21f33a68373d0ce"
+  },
+  "approval": {
+    "status": "STABLE",
+    "freezeStatus": "FROZEN",
+    "basis": "OWNER_RISK_ACCEPTANCE",
+    "qualificationPassed": false
+  },
+  "commands": [
+    {
+      "command": "python3 (inline JSON/hash/local-link consistency checks)",
+      "exitCode": 0,
+      "checks": 14
+    },
+    {
+      "command": "make ai-release-verify",
+      "cwd": "/Users/aleksandrkisler/Develop/LidradarWorksapce/Lidradar",
+      "exitCode": 2,
+      "verifierExitCode": 1,
+      "result": "FAIL",
+      "note": "Identical pre-existing mismatches before/after approval: domain/ai.go changed; infrastructure/analysis_status.go not in selection."
+    },
+    {
+      "command": "git diff --check",
+      "cwd": "/Users/aleksandrkisler/Develop/LidradarWorksapce/Lidradar",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --check",
+      "cwd": "/Users/aleksandrkisler/Develop/LidradarWorksapce/Lidradar-front",
+      "exitCode": 0
+    }
+  ],
+  "checks": [
+    {
+      "check": "stable freeze is an explicit owner decision with failed qualification",
+      "result": "PASS"
+    },
+    {
+      "check": "approval and decision hashes",
+      "result": "PASS"
+    },
+    {
+      "check": "pre-approval manifest is byte-identical to repository baseline",
+      "result": "PASS"
+    },
+    {
+      "check": "thresholds and tuple identity preserved",
+      "result": "PASS"
+    },
+    {
+      "check": "selection hash and approved source/dataset hashes preserved",
+      "result": "PASS"
+    },
+    {
+      "check": "previous qualification preserved",
+      "result": "PASS"
+    },
+    {
+      "check": "all 70 baseline files unchanged including sources/datasets/reports",
+      "result": "PASS"
+    },
+    {
+      "check": "original reports remain hash-identical",
+      "result": "PASS"
+    },
+    {
+      "check": "holdoutResult matches original report aggregates",
+      "result": "PASS"
+    },
+    {
+      "check": "holdoutBaseline matches original report aggregates",
+      "result": "PASS"
+    },
+    {
+      "check": "failures and missing hardware remain visible",
+      "result": "PASS"
+    },
+    {
+      "check": "pre-existing tree mismatch preserved and disclosed",
+      "result": "PASS"
+    },
+    {
+      "check": "new local documentation links and anchors resolve",
+      "result": "PASS"
+    },
+    {
+      "check": "frontend diff limited to release plan and status",
+      "result": "PASS"
+    }
+  ],
+  "unchangedBaselineInputs": 70,
+  "newLocalLinksChecked": 28,
+  "backendFiles": [
+    {
+      "path": "docs/engineering/AI-V9R5-STABLE-2026-10-31.md",
+      "sha256": "9be1ea4f8a22720608dfd83ce7dd7f65ff94c432fab22eab44e661fb0e25e07d"
+    },
+    {
+      "path": "docs/engineering/RELEASE_GATES.md",
+      "sha256": "b97b003f53cb60cd1df3f26c7a06f44cd3c7688d31e166c5d49ddd51f1fc763a"
+    },
+    {
+      "path": "docs/runbooks/ai-qualification.md",
+      "sha256": "67bda45500a6a79e123a7ac296a97ee248887a92405de44a55a6e0f4edd29355"
+    },
+    {
+      "path": "docs/adr/0064-detailing-intents-and-promises.md",
+      "sha256": "a980f7152470982ed334061fe3b0b6e65ef1adcacc2f2607436bd41bccf3cc8a"
+    },
+    {
+      "path": "docs/backend/07-ai.md",
+      "sha256": "f36b86d9eaf03727a0c1cf7dfd79f5aa53edd7ca0c3be613811b2d122dc2afe2"
+    },
+    {
+      "path": "docs/spec/BACKEND_SPEC.md",
+      "sha256": "9002e1655d9ee7a6a4ff28f577fd8eef398dd2f418ab43467e80c537780b3599"
+    },
+    {
+      "path": "docs/engineering/EXTERNAL_ARTIFACTS.md",
+      "sha256": "847b6f3c4374a1ee077db7c776d136116c136cf5337e8d3d4c8f1f971b7d7306"
+    },
+    {
+      "path": "models/manifests/lidradar-main-v1.json",
+      "sha256": "f5d851c015106c9a1719dc0d3849f0b4171406010fcf6d603ad4209378d58007"
+    },
+    {
+      "path": "models/reports/lidradar-main-v1-prompt-v9r5-manifest-before-stable-2026-10-31.json",
+      "sha256": "6abf8838996eac113e2d2e97035bda7acc9dde2372883172c21f33a68373d0ce"
+    },
+    {
+      "path": "models/reports/lidradar-main-v1-prompt-v9r5-stable-approval-2026-10-31.json",
+      "sha256": "0e3e48fcfaf5afa090437862f00110fb2c61d2afd0b5d0aa7d5f1dd768c4d1b6"
+    }
+  ],
+  "frontendFiles": [
+    {
+      "path": "docs/frontend-v2/STATUS.md",
+      "sha256": "e0bc7c373f15a72fbea10307a0643829c4cd19836c1b7cfe0509ec20402e3bb4"
+    },
+    {
+      "path": "docs/frontend-v2/RELEASE-PLAN-2026-11-01.md",
+      "sha256": "d3118d3a5e919c808de0237a1e6ddf4721572b930f25f5ce94b825080ee069d2"
+    }
+  ],
+  "TEST": "NOT_RUN",
+  "FUNCTIONAL": "NOT_RUN",
+  "UI": {
+    "desktop": "NOT_RUN",
+    "tablet": "NOT_RUN",
+    "mobile": "NOT_RUN"
+  },
+  "benchmark": "NOT_RUN",
+  "serverChecks": "NOT_RUN",
+  "hardware": "UNVERIFIED",
+  "runningNodeTuple": "UNVERIFIED",
+  "productionTouched": false,
+  "planeUpdated": false,
+  "nextStep": "First studio: separately measure facts and five risk rules, hardware/latency, reconcile actual node tuple and the two source mismatches in R03/R07/release manifest."
+}

@@ -1,0 +1,170 @@
+{
+  "date": "2026-10-31",
+  "scope": "Commit safety audit: R02 / RG-AI / US-M13 and documentation US-M01/02/04",
+  "runtimeImpact": "No source, API, migrations, dependency, build or deployment configuration changes. Model manifest is used by qualification/release tooling, not read by the running Go service.",
+  "repositories": {
+    "frontend": {
+      "branch": "frontend/v2-implementation",
+      "baseCommit": "1040aa1e96a32b584b642f6b55aba569f5f51456",
+      "files": [
+        "docs/frontend-v2/RELEASE-PLAN-2026-11-01.md",
+        "docs/frontend-v2/STATUS.md",
+        "docs/frontend-v2/evidence/ai-v9r5-stable-2026-10-31/verification.json"
+      ],
+      "runtimeBuildInputsUnchanged": true
+    },
+    "backend": {
+      "branch": "codex/stage-telegram-notifications",
+      "baseCommit": "ed577f84e992afb5b0564c685736976c0c3255d9",
+      "commits": [
+        "71b658abdfa40ec6b624ce3e7f4c77fd4230b99f",
+        "00e5fb5d84e6661bf652406e37c3b28d3cffa7c4"
+      ],
+      "files": [
+        "docs/adr/0064-detailing-intents-and-promises.md",
+        "docs/adr/0069-all-active-location-schedules.md",
+        "docs/adr/README.md",
+        "docs/backend/07-ai.md",
+        "docs/engineering/AI-V9R5-STABLE-2026-10-31.md",
+        "docs/engineering/EXTERNAL_ARTIFACTS.md",
+        "docs/engineering/RELEASE_GATES.md",
+        "docs/engineering/US-M02-04-IMPLEMENTATION.md",
+        "docs/front-end/04-feature-blocks.md",
+        "docs/runbooks/ai-qualification.md",
+        "docs/spec/BACKEND_SPEC.md",
+        "docs/user-stories/10-access.md",
+        "docs/user-stories/11-onboarding.md",
+        "docs/user-stories/13-channels.md",
+        "models/manifests/lidradar-main-v1.json",
+        "models/reports/lidradar-main-v1-prompt-v9r5-manifest-before-stable-2026-10-31.json",
+        "models/reports/lidradar-main-v1-prompt-v9r5-stable-approval-2026-10-31.json"
+      ],
+      "runtimeBuildInputsUnchanged": true
+    },
+    "landing": {
+      "commit": "d7b0cc3172ce0ee23d8018465cbcd97c97be1be2",
+      "dirty": false
+    }
+  },
+  "checks": [
+    {
+      "command": "npm run format:check",
+      "node": "24.19.0",
+      "exitCode": 0,
+      "scope": "entire frontend; release plan formatting fixed before final PASS"
+    },
+    {
+      "command": "git diff --check; git diff --cached --check",
+      "exitCode": 0,
+      "scope": "both repositories"
+    },
+    {
+      "command": "python3 -B -m unittest scripts.tests.test_ai_manifest scripts.tests.test_ai_selection",
+      "exitCode": 0,
+      "tests": 31,
+      "reviewer": "lidradar-qa"
+    },
+    {
+      "command": "backend pre-commit: make check-local",
+      "exitCode": 0,
+      "scope": "isolated staged snapshot; gofmt, go vet, go test ./... without DB environment, architecture",
+      "goTestPackagesPassed": 80,
+      "noTestFilePackages": 32,
+      "log": "artifacts/frontend-v2/uncommitted-review-2026-10-31/backend-ai-commit.log",
+      "logSHA256": "ae472ee2139a7daec665bca9b0debb109c9db28b53230c35b1f7ed37ee418b75"
+    },
+    {
+      "command": "new prior-document local links/anchors",
+      "exitCode": 0,
+      "links": 44
+    },
+    {
+      "command": "AI scope JSON/hash checks",
+      "exitCode": 0,
+      "jsonFiles": 3,
+      "hashReferences": 40,
+      "links": 154,
+      "unchangedSnapshotFiles": 10,
+      "reviewer": "lidradar-qa"
+    },
+    {
+      "command": "git diff and tree comparison of runtime/build inputs",
+      "exitCode": 0,
+      "result": "unchanged from the base commits"
+    }
+  ],
+  "existingFindings": [
+    {
+      "id": "AI-BASE-01",
+      "status": "FAIL / BLOCKED for full release acceptance",
+      "command": "make ai-release-verify",
+      "exitCode": 2,
+      "verifierExitCode": 1,
+      "preApprovalVerifierExitCode": 1,
+      "paths": [
+        "backend/internal/ai/domain/ai.go",
+        "backend/internal/ai/infrastructure/analysis_status.go"
+      ],
+      "note": "Identical two differences with original and approved manifests; source bytes equal base HEAD. Commit does not create or close this existing CI/release blocker."
+    },
+    {
+      "id": "DOC-CHANNEL-COPY-01",
+      "status": "FOLLOW_UP / UNVERIFIED",
+      "expected": "Channel story describes Secretary Mode for an ordinary Telegram account",
+      "actual": "ConnectChannelDialog.vue still mentions a business account",
+      "runtimeChanged": false
+    }
+  ],
+  "leftUncommitted": {
+    "repository": "backend",
+    "path": "docs/engineering/evidence/2026-10-06/docs-before.log",
+    "state": "already staged; preserved untouched",
+    "sha256": "0a16e2902425b2559c168ef30700be1a58e5d15cde34c7877b121fc80aa65a24",
+    "reason": "Historical evidence has 10 replaced absolute paths; outcome of 10 old errors unchanged. Do not rewrite provenance in a documentation cleanup commit."
+  },
+  "historicalEvidence": {
+    "path": "docs/frontend-v2/evidence/ai-v9r5-stable-2026-10-31/verification.json",
+    "sha256": "c2011e0597271937d77e2a27c85f60d2ef7bab348aeff1e69a8d1e3bbd15bde5",
+    "preserved": true,
+    "note": "Initial freeze snapshot. Release plan and STATUS were subsequently updated; their old hashes are historical, not a claim about the current document bytes."
+  },
+  "qualityResultsPreserved": {
+    "goldenPassed": false,
+    "holdoutPassed": false,
+    "qualificationPassed": false,
+    "hardwareResult": null
+  },
+  "TEST": "PASS for targeted tooling and local non-DB pre-commit checks",
+  "FUNCTIONAL": "NOT_RUN; overall AI release acceptance remains BLOCKED by existing tuple mismatch",
+  "UI": "NOT_APPLICABLE to docs-only change; no new UI acceptance",
+  "databaseReleaseGate": "NOT_RUN",
+  "benchmark": "NOT_RUN",
+  "serverChecks": "NOT_RUN",
+  "pushMergeDeploy": "NOT_RUN",
+  "independentReviews": {
+    "priorDocs": "lidradar-explorer: safe documentation package; historical log excluded; channel wording discrepancy recorded",
+    "aiFreeze": "lidradar-qa: no new runtime/CI regression; existing strict tuple gate FAIL retained"
+  },
+  "fileSHA256": {
+    "backend/docs/adr/0064-detailing-intents-and-promises.md": "a980f7152470982ed334061fe3b0b6e65ef1adcacc2f2607436bd41bccf3cc8a",
+    "backend/docs/adr/0069-all-active-location-schedules.md": "d3c5c57d907877a9b8acbec1ef364d76acb79612ea8a3529c2a96002d48c8f0f",
+    "backend/docs/adr/README.md": "9a3875658d9bdae79a91eaf46724e0ef11ea9e74d9d76e4381f3af8b8fab0fe6",
+    "backend/docs/backend/07-ai.md": "f36b86d9eaf03727a0c1cf7dfd79f5aa53edd7ca0c3be613811b2d122dc2afe2",
+    "backend/docs/engineering/AI-V9R5-STABLE-2026-10-31.md": "9be1ea4f8a22720608dfd83ce7dd7f65ff94c432fab22eab44e661fb0e25e07d",
+    "backend/docs/engineering/EXTERNAL_ARTIFACTS.md": "847b6f3c4374a1ee077db7c776d136116c136cf5337e8d3d4c8f1f971b7d7306",
+    "backend/docs/engineering/RELEASE_GATES.md": "b97b003f53cb60cd1df3f26c7a06f44cd3c7688d31e166c5d49ddd51f1fc763a",
+    "backend/docs/engineering/US-M02-04-IMPLEMENTATION.md": "7babf0567310d23e618ea1b6f4a402563cbaa1220e6d6dd811bc086c8ebb95fd",
+    "backend/docs/front-end/04-feature-blocks.md": "9a23f655ef3282cf13e47099b0d0d375323216e23ec66f420d4799de36ed1d19",
+    "backend/docs/runbooks/ai-qualification.md": "67bda45500a6a79e123a7ac296a97ee248887a92405de44a55a6e0f4edd29355",
+    "backend/docs/spec/BACKEND_SPEC.md": "9002e1655d9ee7a6a4ff28f577fd8eef398dd2f418ab43467e80c537780b3599",
+    "backend/docs/user-stories/10-access.md": "de780209ad00e1dd18ebdd4349a84995fd562f998cc153d97690b3bfaa6dc04a",
+    "backend/docs/user-stories/11-onboarding.md": "f69441d96d428055be7c14f453222cd03f8287ccca28d6237fa9752930817d37",
+    "backend/docs/user-stories/13-channels.md": "2485050c7f2d4d083c07e6628004780c6eb2f2dfbe5dc035d208b673081b5a1e",
+    "backend/models/manifests/lidradar-main-v1.json": "f5d851c015106c9a1719dc0d3849f0b4171406010fcf6d603ad4209378d58007",
+    "backend/models/reports/lidradar-main-v1-prompt-v9r5-manifest-before-stable-2026-10-31.json": "6abf8838996eac113e2d2e97035bda7acc9dde2372883172c21f33a68373d0ce",
+    "backend/models/reports/lidradar-main-v1-prompt-v9r5-stable-approval-2026-10-31.json": "0e3e48fcfaf5afa090437862f00110fb2c61d2afd0b5d0aa7d5f1dd768c4d1b6",
+    "frontend/docs/frontend-v2/RELEASE-PLAN-2026-11-01.md": "410c095f5946c8995f2d8bdef9beae7f52af55778385405b35b87aea209571b7",
+    "frontend/docs/frontend-v2/STATUS.md": "e1ef89031adda5dea6da39446ec8949708194ca506b3e83979d26e0ab59ec76b",
+    "frontend/docs/frontend-v2/evidence/ai-v9r5-stable-2026-10-31/verification.json": "c2011e0597271937d77e2a27c85f60d2ef7bab348aeff1e69a8d1e3bbd15bde5"
+  }
+}

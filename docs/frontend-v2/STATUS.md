@@ -1,5 +1,51 @@
 # Статус frontend v2
 
+## Аудит незакоммиченных изменений · 31.10.2026
+
+Проверены frontend, backend и лендинг: изменены только документы, AI manifest
+и evidence; runtime/API/миграции/зависимости неизменны. Backend сохранён двумя
+локальными коммитами: `71b658a` (US-M01/02/04) и `00e5fb5` (R02 / v9r5).
+31 Python-тест AI tooling и обязательный backend pre-commit `make check-local`
+(формат/vet/Go tests без БД/architecture) PASS; frontend format check PASS.
+Полный release/живой FUNCTIONAL/UI не запускался; исходный AI tuple FAIL сохраняется.
+
+Исторический staged `docs-before.log` с заменёнными абсолютными путями оставлен
+вне коммитов, без изменения его содержимого или index. Отдельное расхождение
+для follow-up: US каналов описывает Secretary Mode, а текст диалога подключения
+ещё упоминает бизнес-аккаунт. Изменения требований не означают приёмку runtime.
+[Снимок аудита и границы проверок](evidence/uncommitted-review-2026-10-31/review.json).
+Push, merge и deploy не выполнялись.
+
+## R02 / RG-AI · 31.10.2026 · v9r5 утверждён владельцем
+
+По прямому решению владельца v9r5 зафиксирован как стабильный замороженный
+tuple: backend manifest `status: FROZEN`, `releaseApproval.status: STABLE`,
+основание `OWNER_RISK_ACCEPTANCE`. R02 завершён в части выбора и допуска
+с исключениями; дальнейшие испытания — первая студия. Техническая квалификация
+остаётся `passed: false`: GOLDEN/HOLDOUT false, hardwareResult null. Пороги,
+исходные reports, datasets и selection сохранены; прежний CANDIDATE-manifest
+сохранён побайтно, HOLDOUT/baseline summary согласованы с исходными reports.
+
+Заморожен tuple из selection v9r5, tree `b0b57554…`. Локальный
+`make ai-release-verify` FAIL: `domain/ai.go` изменён, `analysis_status.go`
+не входил в selection; это исходное расхождение дерева, hashes не подменялись.
+Фактический узел UNVERIFIED. Следующий шаг R03/R07: учесть расхождение в
+release manifest; на первой студии отдельно проверить факты/пять правил риска,
+hardware и фактический tuple. Ограниченный режим не вводился.
+
+План выпуска уточнён владельцем: выкатывается точный замороженный v9r5;
+до deploy нужен `ai-release-verify` exit0 на релизном снимке, после deploy —
+сверка фактического tuple узла. При успешной проверке закрывается только FAIL
+совпадения tuple, с сохранением истории и проваленных метрик. В Plane обновлены
+название и описание [LIDRADAR-16](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-16/),
+статус остаётся Confirmed до проверки операционного остатка.
+
+[Решение и hashes](../../../Lidradar/docs/engineering/AI-V9R5-STABLE-2026-10-31.md),
+[сверка первоначального снимка](evidence/ai-v9r5-stable-2026-10-31/verification.json),
+[актуальный план R02](RELEASE-PLAN-2026-11-01.md#r02--ai-v9r5-утверждён-и-заморожен-как-стабильный).
+Runtime, тесты и frontend inputs не менялись. TEST/FUNCTIONAL/UI и серверные
+проверки не запускались; push/deploy/production не затрагивались.
+
 ## Stage RC4 · 31.10.2026 · изоляция T28 navigation
 
 Strict rc3 GitHub41215749019: quality1162/build×3/audit/container/Python10 PASS,

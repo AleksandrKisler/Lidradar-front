@@ -14,31 +14,31 @@
 LIDRADAR-10 дополнена диагностикой и критериями, её прежнее описание сохранено.
 P0 в Plane отмечены Urgent, P1 — High; новые задачи в New, Telegram остаётся Confirmed.
 
-| План | Plane                                                                       | Работа                              |
-| ---- | --------------------------------------------------------------------------- | ----------------------------------- |
-| R01  | [LIDRADAR-10](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-10/) | /start и личная доставка            |
-| R02  | [LIDRADAR-16](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-16/) | Квалификация AI tuple               |
-| R03  | [LIDRADAR-17](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-17/) | Сообщения → AI → риск → Radar       |
-| R04  | [LIDRADAR-18](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-18/) | Финальная frontend-приёмка и triage |
-| R05  | [LIDRADAR-19](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-19/) | Юридический допуск                  |
-| R06  | [LIDRADAR-20](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-20/) | Лендинг и заявки                    |
-| R07  | [LIDRADAR-21](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-21/) | Stage и реальная почта              |
-| R08  | [LIDRADAR-22](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-22/) | Restore/rollback/retention          |
-| R09  | [LIDRADAR-23](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-23/) | Эксплуатационные gates              |
-| R10  | [LIDRADAR-24](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-24/) | Manifest и go/no-go                 |
+| План | Plane                                                                       | Работа                                |
+| ---- | --------------------------------------------------------------------------- | ------------------------------------- |
+| R01  | [LIDRADAR-10](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-10/) | /start и личная доставка              |
+| R02  | [LIDRADAR-16](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-16/) | v9r5 утверждён и заморожен владельцем |
+| R03  | [LIDRADAR-17](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-17/) | Сообщения → AI → риск → Radar         |
+| R04  | [LIDRADAR-18](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-18/) | Финальная frontend-приёмка и triage   |
+| R05  | [LIDRADAR-19](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-19/) | Юридический допуск                    |
+| R06  | [LIDRADAR-20](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-20/) | Лендинг и заявки                      |
+| R07  | [LIDRADAR-21](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-21/) | Stage и реальная почта                |
+| R08  | [LIDRADAR-22](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-22/) | Restore/rollback/retention            |
+| R09  | [LIDRADAR-23](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-23/) | Эксплуатационные gates                |
+| R10  | [LIDRADAR-24](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-24/) | Manifest и go/no-go                   |
 
 ## Что уже есть и что ещё не подтверждено
 
-| Область                         | Подтверждено источниками                                                                                       | Остаток                                                                                                                                           |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Доступ, онбординг, Radar        | Принятые frontend/mock TEST/FUNCTIONAL/UI; исторический access R1 FAIL заменён более поздним R2/QA7 PASS       | Живой сквозной smoke конечного выпуска; доставка писем отдельно                                                                                   |
-| Общая оболочка и узкие контролы | ML-S2 и N320-S1 приняты, format/lint блокеры закрыты                                                           | Не открывать повторно старые findings без воспроизведения на новом снимке                                                                         |
-| Компания и график, US-M02-05/06 | Последний QA S2: TEST/FUNCTIONAL PASS; check/build×3/audit exit0, 1159 unit, 707 E2E passed, 2 прежних skipped | Desktop UI ещё UNVERIFIED по последнему найденному отчёту; tablet/mobile design отложен владельцем, narrow — регрессия                            |
-| Песочница, US-M17               | Реализация localhost/stage и адресные тесты; production исключён владельцем                                    | Собственная независимая FUNCTIONAL/UI приёмка не найдена. Старый общий E2E FAIL не переносится автоматически: более поздний S2 full suite зелёный |
-| Telegram                        | Пользователь подтвердил бизнес-входящие; существует LIDRADAR-10 про молчащий /start                            | Личная привязка и реальная доставка не работают по сообщению пользователя; причина на сервере не установлена                                      |
-| AI                              | Данные, prompt, DEV/GOLDEN/HOLDOUT отчёты и предыдущая квалификация существуют                                 | Текущий manifest CANDIDATE; GOLDEN/отдельный HOLDOUT report passed:false, hardwareResult:null; несогласованность HOLDOUT summary с report         |
-| Legal                           | Канонические Markdown и сгенерированные страницы приложения/лендинга; реквизиты заполнены                      | Юридическое заключение, подтверждение поданных уведомлений и фактического соответствия инфраструктуры отсутствуют в проверенных evidence          |
-| Лендинг                         | Форма /api/lead с записью на свой сервер, legal pages и согласие реализованы                                   | Внешние Google Fonts/icons, дата 15.10 в countdown/copy, актуальность claims, приём и хранение реальных заявок                                    |
+| Область                         | Подтверждено источниками                                                                                         | Остаток                                                                                                                                                                    |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Доступ, онбординг, Radar        | Принятые frontend/mock TEST/FUNCTIONAL/UI; исторический access R1 FAIL заменён более поздним R2/QA7 PASS         | Живой сквозной smoke конечного выпуска; доставка писем отдельно                                                                                                            |
+| Общая оболочка и узкие контролы | ML-S2 и N320-S1 приняты, format/lint блокеры закрыты                                                             | Не открывать повторно старые findings без воспроизведения на новом снимке                                                                                                  |
+| Компания и график, US-M02-05/06 | Последний QA S2: TEST/FUNCTIONAL PASS; check/build×3/audit exit0, 1159 unit, 707 E2E passed, 2 прежних skipped   | Desktop UI ещё UNVERIFIED по последнему найденному отчёту; tablet/mobile design отложен владельцем, narrow — регрессия                                                     |
+| Песочница, US-M17               | Реализация localhost/stage и адресные тесты; production исключён владельцем                                      | Собственная независимая FUNCTIONAL/UI приёмка не найдена. Старый общий E2E FAIL не переносится автоматически: более поздний S2 full suite зелёный                          |
+| Telegram                        | Пользователь подтвердил бизнес-входящие; существует LIDRADAR-10 про молчащий /start                              | Личная привязка и реальная доставка не работают по сообщению пользователя; причина на сервере не установлена                                                               |
+| AI                              | v9r5 утверждён владельцем 31.10 как STABLE/FROZEN с известными отклонениями; HOLDOUT summary согласован с report | Квалификация passed:false, hardwareResult:null; дальнейшие испытания — первая студия. Локальное дерево отличается от selection по двум файлам; фактический узел UNVERIFIED |
+| Legal                           | Канонические Markdown и сгенерированные страницы приложения/лендинга; реквизиты заполнены                        | Юридическое заключение, подтверждение поданных уведомлений и фактического соответствия инфраструктуры отсутствуют в проверенных evidence                                   |
+| Лендинг                         | Форма /api/lead с записью на свой сервер, legal pages и согласие реализованы                                     | Внешние Google Fonts/icons, дата 15.10 в countdown/copy, актуальность claims, приём и хранение реальных заявок                                                             |
 
 Свежий frontend report важнее промежуточного STATUS:
 `artifacts/frontend-v2/settings-company/Codex-R1/S2/qa/report.md`.
@@ -86,22 +86,58 @@ correlation IDs, коды ошибок, версии и результат. Ру
 `internal/notification/application/link.go:131`, `cmd/worker/main.go:156`;
 docs `runbooks/telegram-manual-checks.md`, ADR 0060/0062, US-M10.
 
-### R02 · P0 · AI: определить и квалифицировать релизный tuple
+### R02 · AI: v9r5 утверждён и заморожен как стабильный
 
 Ответственные: AI/Risk + QA; RG-AI, US-M13.
-Не переписывать подготовленные наборы и не подменять baseline ради PASS.
-Сначала сверить актуальный `models/manifests/lidradar-main-v1.json` с report,
-selection и previousQualification: документация RG-AI описывает старую FROZEN
-ревизию, текущий manifest — CANDIDATE v9r5. HOLDOUT summary и связанный JSON
-расходятся. Разделить качество семантических фактов и конечных правил риска.
+**Решение владельца 31.10.2026: R02 завершён в части выбора и утверждения.**
+v9r5 выбран как лучший вариант выпуска по имеющимся метрикам, утверждён
+стабильным и заморожен. Это заменяет прежнее условие R02 о прохождении всех
+границ до утверждения. Допуск RG-AI — `OWNER_APPROVED_WITH_EXCEPTIONS`;
+дальнейшие испытания качества и оборудования — при тестировании первой студии.
 
-Готово: выбран конкретный tuple model/prompt/schema/validator/parameters/datasets;
-manifest согласован с evidence; выполнены неизменные обязательные границы,
-проверены независимые данные без выдачи уже прочитанного GOLDEN за слепой тест;
-есть hardware/VRAM/OOM/latency report и сверка реально работающего узла.
-Если кандидат не проходит, представить владельцу допустимый вариант поставки
-или перенос; ограниченный режим не утверждать автоматически. Синтетические
-метрики не выдаются за качество на реальных переписках.
+[Manifest](../../../Lidradar/models/manifests/lidradar-main-v1.json):
+`status: FROZEN`, `releaseApproval.status: STABLE`, `qualification.passed: false`.
+GOLDEN/HOLDOUT сохраняют `passed: false`, `hardwareResult: null`; пороги,
+selection, datasets и исходные reports не изменены. Сводки HOLDOUT/baseline
+приведены к общим метрикам reports; метрики обещаний выделены в `byFactType`.
+Прежний CANDIDATE-manifest сохранён побайтно; `previousQualification` остаётся
+исторической ревизией 4. Утверждён точный tuple из selection v9r5: model,
+prompt v9, schema v2, validator, параметры и dataset hashes.
+
+[Решение и границы freeze](../../../Lidradar/docs/engineering/AI-V9R5-STABLE-2026-10-31.md),
+[машинная запись с hashes](../../../Lidradar/models/reports/lidradar-main-v1-prompt-v9r5-stable-approval-2026-10-31.json),
+[локальная сверка первоначального снимка](evidence/ai-v9r5-stable-2026-10-31/verification.json).
+`make ai-release-verify` локально FAIL: изменён `domain/ai.go`, добавлен
+`infrastructure/analysis_status.go` вне selection. Утверждение исторического
+v9r5 не подтверждает совпадение текущего дерева или реально работающего узла;
+расхождения учесть в R03/R07 и итоговом release manifest.
+
+**Путь выпуска (уточнение владельца 31.10.2026):** в production выкатываем
+замороженный v9r5 — артефакты, собранные из точного tuple сохранённого selection,
+с утверждёнными весами, prompt, schema/validator и параметрами. Два текущих
+отклонения рабочего дерева не включаются в этот tuple подменой hashes.
+
+1. До deploy выполнить `make ai-release-verify` на точном релизном снимке:
+   требуется `exit 0`. Сохранить commit/image digest, manifest и hashes
+   selection/model/datasets в release manifest R10.
+2. После отдельно разрешённого production deploy сверить фактически работающий
+   tuple с замороженным v9r5: веса и их hash, prompt, schema/validator,
+   параметры генерации, runtime/build и привязку к selection/dataset hashes.
+   Сохранить фактические версии, дату, ответственного и evidence проверки.
+3. При успешных проверках релизного снимка и фактического узла записать новый
+   PASS совпадения tuple и закрыть этот FAIL как активную проблему выпуска.
+   Исторический локальный FAIL остаётся в evidence. При несовпадении или
+   отсутствии evidence FAIL не закрывать; сам факт deploy его не снимает.
+
+Это закрывает только расхождение с замороженным tuple. GOLDEN/HOLDOUT `false`,
+`qualification.passed: false` и отсутствие hardware evidence сохраняются как
+принятые владельцем ограничения стабильной версии.
+
+На первой студии отдельно оценить факты на живых переписках и пять правил
+риска, снять hardware/VRAM/OOM/latency и проверить фактический tuple узла.
+Ограниченный режим не вводится. Синтетические метрики не становятся качеством
+живых переписок или подтверждением claims лендинга. Новый benchmark и серверные
+проверки при этой фиксации не запускались; production не затрагивался.
 
 ### R03 · P0 · Реальные сообщения → AI → пять типов риска → Radar
 
@@ -215,6 +251,11 @@ migration hashes, OpenAPI, AI tuple, конфигурация без секре�
 Заполненный manifest заменяет шаблон, `NOT_RUN` не превращается в PASS.
 Готовность frontend CI проверить отдельно: release-button автоматически
 проверяет только backend CI. Подготовить plan и конкретный rollback.
+AI-артефакты выпуска — замороженный v9r5 из R02; перед deploy приложить
+`ai-release-verify` с `exit 0` на релизном снимке. После deploy дополнить manifest
+сверкой фактического tuple узла с утверждённым; только при успешной сверке
+закрыть FAIL несовпадения tuple, сохранив историческое evidence и принятые
+ограничения качества/оборудования.
 
 Фактические commit/push/merge/deploy — только по отдельному поручению.
 После разрешённого deploy обязательны production smoke, один контролируемый
@@ -223,11 +264,12 @@ migration hashes, OpenAPI, AI tuple, конфигурация без секре�
 
 ## Порядок исполнения
 
-1. Сразу: R01 и R02; параллельно независимые legal/landing/infra R05/R06/R08/R09
+1. R02 утверждён владельцем с исключениями; далее R01 и независимые legal/landing/infra R05/R06/R08/R09
    и завершение текущей frontend-приёмки R04.
 2. После фиксации tuple: R03; затем R07 на согласованном snapshot.
 3. Все обязательные evidence сведены → R10 → решение владельца → отдельно
-   разрешённый выпуск → smoke/наблюдение.
+   разрешённый выпуск замороженного v9r5 → сверка фактического tuple и закрытие
+   FAIL при успешной проверке → smoke/наблюдение.
 
 После релиза: новые API timing/activeCounts/полная история/чтение оплат,
 крупные дизайн-изменения и несогласованный redesign tablet/mobile настроек.
@@ -254,6 +296,14 @@ migration hashes, OpenAPI, AI tuple, конфигурация без секре�
 - Правило Telegram deep link: [официальная документация](https://core.telegram.org/bots/features#deep-linking);
   webhook/getUpdates: [Telegram Bot API](https://core.telegram.org/bots/api#getupdates).
   Кнопка Start передаёт payload обработчику; сама по себе не создаёт привязку LidRadar.
+
+Дополнение 31.10 по прямому поручению владельца: в R02 записано утверждение
+v9r5 как STABLE/FROZEN с сохранением непройденной квалификации. Этим узким
+поручением разрешены правки backend manifest и связанных документов допуска;
+остальные backend-файлы остаются источниками для чтения. Локальные hashes
+проверены отдельно от benchmark и сервера; evidence — ссылка в R02.
+После уточнения плана выпуска обновлены название и описание LIDRADAR-16
+в Plane; статус Confirmed сохраняется до проверки операционного остатка.
 
 Исходники, тесты и прежние evidence не менялись этой подготовкой. Конфигурация
 серверов и юридический допуск не проверены. Отсутствие evidence трактуется

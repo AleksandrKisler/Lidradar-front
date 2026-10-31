@@ -113,7 +113,7 @@ function update(patch: Partial<RiskFilters>): void {
   <div v-else class="lg:hidden">
     <button
       type="button"
-      class="h-[46px] rounded-button border border-line bg-paper px-5 text-field leading-5 font-medium text-ink hover:bg-canvas"
+      class="h-[46px] rounded-button border border-line bg-canvas px-5 text-field leading-5 font-medium text-ink hover:bg-segment"
       aria-haspopup="dialog"
       @click="panelOpen = true"
     >

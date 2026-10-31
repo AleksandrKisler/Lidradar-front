@@ -5,6 +5,10 @@
 
 ## Источники и начало
 
+- До релиза 01.11.2026 соблюдай `docs/frontend-v2/DESIGN-FREEZE.md`: макеты
+  Доступа и Онбординга не править; Radar — без крупных изменений, только точечные
+  исправления дефектов с сохранением структуры. Учитывай косвенное влияние общих
+  Figma-компонентов/токенов. Runtime и QA продолжай по зафиксированным эталонам.
 - Проверь `git status` и ветку. Прочитай `docs/frontend-v2/STATUS.md`,
   `WORKFLOW.md`, `SOURCES.md`, `RELEASE-SCOPE.md` и `CODEX-OPERATING-RULES.md`.
 - Для текущего доступа начни с `docs/frontend-v2/ACCESS-RESUME.md`, последнего

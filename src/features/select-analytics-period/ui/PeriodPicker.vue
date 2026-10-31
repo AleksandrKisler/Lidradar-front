@@ -36,7 +36,7 @@ function applyPreset(days: number): void {
       <UiField
         v-slot="{ id, describedBy, invalid }"
         label="Начало периода"
-        class="w-[calc(50%-0.5rem)] sm:w-40"
+        class="w-40 min-w-40 grow sm:grow-0"
       >
         <UiInput
           :id="id"
@@ -51,7 +51,7 @@ function applyPreset(days: number): void {
       <UiField
         v-slot="{ id, describedBy, invalid }"
         label="Конец периода"
-        class="w-[calc(50%-0.5rem)] sm:w-40"
+        class="w-40 min-w-40 grow sm:grow-0"
       >
         <UiInput
           :id="id"

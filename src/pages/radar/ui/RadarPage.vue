@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * Radar (Figma 21:1982 / 21:1753): контекст страницы, заголовок с ручным
- * обновлением, сводка и активная лента с общими фильтрами.
+ * Radar (Figma 21:1982 / 21:1753): заголовок с ручным обновлением, сводка и
+ * активная лента с общими фильтрами. Контекст и дату рисует оболочка C (`RadarShell`).
  * Сводка и первая страница ленты запрашиваются параллельно; валюта и
  * часовой пояс берутся из организации выбранного рабочего пространства.
  * Фильтры по статусу с счётчиками из макета не выводятся: сводка не
@@ -9,7 +9,6 @@
  */
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { formatLongDateTime } from '@/shared/lib'
 import { useRealtimeState } from '@/shared/api'
 import { UiGlyph, UiSpinner } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
@@ -62,17 +61,9 @@ const autoRefreshDown = computed(() => realtime.value === 'backoff' || realtime.
 const refreshing = computed(() => summary.isFetching.value || feed.value?.refreshing === true)
 const loadedAt = computed(() => feed.value?.loadedAt ?? null)
 
-const now = ref(new Date())
-const todayLabel = computed(() => formatLongDateTime(now.value, timeZone.value))
-const locationLabel = computed(
-  () =>
-    locations.data.value?.find((location) => location.id === filters.value.locationId)?.name ??
-    'Все точки',
-)
 const locationNames = computed(() =>
   Object.fromEntries((locations.data.value ?? []).map((location) => [location.id, location.name])),
 )
-const organizationName = computed(() => session.membership?.organizationName ?? '')
 
 function setFilters(next: Filters): void {
   void router.replace({ query: riskFiltersToQuery(next, status.value) })
@@ -83,30 +74,22 @@ function setStatus(next: RiskFeedStatus | null): void {
 }
 
 function refresh(): void {
-  now.value = new Date()
   void summary.refetch()
   feed.value?.refresh()
 }
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
-    <div
-      class="flex flex-col gap-1 text-xs leading-[18px] text-muted md:flex-row md:items-center md:justify-between md:gap-x-4 lg:h-5"
-    >
-      <p>{{ organizationName }}&nbsp;&nbsp;/&nbsp;&nbsp;{{ locationLabel }}</p>
-      <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <p>{{ todayLabel }}</p>
-      </div>
-    </div>
-
+  <!-- Интервал между секциями: телефон 16 px (Figma 630:7214), планшет и desktop 24 px.
+       С планшета заголовок и подзаголовок — две строки, обновление справа на обе (Figma 630:6182). -->
+  <div class="flex flex-col gap-4 md:gap-6">
     <header
-      class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 lg:min-h-20 lg:gap-y-1.5"
+      class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 md:gap-y-1.5 lg:min-h-20"
     >
       <h1 class="text-[32px] leading-10 font-semibold text-ink lg:text-[38px] lg:leading-[46px]">
         Radar
       </h1>
-      <div class="flex items-center gap-3 lg:row-span-2 lg:row-start-1 lg:col-start-2">
+      <div class="flex items-center gap-3 md:col-start-2 md:row-span-2 md:row-start-1">
         <p v-if="loadedAt" class="text-xs leading-[18px] text-muted" role="status">
           Обновлено в {{ loadedAt }}
         </p>
@@ -133,7 +116,7 @@ function refresh(): void {
           >
         </button>
       </div>
-      <p class="col-span-2 text-[15px] leading-[22px] text-muted lg:col-span-1 lg:row-start-2">
+      <p class="col-span-2 text-[15px] leading-[22px] text-muted md:col-span-1 md:row-start-2">
         Риски в переписке, которым нужно ваше внимание
       </p>
     </header>

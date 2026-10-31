@@ -105,8 +105,10 @@ const riskRoute = computed(() => ({ name: 'risk', params: { riskId: props.card.i
         </span>
       </blockquote>
       <div v-else class="mt-3 h-16 max-lg:h-[50px]" aria-hidden="true" />
+      <!-- На 320 px длинная сумма («Неизвестна») не помещается рядом с кнопкой: кнопка переносится,
+           а не наезжает на текст. -->
       <div
-        class="mt-3.5 flex items-center justify-between gap-2 border-t border-hairline pt-[18px] max-lg:mt-auto max-lg:border-t-0 max-lg:pt-0"
+        class="mt-3.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-3 border-t border-hairline pt-[18px] max-lg:mt-auto max-lg:border-t-0 max-lg:pt-0"
       >
         <div class="flex min-w-0 flex-col gap-1">
           <p class="text-xl leading-[26px] font-semibold text-ink tabular-nums">

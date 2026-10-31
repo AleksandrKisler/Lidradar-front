@@ -344,3 +344,40 @@ describe('UiSheetDialog: фокус не покидает окно (F-04)', () =
     wrapper.unmount()
   })
 })
+
+describe('UiDialog: боковое меню оболочки Radar', () => {
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('прижато к левому краю, заголовок скрыт для глаз, шапка из слота, Tab не выходит из меню', async () => {
+    const wrapper = mount(UiDialog, {
+      props: { open: true, title: 'Меню', size: 'drawer' },
+      slots: {
+        header: '<p>LidRadar</p>',
+        default: '<a href="#radar">Radar</a><a href="#dialogs">Диалоги</a>',
+      },
+      attachTo: document.body,
+    })
+    await settleDialog()
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+    expect(dialog.className).toContain('left-0')
+    expect(dialog.className).toContain('w-[344px]')
+    expect(dialog.className).toContain('max-w-full')
+    const title = document.getElementById(dialog.getAttribute('aria-labelledby')!)!
+    expect(title.textContent).toBe('Меню')
+    expect(title.className).toContain('sr-only')
+    expect(dialog.textContent).toContain('LidRadar')
+    expect(focusedName()).toBe('Закрыть')
+    const order: (string | null)[] = []
+    for (let index = 0; index < 3; index += 1) {
+      pressTab()
+      order.push(focusedName())
+    }
+    expect(order).toEqual(['Radar', 'Диалоги', 'Закрыть'])
+    document.querySelector<HTMLElement>('[aria-label="Закрыть"]')!.click()
+    await settleDialog()
+    expect(wrapper.emitted('update:open')?.at(-1)).toEqual([false])
+    wrapper.unmount()
+  })
+})

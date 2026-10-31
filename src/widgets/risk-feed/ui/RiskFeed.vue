@@ -80,7 +80,11 @@ function selectView(value: 'tiles' | 'list'): void {
     /* хранилище недоступно */
   }
 }
-/** Строка списка вмещается от планшета; на телефоне список — те же карточки (Figma 630:7726). */
+/**
+ * Строка списка вмещается от планшета; на телефоне список — те же карточки (Figma 630:7726),
+ * поэтому переключателя там нет (630:7247). Выбор устройства не стирается: после расширения
+ * окна возвращается прежнее представление.
+ */
 const wide = ref(false)
 const wideQuery =
   typeof window !== 'undefined' && typeof window.matchMedia === 'function'
@@ -114,18 +118,18 @@ onScopeDispose(() => clearInterval(timer))
 </script>
 
 <template>
-  <section aria-labelledby="risk-feed-title" class="@container flex flex-col gap-5">
-    <div class="flex min-h-9 flex-wrap items-center justify-between gap-x-4 gap-y-4">
+  <section aria-labelledby="risk-feed-title" class="@container flex flex-col gap-4 md:gap-5">
+    <div class="flex min-h-9 flex-wrap items-center justify-between gap-x-4 gap-y-2 md:gap-y-4">
       <h2 id="risk-feed-title" class="text-xl leading-7 font-semibold text-ink">
         Требуют внимания<template v-if="total !== undefined"
           ><span class="max-lg:hidden"> · {{ total }}</span></template
         >
       </h2>
       <slot name="filters-button" />
-      <div class="flex w-full items-center justify-between gap-4 lg:w-auto">
+      <div class="flex w-full items-center justify-between gap-4 max-md:min-h-11 lg:w-auto">
         <p class="text-sm leading-5 text-muted">Сначала важные ↓</p>
         <div
-          class="flex gap-1 rounded-field bg-segment max-lg:h-11 lg:mr-7 lg:h-8"
+          class="flex gap-1 rounded-field bg-segment max-md:hidden max-lg:h-11 lg:mr-7 lg:h-8"
           role="group"
           aria-label="Представление"
         >

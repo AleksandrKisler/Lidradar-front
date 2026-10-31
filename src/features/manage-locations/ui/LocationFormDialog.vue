@@ -49,6 +49,7 @@ function onSaved(location: Location): void {
       location ? 'Пороги считаются только в рабочее время этой точки.' : createDescription()
     "
     description-in-body
+    :settings-form="context !== 'onboarding'"
     description-strong
     size="sm"
     footer-fill

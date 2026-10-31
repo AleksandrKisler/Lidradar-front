@@ -158,13 +158,18 @@ test.describe('владелец организации', () => {
     await expect(page.getByRole('heading', { name: 'Дмитрий Соколов' })).toHaveCount(1)
 
     // Представление ленты переключается без перезагрузки: список и плитки показывают ту же карточку.
-    await page.getByRole('button', { name: 'Список' }).click()
-    await expect(page.getByRole('button', { name: 'Список' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
-    await expect(page.getByRole('heading', { name: 'Дмитрий Соколов' })).toHaveCount(1)
-    await page.getByRole('button', { name: 'Плитки' }).click()
+    // На телефоне переключателя нет (Figma 630:7247), лента остаётся в сохранённом виде.
+    if ((page.viewportSize()?.width ?? 0) >= 768) {
+      await page.getByRole('button', { name: 'Список' }).click()
+      await expect(page.getByRole('button', { name: 'Список' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      )
+      await expect(page.getByRole('heading', { name: 'Дмитрий Соколов' })).toHaveCount(1)
+      await page.getByRole('button', { name: 'Плитки' }).click()
+    } else {
+      await expect(page.getByRole('group', { name: 'Представление' })).toHaveCount(0)
+    }
     await expect(page.getByRole('link', { name: /Разобрать риск: Дмитрий Соколов/ })).toBeVisible()
     expect(
       risksRequests.some((url) => url.includes('severity=CRITICAL') && url.includes('active=true')),
@@ -330,8 +335,10 @@ test.describe('владелец организации', () => {
     await dialog.getByRole('button', { name: 'Готово' }).click()
     await expect(dialog).toBeHidden()
     await expect(page).toHaveURL(/severity=CRITICAL/)
-    // На телефоне список — те же карточки (Figma 630:7726): ни горизонтальной прокрутки, ни потери ссылки.
-    await page.getByRole('button', { name: 'Список' }).click()
+    // На телефоне список — те же карточки (Figma 630:7726), поэтому переключателя нет (630:7247):
+    // ни горизонтальной прокрутки, ни потери ссылки.
+    await expect(page.getByRole('group', { name: 'Представление' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Список' })).toHaveCount(0)
     await expect(page.getByRole('link', { name: /Разобрать риск: Дмитрий Соколов/ })).toBeVisible()
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
@@ -603,17 +610,21 @@ test.describe('владелец организации', () => {
       'Исход не записан',
     )
 
-    // «Выйти» — обычная кнопка меню: достижима Tab и срабатывает с клавиатуры.
-    await page.getByRole('button', { name: 'Меню' }).first().click()
-    const menu = page.getByRole('dialog', { name: 'Меню' })
-    const logout = menu.getByRole('button', { name: 'Выйти' })
+    // Выход на телефоне — прежним путём через аккаунт (оболочка C, Figma 1048:9359): ссылка
+    // аккаунта и «Выйти» на его странице срабатывают с клавиатуры.
+    const account = page.getByRole('link', { name: 'Аккаунт, Мария Владелец' })
+    await account.focus()
+    await expect(account).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/account$/)
+    const logout = page.getByRole('button', { name: 'Выйти' })
     await logout.focus()
     await expect(logout).toBeFocused()
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL(/\/login$/)
   })
 
-  test('«Выйти» в боковой панели достижимо Tab и срабатывает с клавиатуры', async ({
+  test('«Выйти» в шапке Radar достижимо Tab и срабатывает с клавиатуры', async ({
     page,
     browserName,
   }) => {
@@ -623,9 +634,13 @@ test.describe('владелец организации', () => {
     const logout = page.getByRole('button', { name: 'Выйти' })
     await logout.focus()
     await expect(logout).toBeFocused()
-    // Обратным Tab доходим от «Выйти» до ссылки «Аккаунт», прямым возвращаемся на кнопку.
+    // Шапка оболочки C (Figma 27:2809): обратным Tab от «Выйти» — «Настройки», затем «Аккаунт»;
+    // прямым возвращаемся на кнопку.
+    await page.keyboard.press('Shift+Tab')
+    await expect(page.getByRole('link', { name: 'Настройки' })).toBeFocused()
     await page.keyboard.press('Shift+Tab')
     await expect(page.getByRole('link', { name: /Аккаунт/ })).toBeFocused()
+    await page.keyboard.press('Tab')
     await page.keyboard.press('Tab')
     await expect(logout).toBeFocused()
     await page.keyboard.press('Enter')
@@ -897,7 +912,9 @@ test.describe('владелец организации', () => {
     await page.locator('input[name="opens-1"]').fill('07:00')
     const scheduleLocation = page.locator('#schedule-location')
     const firstLocation = await scheduleLocation.inputValue()
-    await scheduleLocation.selectOption({ label: 'Студия на Пресне (неактивна)' })
+    const switchPoint = page.getByRole('button', { name: /Студия на Пресне График/ })
+    if (await switchPoint.isVisible()) await switchPoint.click()
+    else await scheduleLocation.selectOption({ label: 'Студия на Пресне (неактивна)' })
     const switchDialog = page.getByRole('dialog', { name: 'Сохранить изменения графика?' })
     await switchDialog.getByRole('button', { name: 'К редактированию' }).click()
     await expect(scheduleLocation).toHaveValue(firstLocation)
@@ -1565,6 +1582,9 @@ test.describe('владелец организации', () => {
     await page.goto('/radar')
     await expect(page.getByRole('heading', { name: 'Radar' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Администрирование' })).toHaveCount(0)
+    await page.goto('/account')
+    await expect(page.getByRole('button', { name: 'Выйти' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Администрирование' })).toHaveCount(0)
   })
 
   test('этапы сделки: только разрешённые цели, конфликт при гонке и закрытие с подтверждением', async ({
@@ -1763,9 +1783,15 @@ test.describe('владелец организации', () => {
   test('гостевые страницы недоступны, выход возвращает на вход', async ({ page }) => {
     await page.goto('/login')
     await expect(page).toHaveURL(/\/radar$/)
-    // На телефоне кнопка выхода живёт в меню; на десктопе — в боковой панели.
-    const menu = page.getByRole('button', { name: 'Меню' })
-    if (await menu.isVisible()) await menu.click()
+    // На десктопе «Выйти» — в шапке Radar; на телефоне — на странице аккаунта (оболочка C).
+    const logout = page.getByRole('button', { name: 'Выйти' })
+    if (!(await logout.isVisible())) {
+      await page
+        .getByRole('link', { name: /^Аккаунт/ })
+        .filter({ visible: true })
+        .click()
+      await expect(page).toHaveURL(/\/account$/)
+    }
     await page.getByRole('button', { name: 'Выйти' }).click()
     await expect(page).toHaveURL(/\/login$/)
     await expect(page.getByRole('heading', { name: 'Вход в LidRadar' })).toBeVisible()
@@ -1791,11 +1817,10 @@ test.describe('менеджер организации', () => {
     await expectNoAxeViolations(page)
     if ((page.viewportSize()?.width ?? 0) >= 1024) {
       const sections = page.getByRole('navigation', { name: 'Разделы' })
-      await expect(
-        page.getByRole('navigation', { name: 'Настройки', exact: true }).getByRole('link', {
-          name: 'Настройки',
-        }),
-      ).toBeVisible()
+      await expect(page.getByRole('link', { name: 'Настройки', exact: true })).toHaveAttribute(
+        'aria-current',
+        'page',
+      )
       await expect(sections.getByRole('link', { name: 'Интеграции' })).toHaveCount(0)
     }
     // Согласие менеджер читает, но не меняет.
@@ -1848,10 +1873,13 @@ test.describe('администратор платформы', () => {
 
   test('обзор, каталоги и мёртвые письма с командами восстановления', async ({ page }) => {
     await page.goto('/radar')
-    // На телефоне ссылка живёт в модальном меню, на десктопе — в боковой панели.
-    if ((page.viewportSize()?.width ?? 0) < 768) {
-      await page.getByRole('button', { name: 'Меню' }).click()
-    }
+    // Оболочка C не добавляет новых входов: администрирование — прежним путём через «Аккаунт».
+    await expect(page.getByRole('heading', { name: 'Radar' })).toBeVisible()
+    await page
+      .getByRole('link', { name: /^Аккаунт/ })
+      .filter({ visible: true })
+      .click()
+    await expect(page).toHaveURL(/\/account$/)
     await page.getByRole('link', { name: 'Администрирование' }).first().click()
     await expect(page).toHaveURL(/\/admin$/)
     await expect(page.getByTestId('dead-unhandled')).toHaveText('4')
@@ -1954,5 +1982,282 @@ test.describe('администратор платформы', () => {
     await revoke.getByRole('button', { name: 'Отозвать' }).click()
     await expect(other).toContainText('Отозвано')
     await expect(other.getByRole('button', { name: 'Отозвать' })).toHaveCount(0)
+  })
+})
+
+/**
+ * Оболочка C Radar (ТЗ RADAR-LAYOUT, AC-RADAR-LAYOUT-01–16): размещение действий по ширинам,
+ * меню-панель и сохранённое представление ленты. Геометрию в пикселях сверяет визуальная
+ * съёмка; здесь — поведение, доступные имена и размеры областей нажатия.
+ */
+test.describe('оболочка Radar C', () => {
+  test.beforeEach(async ({ page }) => mockOwner(page))
+
+  test('сводка: суммы выровнены при разной длине подписей, заголовок не сливается с пояснением', async ({
+    page,
+  }) => {
+    await page.route('**/api/v1/radar**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          openRisks: 12,
+          criticalRisks: 3,
+          potentialRevenue: '281000.00',
+          confirmedRecoveredRevenue: '74000.00',
+          opportunitiesAtRisk: 12,
+          opportunitiesWithUnknownAmount: 2,
+        }),
+      }),
+    )
+    for (const width of [320, 344, 360, 375, 390, 834, 1440]) {
+      await page.setViewportSize({ width, height: 1000 })
+      await page.goto('/radar')
+      const summary = page.getByRole('region', { name: 'Сводка', exact: true })
+      await expect(summary.getByText('За всё время', { exact: true })).toBeVisible()
+      await page.evaluate(() => document.fonts.ready)
+      const values = summary.getByRole('listitem').locator('p:nth-child(2)')
+      const potential = (await values.nth(1).boundingBox())!
+      const recovered = (await values.nth(2).boundingBox())!
+      expect(Math.abs(potential.y - recovered.y)).toBeLessThanOrEqual(1)
+      for (const value of [values.nth(1), values.nth(2)]) {
+        const geometry = await value.evaluate((element) => {
+          const column = element.closest('li')!.getBoundingClientRect()
+          const range = document.createRange()
+          // Только видимое число, не отдельный маркер неизвестной суммы или sr-only пояснение.
+          range.selectNode(element.firstChild!)
+          return {
+            column: { left: column.left, right: column.right },
+            text: [...range.getClientRects()].map((rect) => ({
+              left: rect.left,
+              right: rect.right,
+            })),
+          }
+        })
+        for (const rect of geometry.text) {
+          expect(rect.left).toBeGreaterThanOrEqual(geometry.column.left)
+          expect(rect.right).toBeLessThanOrEqual(geometry.column.right)
+        }
+      }
+      if (width === 1440) {
+        expect((await summary.getByRole('list').boundingBox())!.height).toBe(136)
+      }
+      if (width >= 768) {
+        const title = (await page
+          .getByRole('heading', { name: 'Radar', exact: true })
+          .boundingBox())!
+        const subtitle = (await page
+          .getByText('Риски в переписке, которым нужно ваше внимание', { exact: true })
+          .boundingBox())!
+        expect(subtitle.y).toBeGreaterThanOrEqual(title.y + title.height)
+      }
+    }
+  })
+
+  test('desktop: разделы и рабочее пространство в колонке, аккаунт и выход — в шапке', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.goto('/radar')
+    await expect(page.getByRole('heading', { name: 'Radar' })).toBeVisible()
+    const aside = page.locator('aside')
+    const sections = aside.getByRole('navigation', { name: 'Разделы' })
+    await expect(sections.getByRole('link')).toHaveText([
+      'Radar',
+      'Диалоги',
+      'Аналитика',
+      'Интеграции',
+    ])
+    await expect(sections.getByRole('link', { name: 'Radar' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    // Профиль, роль, настройки и выход из колонки убраны: они в шапке (Figma 27:2766).
+    for (const name of ['Настройки', 'Аккаунт', 'Выйти', 'Администрирование']) {
+      await expect(aside.getByRole('link', { name })).toHaveCount(0)
+      await expect(aside.getByRole('button', { name })).toHaveCount(0)
+    }
+    await expect(aside.getByText('Владелец', { exact: true })).toHaveCount(0)
+    // Рабочее пространство закреплено внизу с отступом 24 px.
+    const workspace = aside.getByText('Рабочее пространство', { exact: true })
+    await expect(aside.getByText('Студия «Блик»')).toBeVisible()
+    const bottom = await workspace.evaluate((element) => {
+      const block = element.closest('aside > div')!.getBoundingClientRect()
+      return window.innerHeight - block.bottom
+    })
+    expect(bottom).toBe(24)
+
+    const main = page.getByRole('main')
+    // Контекст — один раз, в шапке оболочки; дата — в поясе организации.
+    const context = main.getByText(/Студия «Блик»\s+\/\s+Все точки/)
+    await expect(context).toHaveCount(1)
+    await expect(context.locator('..').getByText(/\d{4} · \d{2}:\d{2} МСК/)).toBeVisible()
+    await expect(main.getByText('Мария Владелец', { exact: true })).toBeVisible()
+    const settings = main.getByRole('link', { name: 'Настройки' })
+    await expect(settings).toHaveAttribute('title', 'Настройки')
+    for (const target of [settings, main.getByRole('link', { name: /^Аккаунт/ })]) {
+      const box = (await target.boundingBox())!
+      expect(box.height).toBe(44)
+      expect(box.width).toBeGreaterThanOrEqual(44)
+    }
+    const logout = main.getByRole('button', { name: 'Выйти' })
+    expect((await logout.boundingBox())!.height).toBe(44)
+    await expect(page.getByRole('button', { name: 'Выйти' })).toHaveCount(1)
+    await expect(page.getByRole('button', { name: 'Меню' })).toBeHidden()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+
+    // Деталь риска: та же оболочка, Radar остаётся выбранным, «К рискам» и обновление на месте.
+    await page
+      .getByRole('link', { name: /Разобрать риск: Дмитрий Соколов/ })
+      .first()
+      .click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Нет ответа клиенту' })).toBeVisible()
+    await expect(sections.getByRole('link', { name: 'Radar' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    await expect(main.getByRole('button', { name: 'Выйти' })).toBeVisible()
+    await expect(main.getByRole('link', { name: 'К рискам' })).toBeVisible()
+    await expect(main.getByRole('button', { name: 'Обновить' })).toBeVisible()
+    await expectNoAxeViolations(page)
+
+    await main.getByRole('link', { name: 'Настройки' }).click()
+    await expect(page).toHaveURL(/\/settings/)
+  })
+
+  test('планшет: шапка с именем и аккаунтом, контекст отдельной строкой, меню-панель 360 px', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 834, height: 1194 })
+    await page.goto('/radar')
+    await expect(page.getByRole('heading', { name: 'Radar' })).toBeVisible()
+    const appBar = page
+      .locator('header')
+      .filter({ has: page.getByRole('button', { name: 'Меню' }) })
+    expect((await appBar.boundingBox())!.height).toBe(72)
+    await expect(appBar.getByText('Мария Владелец', { exact: true })).toBeVisible()
+    await expect(appBar.getByRole('link', { name: /^Аккаунт/ })).toBeVisible()
+    await expect(appBar.getByRole('link', { name: 'Настройки' })).toBeVisible()
+    // Выход — на странице аккаунта, без дубля в шапке.
+    await expect(page.getByRole('button', { name: 'Выйти' })).toHaveCount(0)
+    await expect(page.getByRole('main').getByText(/Студия «Блик»\s+\/\s+Все точки/)).toBeVisible()
+    await expect(page.getByRole('group', { name: 'Представление' })).toBeVisible()
+
+    const trigger = page.getByRole('button', { name: 'Меню' })
+    // Клавиатурой: WebKit не переводит фокус на кнопку по клику, возвращать было бы некуда.
+    await trigger.press('Enter')
+    const menu = page.getByRole('dialog', { name: 'Меню' })
+    await expect(menu).toBeVisible()
+    expect((await menu.boundingBox())!.width).toBe(360)
+    const rows = menu.getByRole('navigation', { name: 'Разделы' }).getByRole('link')
+    await expect(rows).toHaveCount(4)
+    for (const row of await rows.all()) expect((await row.boundingBox())!.height).toBe(52)
+    await expect(menu.getByText('Рабочее пространство', { exact: true })).toBeVisible()
+    // Фон не прокручивается под открытым меню.
+    expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).toBe('hidden')
+    // Клик по подложке закрывает меню, фокус возвращается на кнопку.
+    await page.mouse.click(700, 600)
+    await expect(menu).toBeHidden()
+    await expect(trigger).toBeFocused()
+
+    // Escape тоже закрывает и возвращает фокус; фон снова прокручивается.
+    await trigger.press('Enter')
+    await expect(menu).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(menu).toBeHidden()
+    await expect(trigger).toBeFocused()
+    expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).not.toBe('hidden')
+
+    await trigger.click()
+    await menu.getByRole('link', { name: 'Диалоги' }).click()
+    await expect(page).toHaveURL(/\/conversations$/)
+    await expect(menu).toBeHidden()
+  })
+
+  test('телефон: инициалы из имени, доступное имя аккаунта, нет переключателя вида', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/radar')
+    await expect(page.getByRole('heading', { name: 'Radar' })).toBeVisible()
+    const account = page.getByRole('link', { name: 'Аккаунт, Мария Владелец' })
+    await expect(account).toHaveText('МВ')
+    const settings = page.getByRole('link', { name: 'Настройки' })
+    for (const target of [account, settings, page.getByRole('button', { name: 'Меню' })]) {
+      const box = (await target.boundingBox())!
+      expect([box.width, box.height]).toEqual([44, 44])
+    }
+    await expect(
+      page.getByText('Мария Владелец', { exact: true }).filter({ visible: true }),
+    ).toHaveCount(0)
+    await expect(page.getByRole('group', { name: 'Представление' })).toHaveCount(0)
+    // Сортировка, фильтры и вкладки статуса остаются.
+    await expect(page.getByText('Сначала важные ↓')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Фильтры' })).toBeVisible()
+    await expect(
+      page.getByRole('group', { name: 'Статус рисков' }).getByRole('button', { name: 'Новые' }),
+    ).toBeVisible()
+    await account.click()
+    await expect(page).toHaveURL(/\/account$/)
+  })
+
+  test('сохранённое представление «Список» переживает телефонную ширину', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.goto('/radar')
+    await page.getByRole('button', { name: 'Список' }).click()
+    await expect(page.getByRole('button', { name: 'Список' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(page.getByRole('group', { name: 'Представление' })).toHaveCount(0)
+    const card = page.getByRole('link', { name: /Разобрать риск: Дмитрий Соколов/ }).first()
+    await expect(card).toBeVisible()
+    await page.reload()
+    await expect(card).toBeVisible()
+    expect(await page.evaluate(() => localStorage.getItem('lidradar.radar.view'))).toBe('list')
+    await page.setViewportSize({ width: 834, height: 1194 })
+    await expect(page.getByRole('button', { name: 'Список' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+
+  test('320 px: меню не шире окна, крестик и рабочее пространство доступны', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 })
+    await page.goto(`/risks/${RISK_ID}`)
+    await expect(page.getByRole('heading', { level: 1, name: 'Нет ответа клиенту' })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.getByRole('button', { name: 'Меню' }).click()
+    const menu = page.getByRole('dialog', { name: 'Меню' })
+    const box = (await menu.boundingBox())!
+    expect(box.x).toBe(0)
+    expect(box.width).toBeLessThanOrEqual(320)
+    const close = menu.getByRole('button', { name: 'Закрыть' })
+    await expect(close).toBeInViewport()
+    await menu.getByText('Рабочее пространство', { exact: true }).scrollIntoViewIfNeeded()
+    await expect(menu.getByText('Рабочее пространство', { exact: true })).toBeInViewport()
+    await close.click()
+    await expect(menu).toBeHidden()
+  })
+
+  test('дата появляется только с часовым поясом организации; ошибка — не дата UTC', async ({
+    page,
+  }) => {
+    await page.route('**/api/v1/organization', (route) =>
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'INTERNAL', message: '', traceId: 't' } }),
+      }),
+    )
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.goto('/radar')
+    await expect(page.getByRole('heading', { name: 'Radar' })).toBeVisible()
+    const context = page.getByRole('main').getByText(/Студия «Блик»\s+\/\s+Все точки/)
+    await expect(context).toBeVisible()
+    // Строка контекста без даты; даты карточек рисков сюда не относятся.
+    await expect(context.locator('..').getByText(/\d{4} · \d{2}:\d{2}/)).toHaveCount(0)
+    await expect(context.locator('..').getByText(/UTC/)).toHaveCount(0)
   })
 })

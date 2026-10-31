@@ -499,7 +499,7 @@ const focusRing =
           Назад
         </UiButton>
         <UiButton
-          class="min-w-0 flex-1 md:w-[290px] md:flex-none"
+          class="min-w-0 flex-1 max-[360px]:whitespace-normal md:w-[290px] md:flex-none"
           :class="
             continueGrey
               ? 'bg-line! text-muted! opacity-100!'

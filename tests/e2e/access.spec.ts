@@ -1,6 +1,19 @@
-import { expect, test, type Locator, type Page, type Route } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
+import { relative } from 'node:path'
+import { expect, test, type Locator, type Page, type Route, type TestInfo } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 import { TENANT_ID, mockOwner } from './fixtures/api'
+
+/** Evidence принадлежит конкретному test/project/retry, а не историческому раунду. */
+async function captureRunEvidence(page: Page, info: TestInfo, filename: string): Promise<void> {
+  const path = info.outputPath(filename)
+  // Защита срабатывает до screenshot, если сюда вернётся hardcoded historical path.
+  expect(relative(info.outputDir, path)).toBe(filename)
+  await page.screenshot({ path, fullPage: true })
+  // Проверяется реально созданный PNG: guard не должен проверять неиспользуемую переменную.
+  expect((await readFile(path)).subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a')
+  await info.attach(filename, { path, contentType: 'image/png' })
+}
 
 /**
  * Доступ (F03). Регистрация US-M01-01 (A/B2/B3/C) и нейтральный отказ US-M01-02 — на сборке
@@ -1189,7 +1202,7 @@ test.describe('US-M01-01/02 · отправка, отказ и исход (T21�
 
   test('T25/G07: имя из 200 букв и действия шапки видимы без переполнения на 320/390/834/1440', async ({
     page,
-  }) => {
+  }, info) => {
     const state = await mockAccess(page)
     const name = 'Я'.repeat(200)
     state.register = async (body, route) => {
@@ -1217,10 +1230,7 @@ test.describe('US-M01-01/02 · отправка, отказ и исход (T21�
       expect(bounds.y).toBeGreaterThanOrEqual(0)
       const header = await box(page.locator('header'))
       expect(bounds.y + bounds.height).toBeLessThanOrEqual(header.y + header.height)
-      await page.screenshot({
-        path: `artifacts/frontend-v2/us-m01-01/R2-codex/header-${width}.png`,
-        fullPage: true,
-      })
+      await captureRunEvidence(page, info, `header-${width}.png`)
     }
   })
 
@@ -1609,7 +1619,7 @@ test.describe('новый пароль при открытой сессии: и�
   for (const width of [320, 390, 834, 1440]) {
     test(`длинный адрес переносится внутри карточки без прокрутки страницы (${width} px)`, async ({
       page,
-    }) => {
+    }, info) => {
       await page.setViewportSize({ width, height: 900 })
       await page.route('**/api/v1/auth/me', (route) =>
         json(route, 200, {
@@ -1649,10 +1659,7 @@ test.describe('новый пароль при открытой сессии: и�
         const overflow = await button.evaluate((el) => el.scrollWidth - el.clientWidth)
         expect(overflow, name).toBeLessThanOrEqual(0)
       }
-      await page.screenshot({
-        path: `artifacts/frontend-v2/F03/actual/reset-long-email-${width}.png`,
-        fullPage: true,
-      })
+      await captureRunEvidence(page, info, `reset-long-email-${width}.png`)
     })
   }
 

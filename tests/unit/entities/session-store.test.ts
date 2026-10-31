@@ -281,3 +281,25 @@ describe('назначенное закрытие аккаунта (ADR 0059)', 
     expect(session.deletionDueAt).toBeNull()
   })
 })
+
+describe('песочница (ADR 0066)', () => {
+  it('доступна по явному флагу API и сбрасывается при выходе', async () => {
+    vi.mocked(fetchMe).mockResolvedValue({ ...one, sandbox: true })
+    vi.mocked(logout).mockResolvedValue(undefined)
+    const session = useSessionStore()
+    await session.bootstrap()
+    expect(session.sandboxEnabled).toBe(true)
+    await session.logout()
+    expect(session.sandboxEnabled).toBe(false)
+  })
+  it('отсутствие флага после refresh закрывает доступ', async () => {
+    vi.mocked(fetchMe)
+      .mockResolvedValueOnce({ ...one, sandbox: true })
+      .mockResolvedValueOnce(one)
+    const session = useSessionStore()
+    await session.bootstrap()
+    expect(session.sandboxEnabled).toBe(true)
+    await session.refresh()
+    expect(session.sandboxEnabled).toBe(false)
+  })
+})

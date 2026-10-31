@@ -24,6 +24,7 @@ import { WEEKDAYS, describeDay, useLocationsQuery, type Location } from '@/entit
 import { OrganizationForm } from '@/features/edit-organization'
 import { LocationFormDialog } from '@/features/manage-locations'
 import { BusinessHoursEditor } from '@/features/edit-business-hours'
+import { useWorkspaceSwitchGuard } from '@/features/select-workspace'
 import SettingsPageHead from './SettingsPageHead.vue'
 
 const session = useSessionStore()
@@ -33,6 +34,15 @@ const locations = useLocationsQuery(() => session.tenantId)
 
 const selectedId = ref<string | null>(null)
 const hoursDirty = ref(false)
+const hoursBusy = ref(false)
+watch(tenantId, () => {
+  selectedId.value = null
+  hoursDirty.value = false
+  hoursBusy.value = false
+  dialogOpen.value = false
+  editing.value = null
+  decideLeave(false)
+})
 const allLocations = computed(() => locations.data.value ?? [])
 watch(
   allLocations,
@@ -78,18 +88,34 @@ watch(leaveOpen, (isOpen) => {
 })
 
 const selectKey = ref(0)
-async function selectLocation(id: string | undefined): Promise<void> {
-  if (!id || id === selectedId.value) return
+async function selectLocation(id: string | undefined, trigger?: HTMLElement): Promise<void> {
+  if (!id || id === selectedId.value || hoursBusy.value) return
+  const origin =
+    trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null)
+  origin?.focus()
   if (hoursDirty.value && !(await askToLeave())) {
     selectKey.value += 1 // нативный список показывает выбранное: возвращаем прежнюю точку
     await nextTick()
-    document.getElementById('schedule-location')?.focus()
+    if (origin?.isConnected) origin.focus()
+    else document.getElementById('schedule-location')?.focus()
     return
   }
   selectedId.value = id
 }
 
-onBeforeRouteLeave(() => (hoursDirty.value ? askToLeave() : true))
+async function confirmDeparture(): Promise<boolean> {
+  if (hoursBusy.value) return false
+  if (!hoursDirty.value) return true
+  const origin = document.activeElement instanceof HTMLElement ? document.activeElement : null
+  const leave = await askToLeave()
+  if (!leave) {
+    await nextTick()
+    if (origin?.isConnected) origin.focus()
+  }
+  return leave
+}
+onBeforeRouteLeave(confirmDeparture)
+useWorkspaceSwitchGuard(confirmDeparture)
 function beforeUnload(event: BeforeUnloadEvent): void {
   if (!hoursDirty.value) return
   event.preventDefault()
@@ -135,12 +161,13 @@ function openEdit(location: Location): void {
 <template>
   <div class="flex flex-col md:max-lg:-mx-2">
     <SettingsPageHead
+      class="lg:[&_header]:gap-2"
       title="Компания и график"
       subtitle="Параметры компании, точки и рабочее время для проверки рисков."
     />
 
     <div
-      v-if="!(locations.isSuccess.value && !allLocations.length)"
+      v-if="!(locations.data.value && !allLocations.length)"
       class="flex h-[116px] items-start pt-[25px] lg:h-[94px] lg:items-center lg:pt-0"
     >
       <div v-if="refreshFailed" class="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
@@ -177,15 +204,17 @@ function openEdit(location: Location): void {
     </div>
     <div v-else class="h-6" />
 
-    <div class="grid gap-6 md:grid-cols-2 md:items-start">
+    <div
+      class="grid gap-6 md:grid-cols-2 md:items-start md:gap-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-stretch"
+    >
       <section
         aria-labelledby="company-title"
         :class="[
-          'min-w-0 rounded-[20px] border border-hairline bg-paper p-4 md:p-6',
-          organization.isPending.value ? 'lg:min-h-[390px]' : '',
+          'min-w-0 rounded-[20px] border border-hairline bg-paper p-4 md:p-6 lg:rounded-[18px] lg:col-span-2',
+          organization.isPending.value ? 'lg:min-h-[230px]' : '',
         ]"
       >
-        <div class="flex min-h-[46px] items-center">
+        <div class="flex items-center max-lg:min-h-[46px]">
           <h2 id="company-title" class="text-xl leading-7 font-semibold text-ink">Компания</h2>
         </div>
         <div class="mt-4">
@@ -195,10 +224,28 @@ function openEdit(location: Location): void {
             aria-label="Загрузка компании"
             class="flex flex-col gap-4"
           >
-            <UiSkeleton class="bg-line! h-2.5 w-1/3" />
-            <UiSkeleton class="bg-line! h-input w-full" />
-            <UiSkeleton class="bg-line! h-2.5 w-2/3" />
-            <UiSkeleton class="bg-line! h-input w-full" />
+            <div class="flex flex-col gap-4 lg:hidden">
+              <UiSkeleton class="bg-line! h-2.5 w-1/3" />
+              <UiSkeleton class="bg-line! h-input w-full" />
+              <UiSkeleton class="bg-line! h-2.5 w-2/3" />
+              <UiSkeleton class="bg-line! h-input w-full" />
+            </div>
+            <div
+              class="hidden gap-4 lg:grid lg:grid-cols-[minmax(0,1.875fr)_minmax(0,1fr)_minmax(0,1fr)]"
+            >
+              <div
+                v-for="label in ['Название компании', 'Основная валюта', 'Часовой пояс']"
+                :key="label"
+                class="min-w-0"
+              >
+                <p class="mb-2 text-sm font-medium text-ink">{{ label }}</p>
+                <UiSkeleton class="bg-line! h-input w-full" />
+              </div>
+            </div>
+            <div class="hidden flex-wrap items-center justify-between gap-4 lg:flex">
+              <UiSkeleton class="bg-line! h-2.5 w-2/3" />
+              <UiSkeleton class="bg-line! h-2.5 w-40" />
+            </div>
           </div>
           <UiErrorState
             v-else-if="!organization.data.value"
@@ -206,14 +253,19 @@ function openEdit(location: Location): void {
             title="Не удалось загрузить компанию"
             @retry="organization.refetch()"
           />
-          <OrganizationForm v-else :tenant-id="tenantId" :organization="organization.data.value" />
+          <OrganizationForm
+            v-else
+            :key="tenantId"
+            :tenant-id="tenantId"
+            :organization="organization.data.value"
+          />
         </div>
       </section>
 
       <section
-        v-if="locations.isSuccess.value && !allLocations.length"
+        v-if="locations.data.value && !allLocations.length"
         aria-labelledby="locations-title"
-        class="flex min-w-0 flex-col gap-3 rounded-[20px] border border-hairline bg-paper p-4 md:p-6"
+        class="flex min-w-0 flex-col gap-3 rounded-[20px] border border-hairline bg-paper p-4 md:p-6 lg:rounded-[18px]"
       >
         <h2 id="locations-title" class="text-xl leading-7 font-semibold text-ink">
           Точек пока нет
@@ -228,7 +280,7 @@ function openEdit(location: Location): void {
       <section
         v-else
         aria-labelledby="locations-title"
-        class="min-w-0 rounded-[20px] border border-hairline bg-paper p-4 md:p-6"
+        class="min-w-0 rounded-[20px] border border-hairline bg-paper p-4 md:p-6 lg:rounded-[18px] lg:col-start-1"
       >
         <div
           class="flex min-h-[46px] flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-3"
@@ -236,15 +288,18 @@ function openEdit(location: Location): void {
           <h2 id="locations-title" class="text-xl leading-7 font-semibold text-ink">Точки</h2>
           <UiButton
             v-if="!locations.isPending.value"
-            variant="secondary"
-            class="w-full lg:w-auto"
+            variant="primary"
+            class="w-full max-lg:border max-lg:border-line max-lg:bg-paper max-lg:text-ink lg:size-[46px] lg:shrink-0 lg:p-0"
+            :disabled="hoursBusy"
+            aria-label="Добавить точку"
             @click="openCreate"
           >
-            Добавить точку
+            <span class="lg:hidden">Добавить точку</span>
+            <span class="hidden lg:block"><UiGlyph name="plus" class="size-5" /></span>
           </UiButton>
           <UiSkeleton v-else class="h-3 w-28" />
         </div>
-        <div class="mt-4 border-t border-hairline">
+        <div class="mt-4 border-t border-hairline lg:border-0">
           <div
             v-if="locations.isPending.value"
             role="status"
@@ -262,27 +317,71 @@ function openEdit(location: Location): void {
             title="Не удалось загрузить точки"
             @retry="locations.refetch()"
           />
-          <ul v-else class="divide-y divide-hairline" aria-label="Список точек">
-            <li v-for="location in allLocations" :key="location.id" class="flex flex-col py-4">
-              <div class="flex items-center justify-between gap-3">
-                <p class="text-base leading-6 font-semibold text-ink">{{ location.name }}</p>
+          <ul
+            v-else
+            class="divide-y divide-hairline lg:divide-y-0 lg:space-y-4"
+            aria-label="Список точек"
+          >
+            <li
+              v-for="location in allLocations"
+              :key="location.id"
+              class="flex min-w-0 flex-col py-4 lg:py-0"
+            >
+              <div
+                :class="[
+                  'hidden min-w-0 items-start rounded-field border lg:flex',
+                  selectedId === location.id ? 'border-[#b4ceff] bg-[#eaf2ff]' : 'border-hairline',
+                ]"
+              >
+                <button
+                  type="button"
+                  class="min-h-[72px] min-w-0 flex-1 rounded-field px-3 py-3 text-left"
+                  :aria-pressed="selectedId === location.id"
+                  :disabled="hoursBusy"
+                  @click="selectLocation(location.id, $event.currentTarget as HTMLElement)"
+                >
+                  <span class="block break-words text-base leading-[22px] font-medium text-ink">{{
+                    location.name
+                  }}</span>
+                  <span class="mt-2 block text-xs text-secondary">{{
+                    location.businessHours.length ? 'График сохранён' : 'График не сохранён'
+                  }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="mr-3 flex size-11 shrink-0 items-center justify-center rounded-field text-brand"
+                  aria-label="Изменить точку"
+                  :disabled="hoursBusy"
+                  @click="openEdit(location)"
+                >
+                  <UiGlyph name="pencil" class="size-[18px]" />
+                </button>
+              </div>
+              <div class="flex items-center justify-between gap-3 lg:contents">
+                <p class="text-base leading-6 font-semibold text-ink lg:hidden">
+                  {{ location.name }}
+                </p>
                 <span
                   :class="[
-                    'inline-flex h-[26px] items-center rounded-full px-3 text-xs',
+                    'inline-flex h-[26px] items-center rounded-full px-3 text-xs lg:order-last lg:mt-4 lg:h-7 lg:w-fit lg:px-2.5',
                     location.active ? 'bg-success-pale text-success' : 'bg-segment text-secondary',
                   ]"
                 >
                   {{ location.active ? 'Активна' : 'Неактивна' }}
                 </span>
               </div>
-              <div class="mt-3 text-sm leading-5 text-secondary max-lg:text-base max-lg:leading-6">
+              <div
+                class="mt-4 break-words text-sm leading-5 text-secondary max-lg:mt-3 max-lg:text-base max-lg:leading-6"
+              >
                 <p>{{ timeZoneLabel(location.timezone) }}</p>
                 <p>Порог ответа: {{ location.responseThresholdMinutes }} рабочих минут</p>
                 <p>
-                  Ожидание следующего шага: {{ location.agreementThresholdMinutes }} рабочих минут
+                  <span class="lg:hidden">Ожидание следующего шага:</span
+                  ><span class="hidden lg:inline">Следующий шаг:</span>
+                  {{ location.agreementThresholdMinutes }} рабочих минут
                 </p>
               </div>
-              <p class="mt-2.5 text-xs leading-[18px] text-secondary">
+              <p class="mt-2.5 text-xs leading-[18px] text-secondary lg:hidden">
                 <template v-if="location.businessHours.length">
                   График: пн
                   {{
@@ -298,7 +397,8 @@ function openEdit(location: Location): void {
               </p>
               <UiButton
                 variant="plain"
-                class="mt-2.5 w-full text-field lg:w-[220px]"
+                class="mt-2.5 w-full text-field lg:hidden"
+                :disabled="hoursBusy"
                 @click="openEdit(location)"
               >
                 Изменить точку
@@ -307,96 +407,134 @@ function openEdit(location: Location): void {
           </ul>
         </div>
       </section>
-    </div>
-
-    <section
-      v-if="selected"
-      aria-labelledby="schedule-title"
-      class="mt-6 min-w-0 rounded-[20px] border border-hairline bg-paper p-4 md:p-6"
-    >
-      <div class="flex items-center justify-between gap-3">
-        <h2 id="schedule-title" class="text-xl leading-7 font-semibold text-ink">График работы</h2>
-        <span
-          class="inline-flex h-[26px] items-center rounded-full bg-segment px-3 text-xs text-secondary"
-        >
-          {{ selected.businessHours.length ? 'Сохранён' : 'Не сохранён' }}
-        </span>
-      </div>
-      <p class="mt-1.5 text-sm leading-5 text-secondary">
-        {{ selected.name }} · {{ timeZoneLabel(selected.timezone).replace(' · ', ', ') }}
-      </p>
-      <label
-        v-if="locationOptions.length > 1"
-        class="mt-4 flex max-w-sm flex-col gap-2 text-sm font-medium text-ink"
+      <section
+        v-if="selected"
+        aria-labelledby="schedule-title"
+        class="min-w-0 rounded-[20px] border border-hairline bg-paper p-4 md:col-span-2 md:p-6 lg:col-span-1 lg:col-start-2 lg:row-start-2 lg:rounded-[18px]"
       >
-        Точка
-        <UiSelect
-          id="schedule-location"
-          :key="selectKey"
-          :model-value="selectedId ?? ''"
-          :options="locationOptions"
-          @update:model-value="selectLocation"
-        />
-      </label>
-      <div class="mt-3">
-        <BusinessHoursEditor
-          :key="selected.id"
-          :tenant-id="tenantId"
-          :location="selected"
-          appearance="settings"
-          :intro="
-            selected.businessHours.length
-              ? 'Вне рабочего графика счётчик ожидания не растёт.'
-              : 'Часы ниже — черновик для первой настройки. Вне рабочего графика счётчик ожидания не растёт.'
-          "
-          @update:dirty="hoursDirty = $event"
-        />
-      </div>
-    </section>
-    <section
-      v-else-if="locations.isSuccess.value"
-      aria-labelledby="schedule-title"
-      class="mt-6 flex min-h-[180px] min-w-0 flex-col gap-3 rounded-[20px] border border-hairline bg-paper p-4 md:p-6"
-    >
-      <h2 id="schedule-title" class="text-xl leading-7 font-semibold text-ink">
-        График появится после добавления точки
-      </h2>
-      <p class="text-sm leading-5 text-secondary">
-        Для каждой точки задаётся своя неделя и местное время.
-      </p>
-    </section>
-    <section
-      v-else
-      aria-labelledby="schedule-title"
-      class="mt-6 min-h-[660px] min-w-0 rounded-[20px] border border-hairline bg-paper p-4 md:p-6"
-    >
-      <h2 id="schedule-title" class="text-xl leading-7 font-semibold text-ink">График работы</h2>
-      <div role="status" aria-label="Загрузка графика" class="mt-3 flex flex-col">
-        <UiSkeleton class="bg-line! h-3 w-3/4" />
-        <UiSkeleton class="bg-line! mt-5 h-3 w-2/3" />
-        <UiSkeleton class="bg-line! mt-8 h-3 w-1/4" />
-        <ul class="mt-10 flex flex-col">
-          <li
-            v-for="day in WEEKDAYS"
-            :key="day.weekday"
-            class="flex h-[54px] items-center justify-between border-t border-transparent pl-[46px]"
+        <div class="flex items-center justify-between gap-3">
+          <h2
+            id="schedule-title"
+            class="min-w-0 break-words text-xl leading-7 font-semibold text-ink"
           >
-            <span class="text-note font-semibold text-ink">{{ day.label }}</span>
-            <UiSkeleton class="bg-line! h-3 w-40" />
-          </li>
-        </ul>
-        <div class="mt-4 flex items-center justify-between">
-          <UiSkeleton class="bg-line! h-3 w-2/3" />
-          <UiSkeleton class="bg-line! h-3 w-40" />
+            <span class="lg:hidden">График работы</span
+            ><span class="hidden lg:inline">График · {{ selected.name }}</span>
+          </h2>
+          <span
+            class="inline-flex h-[26px] items-center rounded-full bg-segment px-3 text-xs text-secondary"
+          >
+            {{ selected.businessHours.length && !hoursDirty ? 'Сохранён' : 'Не сохранён' }}
+          </span>
         </div>
-      </div>
-    </section>
+        <p class="mt-1.5 text-sm leading-5 text-secondary lg:mt-2">
+          <span class="lg:hidden">{{ selected.name }} · </span
+          >{{ timeZoneLabel(selected.timezone) }}
+        </p>
+        <label
+          v-if="locationOptions.length > 1"
+          class="mt-4 flex min-w-0 max-w-sm flex-col gap-2 text-sm font-medium text-ink lg:hidden"
+        >
+          Точка
+          <UiSelect
+            id="schedule-location"
+            :key="selectKey"
+            class="min-w-0 overflow-hidden text-ellipsis"
+            :disabled="hoursBusy"
+            :model-value="selectedId ?? ''"
+            :options="locationOptions"
+            @change="
+              selectLocation(
+                ($event.target as HTMLSelectElement).value,
+                $event.target as HTMLElement,
+              )
+            "
+          />
+        </label>
+        <div class="mt-3 lg:mt-4">
+          <BusinessHoursEditor
+            :key="`${tenantId}:${selected.id}`"
+            :tenant-id="tenantId"
+            :location="selected"
+            appearance="settings"
+            :intro="
+              selected.businessHours.length
+                ? 'Вне рабочего графика счётчик ожидания не растёт.'
+                : 'Часы ниже — черновик для первой настройки.\nВне рабочего графика счётчик ожидания не растёт.'
+            "
+            @update:dirty="hoursDirty = $event"
+            @busy="hoursBusy = $event"
+          />
+        </div>
+      </section>
+      <section
+        v-else-if="locations.data.value"
+        aria-labelledby="schedule-title"
+        class="md:col-span-2 lg:col-span-1 lg:col-start-2 flex min-h-[180px] min-w-0 flex-col gap-3 rounded-[20px] border border-hairline bg-paper p-4 md:p-6 lg:rounded-[18px]"
+      >
+        <h2
+          id="schedule-title"
+          class="min-w-0 break-words text-xl leading-7 font-semibold text-ink"
+        >
+          График появится после добавления точки
+        </h2>
+        <p class="text-sm leading-5 text-secondary">
+          Для каждой точки задаётся своя неделя и местное время.
+        </p>
+      </section>
+      <section
+        v-else-if="locations.isError.value"
+        aria-labelledby="schedule-title"
+        class="min-w-0 rounded-[20px] border border-hairline bg-paper p-4 md:col-span-2 md:p-6 lg:col-span-1 lg:col-start-2 lg:row-start-2 lg:rounded-[18px]"
+      >
+        <h2
+          id="schedule-title"
+          class="min-w-0 break-words text-xl leading-7 font-semibold text-ink"
+        >
+          График недоступен
+        </h2>
+        <p class="mt-3 text-sm text-secondary">
+          Сначала повторите загрузку точек. Сохранённые графики не изменены.
+        </p>
+      </section>
+      <section
+        v-else
+        aria-labelledby="schedule-title"
+        class="md:col-span-2 lg:col-span-1 lg:col-start-2 lg:row-start-2 min-h-[660px] min-w-0 rounded-[20px] border border-hairline bg-paper p-4 md:p-6 lg:rounded-[18px]"
+      >
+        <h2
+          id="schedule-title"
+          class="min-w-0 break-words text-xl leading-7 font-semibold text-ink"
+        >
+          График работы
+        </h2>
+        <div role="status" aria-label="Загрузка графика" class="mt-3 flex flex-col">
+          <UiSkeleton class="bg-line! h-3 w-3/4" />
+          <UiSkeleton class="bg-line! mt-5 h-3 w-2/3" />
+          <UiSkeleton class="bg-line! mt-8 h-3 w-1/4" />
+          <ul class="mt-10 flex flex-col">
+            <li
+              v-for="day in WEEKDAYS"
+              :key="day.weekday"
+              class="flex h-[54px] items-center justify-between border-t border-transparent pl-[46px]"
+            >
+              <span class="text-note font-semibold text-ink">{{ day.label }}</span>
+              <UiSkeleton class="bg-line! h-3 w-40" />
+            </li>
+          </ul>
+          <div class="mt-4 flex items-center justify-between">
+            <UiSkeleton class="bg-line! h-3 w-2/3" />
+            <UiSkeleton class="bg-line! h-3 w-40" />
+          </div>
+        </div>
+      </section>
+    </div>
 
     <UiSheetDialog
       v-model:open="leaveOpen"
       title="Сохранить изменения графика?"
       description="У вас есть несохранённые изменения недельного расписания."
       description-in-body
+      settings-form
       size="sm"
       footer-fill
     >
@@ -415,6 +553,7 @@ function openEdit(location: Location): void {
     </UiSheetDialog>
 
     <LocationFormDialog
+      :key="tenantId"
       v-model:open="dialogOpen"
       :tenant-id="tenantId"
       :location="editing"

@@ -1,0 +1,64 @@
+{
+  "decisionDate": "2026-10-30",
+  "plannedReleaseDate": "2026-11-01",
+  "validUntil": "actual-release",
+  "scope": {
+    "access": "NO_MOCKUP_CHANGES",
+    "onboarding": "NO_MOCKUP_CHANGES",
+    "radar": "NO_MAJOR_CHANGES; targeted defect fixes allowed within selected design"
+  },
+  "policyDocument": "docs/frontend-v2/DESIGN-FREEZE.md",
+  "baseline": {
+    "path": "docs/frontend-v2/evidence/design-freeze-2026-10-30/baseline.json",
+    "sha256": "30f2e1d42f31482e7913f7caff65a24cc66ae817ad2811359b54a4244275bfd8",
+    "indexSectionSHA256": {
+      "access": "98d9d3a04128d3b2ec21e7f3cffbcae7d98ad4a46b5168216ae8b0780d450e88",
+      "onboarding": "e1b6710333ad5157072ebd7fac0b57c74b18bbd7d705e9d7c5d67105cd44e6e7",
+      "radar": "1c5523f4472f2a3049f9c6cc69677fc6943f8a1d8ec2ab845d1b480af4b9e6f1"
+    },
+    "captureKind": "Selected source-index sections and existing decisions; no new Figma export or acceptance"
+  },
+  "head": "4e175e914719f380dcadb05ccf28d34e9de08439",
+  "branch": "frontend/v2-implementation",
+  "inputsSHA256": {
+    "AGENTS.md": "743ce6a1ec10e33a85050e5282096c314389082c58ac62e22a0646c3f88606de",
+    "CLAUDE.md": "dc7873d6f5b1ce2b65d6eccd09649941a285493afbb035f69347be6d627a314a",
+    "DESIGN.md": "52eb7747569fb1e612a9b3ee98a18a2ad54a20d46a3a416504e40fd925b8c52d",
+    "docs/frontend-v2/DESIGN-FREEZE.md": "76f003caf203344d51f978809fd1fbfee6db067712334ddd19bebbba4ba7d435",
+    "docs/frontend-v2/WORKFLOW.md": "a8be51ed89b9c90d8d8701bd70119fda94bc4b7d32fde176e3ad4a9f0b1f233d",
+    "docs/frontend-v2/SOURCES.md": "e2af03f2283bee96aaa9d9cfb571b17c6f972c064920801bb5bdc99d7b13567d",
+    "docs/frontend-v2/RELEASE-SCOPE.md": "ea3be08589fa4ad52e8937c232832220041ad88126030c53ece89645eb4fd9b3",
+    "docs/frontend-v2/STATUS.md": "a7cd6bf17512f4168b370b6d53fc6d9135aa7a18f7bdfa96c3961cbada99c718",
+    "docs/frontend-v2/design-index.json": "51969e37b9c939bb1a1b5fe53b614560f8562b12a02f3a27fc9e5598fba8ab92",
+    "docs/frontend-v2/evidence/design-freeze-2026-10-30/baseline.json": "30f2e1d42f31482e7913f7caff65a24cc66ae817ad2811359b54a4244275bfd8"
+  },
+  "docsReview": {
+    "verdict": "PASS",
+    "findings": 0,
+    "path": "artifacts/frontend-v2/design-freeze-2026-10-30/review.md",
+    "sha256": "fe984af2954fe76d1c7a63cf6a20d2ad09694b1698eac10013beff4357777cee",
+    "inputsUnchanged": 10,
+    "areaSectionsUnchanged": 3
+  },
+  "commands": [
+    {
+      "command": "Node24.19 Prettier --check ten policy/index/baseline files",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --check targeted guards/docs/index",
+      "exitCode": 0
+    },
+    {
+      "command": "Python policy modes, baseline SHA256, source-index3/3 and local links assertions",
+      "exitCode": 0
+    }
+  ],
+  "figmaMutations": 0,
+  "runtimeMutations": 0,
+  "TEST": "NOT_RUN",
+  "FUNCTIONAL": "NOT_RUN",
+  "UI": "NOT_RUN",
+  "stage": "NOT_RUN",
+  "note": "Policy and source-index snapshot only; no Figma version/permission lock or new product acceptance."
+}

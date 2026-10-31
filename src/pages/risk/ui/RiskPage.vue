@@ -30,7 +30,7 @@ const backTarget = computed<RouteLocationRaw>(() => {
 </script>
 
 <template>
-  <div class="-mt-2 flex flex-col gap-5 md:mt-0">
+  <div class="flex flex-col gap-5">
     <RiskWorkspace
       v-if="riskId && session.tenantId"
       :tenant-id="session.tenantId"

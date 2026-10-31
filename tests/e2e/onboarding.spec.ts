@@ -130,6 +130,149 @@ test.describe('шаг 1 «Компания» (US-M02-01)', () => {
 })
 
 test.describe('шаг 2 «Точки и графики» (US-M02-04)', () => {
+  for (const width of [320, 344, 360, 375, 390, 768, 834, 1024, 1440]) {
+    test(`Codex-R4 / AC-22: подпись кнопки внутри границ во всех состояниях (${width} px)`, async ({
+      page,
+      browserName,
+      browser,
+    }, info) => {
+      await page.setViewportSize({ width, height: width === 834 ? 1194 : width < 768 ? 844 : 1000 })
+      await page.clock.setFixedTime(new Date('2026-10-30T09:00:00Z'))
+      await mockOwner(page)
+      const writes: string[] = []
+      page.on('request', (request) => {
+        if (
+          ['POST', 'PUT', 'PATCH'].includes(request.method()) &&
+          request.url().includes('/locations')
+        )
+          writes.push(request.method())
+      })
+      await page.goto('/onboarding/location')
+      await page.getByRole('button', { name: 'Сохранить график', exact: true }).click()
+      const next = page.getByTestId('location-continue')
+      const back = page.getByRole('button', { name: 'Назад', exact: true })
+      const states: object[] = []
+      let initialSize: { width: number; height: number } | undefined
+      const check = async (state: string) => {
+        await page.evaluate(() => document.fonts.ready)
+        await next.scrollIntoViewIfNeeded()
+        const geometry = await next.evaluate((element) => {
+          const box = element.getBoundingClientRect()
+          const rectangles = []
+          const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            if (!node.textContent?.trim() || node.parentElement?.closest('.sr-only')) continue
+            const range = document.createRange()
+            range.selectNodeContents(node)
+            for (const rect of range.getClientRects()) {
+              if (rect.width > 0 && rect.height > 0)
+                rectangles.push({
+                  left: rect.left,
+                  right: rect.right,
+                  top: rect.top,
+                  bottom: rect.bottom,
+                })
+            }
+          }
+          return {
+            button: {
+              left: box.left,
+              right: box.right,
+              top: box.top,
+              bottom: box.bottom,
+              width: box.width,
+              height: box.height,
+            },
+            text: rectangles,
+            icons: [...element.querySelectorAll('svg')].map((icon) => {
+              const rect = icon.getBoundingClientRect()
+              return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom }
+            }),
+            fontSize: getComputedStyle(element).fontSize,
+            viewport: { width: innerWidth, height: innerHeight },
+          }
+        })
+        expect(geometry.text.length).toBeGreaterThan(0)
+        for (const text of [...geometry.text, ...geometry.icons]) {
+          expect(text.left).toBeGreaterThanOrEqual(geometry.button.left - 1)
+          expect(text.right).toBeLessThanOrEqual(geometry.button.right + 1)
+          expect(text.top).toBeGreaterThanOrEqual(geometry.button.top - 1)
+          expect(text.bottom).toBeLessThanOrEqual(geometry.button.bottom + 1)
+        }
+        for (const icon of geometry.icons)
+          expect(icon.right).toBeLessThanOrEqual(
+            Math.min(...geometry.text.map((rect) => rect.left)),
+          )
+        expect(geometry.button.top).toBeGreaterThanOrEqual(0)
+        expect(geometry.button.bottom).toBeLessThanOrEqual(geometry.viewport.height)
+        const previous = (await back.boundingBox())!
+        expect(previous.x + previous.width).toBeLessThanOrEqual(geometry.button.left)
+        expect(geometry.button.height).toBe(46)
+        if (initialSize) {
+          expect(geometry.button.width).toBe(initialSize.width)
+          expect(geometry.button.height).toBe(initialSize.height)
+        } else initialSize = geometry.button
+        await page.mouse.move(0, 0)
+        await page.evaluate(
+          () => document.activeElement instanceof HTMLElement && document.activeElement.blur(),
+        )
+        const image = info.outputPath(`footer-${width}-${state}.png`)
+        await page.screenshot({ path: image })
+        await info.attach(`footer-${state}`, { path: image, contentType: 'image/png' })
+        states.push({ state, image, ...geometry })
+      }
+      await expect(next).toBeEnabled()
+      await check('enabled')
+      await page.locator('input[name="opens-1"]').fill('20:00')
+      await page.locator('input[name="closes-1"]').fill('09:00')
+      await expect(next).toBeDisabled()
+      await check('disabled')
+      await page.locator('input[name="opens-1"]').fill('11:00')
+      await page.locator('input[name="closes-1"]').fill('19:00')
+      let release!: () => void
+      const held = new Promise<void>((resolve) => (release = resolve))
+      const hoursUrl = '**/api/v1/locations/*/business-hours'
+      await page.route(hoursUrl, async (route) => {
+        await held
+        await json(route, 400, {
+          error: { code: 'VALIDATION_ERROR', message: '', traceId: 'footer-test' },
+        })
+      })
+      await next.click()
+      await expect(next).toHaveAttribute('aria-busy', 'true')
+      await expect(back).toBeDisabled()
+      await check('saving')
+      release()
+      await expect(next).toHaveText('Повторить сохранение')
+      await expect(next).toBeEnabled()
+      await check('retry')
+      await page.unroute(hoursUrl)
+      await next.click()
+      await expect(page).toHaveURL(/\/onboarding\/services$/)
+      expect(writes).toEqual(['PUT', 'PUT', 'PUT'])
+      await info.attach('footer-geometry', {
+        body: JSON.stringify(
+          {
+            width,
+            browserName,
+            browserVersion: browser.version(),
+            project: info.project.name,
+            environment: await page.evaluate(() => ({
+              locale: navigator.language,
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              dpr: devicePixelRatio,
+            })),
+            clock: '2026-10-30T09:00:00Z',
+            states,
+          },
+          null,
+          2,
+        ),
+        contentType: 'application/json',
+      })
+    })
+  }
+
   test('восстановление default, создание POST → PUT, черновики по точкам, ошибка другой точки, переход к услугам', async ({
     page,
   }) => {

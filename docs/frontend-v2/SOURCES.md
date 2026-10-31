@@ -1,5 +1,10 @@
 # Источники и приоритеты
 
+Решение владельца 30.10.2026: до релиза 01.11.2026 соблюдать
+[DESIGN-FREEZE.md](DESIGN-FREEZE.md) и `releaseDesignFreeze` в design-index.
+Макеты Доступа/Онбординга не менять, Radar не подвергать крупным изменениям;
+реализация и QA используют текущие зафиксированные источники.
+
 ## Локальные корни
 
 - Frontend (единственная область правок): `/Users/aleksandrkisler/Develop/LidradarWorksapce/Lidradar-front`.

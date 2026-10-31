@@ -40,6 +40,8 @@ const props = withDefaults(
     concealed?: boolean | undefined
     /** На планшете — поля и пояснение как на десктопе (окна шага «Точки и графики»). */
     tabletAsDesktop?: boolean | undefined
+    /** Только desktop формы настроек: gap24 после описания, pb24 с сохранением footer. */
+    settingsForm?: boolean | undefined
   }>(),
   {
     description: '',
@@ -52,6 +54,7 @@ const props = withDefaults(
     descriptionStrong: false,
     concealed: false,
     tabletAsDesktop: false,
+    settingsForm: false,
   },
 )
 
@@ -144,6 +147,7 @@ function guard(event: Event): void {
             'min-h-0 flex-1 overflow-y-auto pb-6',
             pad,
             footerFill ? (tabletAsDesktop ? 'md:pb-6' : 'md:pb-8') : 'md:pb-7',
+            settingsForm ? 'lg:pb-6' : '',
             $slots.toolbar ? 'pt-4' : 'pt-[22px] md:pt-[30px]',
           ]"
         >
@@ -153,6 +157,7 @@ function guard(event: Event): void {
               tabletAsDesktop
                 ? 'mb-4 text-field leading-6 text-muted md:mb-6 md:text-sm md:leading-5'
                 : 'mb-4 text-base leading-6 text-muted lg:text-sm lg:leading-5',
+              settingsForm ? 'lg:mb-6' : '',
               descriptionStrong
                 ? tabletAsDesktop
                   ? 'font-semibold md:font-normal'
@@ -175,6 +180,7 @@ function guard(event: Event): void {
           <div
             :class="[
               'flex gap-3 md:flex-row',
+              settingsForm ? 'lg:grid lg:grid-cols-2 lg:gap-4' : '',
               footerFill ? 'flex-col md:w-full md:[&>*]:flex-1' : 'flex-col-reverse md:ml-auto',
             ]"
           >

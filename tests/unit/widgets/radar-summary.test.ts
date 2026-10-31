@@ -62,3 +62,14 @@ describe('Radar summary: неудачное обновление', () => {
     wrapper.unmount()
   })
 })
+
+describe('Radar summary: подписи по RELEASE-SCOPE', () => {
+  it('возвращённая выручка подписана «За всё время», без выдуманного периода', () => {
+    const wrapper = mount(RadarSummary, {
+      props: { summary, currency: 'RUB', loading: false, error: null },
+    })
+    expect(wrapper.text()).toContain('За всё время')
+    expect(wrapper.text()).not.toContain('за 7 дней')
+    wrapper.unmount()
+  })
+})

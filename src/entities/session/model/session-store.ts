@@ -29,6 +29,7 @@ export const useSessionStore = defineStore('session', () => {
    * это право даёт код платформы; без членства и без права путь один — принять код сотрудника.
    */
   const canCreateOrganization = ref(false)
+  const sandboxEnabled = ref(false)
   const tenantId = ref<string | null>(null)
   /** Ошибка загрузки `/auth/me`, если это не отсутствие сессии. */
   const bootError = ref<unknown>(null)
@@ -70,6 +71,7 @@ export const useSessionStore = defineStore('session', () => {
     user.value = me.user
     memberships.value = me.memberships
     canCreateOrganization.value = me.canCreateOrganization === true
+    sandboxEnabled.value = me.sandbox === true
     const isValid = (id: string | null): id is string =>
       id !== null && me.memberships.some((item) => item.tenantId === id)
     const stored = readPreferredTenant(me.user.id)
@@ -89,6 +91,7 @@ export const useSessionStore = defineStore('session', () => {
     user.value = null
     memberships.value = []
     canCreateOrganization.value = false
+    sandboxEnabled.value = false
     tenantId.value = null
     status.value = 'guest'
     bootError.value = null
@@ -192,6 +195,7 @@ export const useSessionStore = defineStore('session', () => {
     user,
     memberships,
     canCreateOrganization,
+    sandboxEnabled,
     tenantId,
     bootError,
     signOutReason,

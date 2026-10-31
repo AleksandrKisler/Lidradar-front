@@ -539,6 +539,125 @@ describe('формы настроек', () => {
     wrapper.unmount()
   })
 
+  it('график: повторная отправка во время PUT не дублирует команду, ошибка сохраняет часы для повтора', async () => {
+    let rejectRequest!: (response: Response) => void
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          rejectRequest = resolve
+        }),
+    )
+    const wrapper = mountWith(BusinessHoursEditor, {
+      tenantId: 'tenant-a',
+      location,
+      appearance: 'settings',
+    })
+    await wrapper.get('input[name="opens-1"]').setValue('07:00')
+    const first = wrapper.get('form').trigger('submit')
+    await flushPromises()
+    await wrapper.get('form').trigger('submit')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(wrapper.emitted('busy')?.at(-1)).toEqual([true])
+    rejectRequest(
+      jsonResponse({ error: { code: 'INTERNAL', message: 'x', traceId: 'schedule-retry' } }, 500),
+    )
+    await first
+    await settle()
+    expect(wrapper.get<HTMLInputElement>('input[name="opens-1"]').element.value).toBe('07:00')
+    expect(wrapper.emitted('update:dirty')?.at(-1)).toEqual([true])
+    expect(wrapper.emitted('busy')?.at(-1)).toEqual([false])
+    fetchMock.mockImplementation(async (request) => {
+      const body = (await request.clone().json()) as { days: Location['businessHours'] }
+      return jsonResponse({ ...location, businessHours: body.days })
+    })
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(await fetchMock.mock.calls[1]![0].json()).toMatchObject({
+      days: [
+        { weekday: 1, opensAt: '07:00', closesAt: '20:00', closed: false },
+        ...Array.from({ length: 6 }, () => expect.anything()),
+      ],
+    })
+    expect(wrapper.text()).toContain('График сохранён.')
+    expect(wrapper.emitted('update:dirty')?.at(-1)).toEqual([false])
+    wrapper.unmount()
+  })
+
+  it('график: изменённая серверная неделя при обновлении не стирает локальный черновик', async () => {
+    const wrapper = mountWith(BusinessHoursEditor, {
+      tenantId: 'tenant-a',
+      location,
+      appearance: 'settings',
+    })
+    await wrapper.get('input[name="opens-1"]').setValue('07:00')
+    await wrapper.setProps({
+      location: {
+        ...location,
+        businessHours: [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
+          weekday,
+          closed: false,
+          opensAt: '11:00',
+          closesAt: '19:00',
+        })),
+      },
+    })
+    expect(wrapper.get<HTMLInputElement>('input[name="opens-1"]').element.value).toBe('07:00')
+    expect(wrapper.emitted('update:dirty')?.at(-1)).toEqual([true])
+    wrapper.unmount()
+  })
+
+  it('график: поздний ответ A инвалидирует только A и не подтверждает неделю B', async () => {
+    const invalidate = vi.spyOn(QueryClient.prototype, 'invalidateQueries')
+    let finish!: (response: Response) => void
+    fetchMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    const wrapper = mountWith(BusinessHoursEditor, {
+      tenantId: 'tenant-a',
+      location,
+      appearance: 'settings',
+    })
+    await wrapper.get('input[name="opens-1"]').setValue('07:00')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    const request = fetchMock.mock.calls[0]![0]
+    expect(request.headers.get('X-Tenant-ID')).toBe('tenant-a')
+    const sent = (await request.clone().json()) as { days: Location['businessHours'] }
+    await wrapper.setProps({
+      tenantId: 'tenant-b',
+      location: { ...location, name: 'Другая компания' },
+    })
+    finish(jsonResponse({ ...location, businessHours: sent.days }))
+    await settle()
+    expect(wrapper.get<HTMLInputElement>('input[name="opens-1"]').element.value).toBe('09:00')
+    expect(wrapper.emitted('saved')).toBeUndefined()
+    expect(wrapper.text()).not.toContain('График сохранён.')
+    const keys = invalidate.mock.calls.map(([filters]) =>
+      typeof filters === 'function' ? undefined : filters?.queryKey,
+    )
+    expect(keys.length).toBeGreaterThan(0)
+    expect(keys.every((key) => key?.includes('tenant-a') && !key.includes('tenant-b'))).toBe(true)
+    invalidate.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('график в настройках: неверный первый рабочий интервал нельзя скопировать', async () => {
+    const wrapper = mountWith(BusinessHoursEditor, {
+      tenantId: 'tenant-a',
+      location,
+      appearance: 'settings',
+    })
+    await wrapper.get('input[name="closes-1"]').setValue('08:00')
+    const copy = wrapper.findAll('button').find((button) => button.text().includes('Скопировать'))!
+    expect(copy.attributes('disabled')).toBeDefined()
+    expect(wrapper.get<HTMLInputElement>('input[name="closes-2"]').element.value).toBe('20:00')
+    wrapper.unmount()
+  })
+
   it('услуга: пустая цена уходит null, нижняя граница не выше верхней', async () => {
     fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ id: 'svc-1' }, 201)))
     const wrapper = mountWith(ServiceForm, {

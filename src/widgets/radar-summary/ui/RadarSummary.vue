@@ -57,7 +57,8 @@ const tiles = computed(() => {
       label: 'Подтверждённо возвращённая выручка',
       value: money(summary.confirmedRecoveredRevenue) ?? '—',
       unknownSum: false,
-      note: 'подтверждено оплатами с атрибуцией к риску',
+      // Подпись периода — RELEASE-SCOPE RC-04: значение `confirmedRecoveredRevenue` — за всё время.
+      note: 'За всё время',
     },
   ]
 })
@@ -94,27 +95,36 @@ const tiles = computed(() => {
         Не удалось обновить сводку: показаны прежние значения.
       </p>
       <div class="@container overflow-hidden rounded-[14px] border border-hairline bg-paper">
-        <!-- Телефон: «Активных рисков» отдельной строкой, деньги в две колонки; планшет: три колонки;
-           десктоп: колонки с разделителями (Figma 21:2019, 630:6182, 630:7204). -->
+        <!-- Телефон: «Активных рисков» отдельной строкой, деньги в две колонки, поля 12 px (Figma 630:7232);
+           планшет: три колонки;
+           десктоп: колонки с разделителями (Figma 21:2019, 630:6182, 630:7204).
+           Подпись, значение и примечание — общие строки сетки (subgrid): разная длина подписей
+           и «+ ?» не сдвигают значения соседних колонок. На десктопе строки фиксированы:
+           плитка 136 px, как в Figma 21:2019. -->
         <ul
-          class="grid grid-cols-2 @[560px]:grid-cols-3 @[860px]:grid-cols-[248px_1fr_1fr] @[860px]:divide-x @[860px]:divide-hairline"
+          class="grid grid-cols-2 @[560px]:grid-cols-3 @[860px]:grid-cols-[248px_1fr_1fr] @[860px]:grid-rows-[44px_44px_48px] @[860px]:divide-x @[860px]:divide-hairline"
         >
           <li
             v-for="tile in tiles"
             :key="tile.key"
             :class="[
-              'flex min-w-0 flex-col gap-1 p-4 @[860px]:h-[136px] @[860px]:gap-0 @[860px]:px-[23px] @[860px]:py-[18px]',
+              'min-w-0 gap-1 p-3 @[560px]:p-4 @[860px]:gap-0 @[860px]:px-[23px] @[860px]:py-[18px]',
               tile.key === 'open'
-                ? 'col-span-2 flex-row items-center justify-between gap-3 border-b border-hairline @[560px]:col-span-1 @[560px]:flex-col @[560px]:items-start @[560px]:justify-start @[560px]:border-b-0'
-                : '',
+                ? 'col-span-2 flex items-center justify-between gap-3 border-b border-hairline @[560px]:col-span-1 @[560px]:row-span-3 @[560px]:grid @[560px]:grid-rows-subgrid @[560px]:items-start @[560px]:border-b-0'
+                : 'row-span-3 grid grid-rows-subgrid content-start',
             ]"
           >
-            <p class="text-meta leading-5 font-medium text-muted @[860px]:mb-[7px]">
+            <p
+              class="text-sm leading-5 font-medium text-muted @[560px]:text-meta @[560px]:leading-[18px] @[860px]:mb-[7px]"
+            >
               {{ tile.label }}
             </p>
             <p
               :class="[
-                'text-metric font-semibold tabular-nums @[560px]:text-4xl @[560px]:leading-10 @[860px]:text-[36px] @[860px]:leading-[44px] @[860px]:tracking-[-0.8px]',
+                'self-start font-semibold tabular-nums @[560px]:text-4xl @[560px]:leading-10 @[860px]:text-[36px] @[860px]:leading-[44px] @[860px]:tracking-[-0.8px]',
+                // На 320 px финансовая колонка уже длинного числа; 20/28 — шкала UI kit.
+                // С 340 px ширины сводки возвращается прежний metric (375/390 и шире).
+                tile.key === 'open' ? 'text-metric' : 'text-xl @[340px]:text-metric',
                 tile.key === 'recovered' ? 'text-money' : 'text-ink',
               ]"
             >

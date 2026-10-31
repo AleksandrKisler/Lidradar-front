@@ -255,7 +255,8 @@ const unavailableText = computed(() =>
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
+  <!-- Ритм: телефон 16 px (Figma 220:2970), планшет и desktop 24 px. -->
+  <div class="flex flex-col gap-4 md:gap-6">
     <div class="flex items-center justify-between gap-3">
       <RouterLink
         v-if="backTo"

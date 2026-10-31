@@ -1,5 +1,249 @@
 # Статус frontend v2
 
+## Codex · Настройки «Компания и график» · 31.10.2026 · S6 завершён
+
+**US-M02-05/06: TEST PASS, FUNCTIONAL PASS frontend/mock, desktop UI PASS.**
+По последнему поручению владельца tablet/mobile макеты не согласованы и неактуальны;
+их redesign/UI-приёмка отложены, узкие размеры проверены только как регрессия.
+Компания сверху1120×230, ниже точки320 и график776; сохранена оболочка C.
+Сохранение компании/точки/недели, подтверждения, состояния, ошибки/повтор, валидация,
+tenant/late-response guards, защита от двойной команды и потерянного графика работают.
+Онбординг сохраняет свои правила; backend/API/Figma/lockfile/budgets не менялись.
+
+Конечный **S6**:628inputs SHA `09cedd0b…9f674d`, HEAD `4e175e9`+dirty, все untracked
+inputs учтены. Visual125 SHA `1b1639cf…b125253`, design69 SHA `70e1f08d…a607a`.
+Check1159unit/98files, build×3/audit —0. Локальный stockCI=true профиль2workers/2retries:
+707PASS/2прежнихskip,709attempts,0retries/failedAttempts/flaky, exit0.
+JS905590/905600,CSS71811/72000,initial249375/304800, пороги прежние.
+Capture17/51PNG; независимые short/story10/10, footer24/24, default/narrowconsumer14/14.
+Все4desktopdialogs строго280/280,gap16. UiSheetDialog settingsForm defaultfalse,
+новый ритм/grid толькодляdesktopsettings, остальныеconsumers/narrow прежние.
+
+Независимый UI закрылV01–V05:22изменённыхPNG+5overlay просмотрены,29прежних
+реально просмотренныхPNG переиспользованы только послеSHAравенства. Main+4dialogs
+exact-frame,6старыхstateframes approvedpattern вновойсетке; точная новаягеометрия
+этихсостоянийUNVERIFIED. Матрица33:11desktopPASS/22adaptiveDEFERRED.
+
+ИсторическиеFAIL/traces сохранены: pollingtest изолирован отSSEresync безослабления
+assertions; S5a WebKitlostsubmit не воспроизведён адресно5/5,serialPASS,текущийCIclean.
+Его причина не установлена, не объявлена устранённой grid. Это остаточныйintermittentриск.
+Параллельныйreleaseplan иSTATUS — mutableoutputs внеcomputationalsnapshot;
+полныйformatcheck их не исключает. Чужие dirty/untracked/evidence сохранены.
+
+Stage/revision/APIhash/миграции и реальные backend/delivery/nativeOS — UNVERIFIED.
+Общий releasePASS не заявляется; следующий шаг — отдельный живойstageQA разрешённого
+контура. Code inputs больше никто не пишет, browser/preview остановлен,4173свободен.
+Commit/push/deploy/merge не выполнялись.
+[Итоговый handoff, файлы, AC, команды и ограничения](evidence/settings-company/Codex-R1/handoff.md).
+Artifacts: `artifacts/frontend-v2/settings-company/Codex-R1/S6/`.
+
+## Codex · Песочница · 31.10.2026 · реализация готова, общий QA FAIL
+
+Поручение владельца: песочница переписки в текущей концепции LidRadar,
+localhost и stage; уточнение — production исключён. Добавлены `/sandbox`,
+capability `sandbox: true` в session/menu, composer/templates/draft user+tenant,
+реальные API команды с durable idempotency, сверка и переходы в Диалоги/Radar.
+Локально — существующий `npm run dev:stage`; backend/API/Figma/lockfile неизменны.
+
+S1 TEST FAIL/FUNCTIONAL BLOCKED: WebKit/mobile320 native-select overflow21px
+и отсутствие detail3s; старый datepreset1440 intermittent не воспроизвёлся
+в адресном повторе6/6. Все исторические S1 логи сохранены. S2 исправляет
+локальный native select overflow, отдельный PROCESSING detail3s и гонку
+старого чтения с подтверждённым новым сообщением (cancel + actor guard).
+Root: target24/24 stock3browser, unit39/39; расширены recovery/actor/capability
+и негативные проверки. Snapshot583 `c85a6d75…43e0a84`, HEAD `4e175e9` + dirty.
+Inputs заморожены, ведущий владеет ими. S2 независимый check0/1143unit,
+три build0 и audit0 (JS899800/905600, CSS69311/72000, initial249265/304800).
+Два full E2E дали655PASS/32прежнихskip/1разный старый WebKitFAIL каждый:
+integrations, затем notifications; sandbox24/24 оба разаPASS, integrations
+адресно2/2PASS. Assertions/timeouts/retries прежние. Заключительный serial full workers1 тоже655PASS/32skip/1FAIL: старый mobile
+notification-сценарий после клика не получил ссылку бота, POST не отправился.
+WebKit desktop notifications/integrations в serialPASS. Причина кликов не
+установлена; снижение параллелизма не решило весь сбой. Новых full не запускаем.
+Каждый полный S2 run: sandbox24/24PASS; source583 и7 publicconfig сохранны.
+Общий TESTFAIL, FUNCTIONALBLOCKED, независимый UI всех адаптивовUNVERIFIED;
+основная сессия просмотрела8actual PNG только как spot-check. Живой stageUNVERIFIED.
+Следующий шаг — отдельный разбор старых click failures, затем gates/FUNCTIONAL/UI.
+[Handoff](evidence/sandbox/Codex-R1/handoff.md). Scope:
+[evidence/sandbox/Codex-R1/scope.md](evidence/sandbox/Codex-R1/scope.md).
+Artifacts: `artifacts/frontend-v2/sandbox/Codex-R1/S2/`.
+
+## Codex · N-ML-01/02 и format/lint · 31.10.2026 · N320-S1 завершён
+
+По новому поручению исправлены banner action row (wrap, max-width, mobile gap8)
+и PeriodPicker (поля min160, перенос по доступному месту, прежние17/46).
+ESLint исключает generated artifacts, исходники/тесты/tooling/scripts/config
+остаются под правилами; добавлена проверка scope lint. Пять m02-step4 документов
+отформатированы без изменения Markdown AST/смысла. Полные format:check/lint —0.
+
+Root target: architecture/typecheck0, narrow-controls54/54 в трёх проектах
+на9ширинах,81PNG+JSON. Первый run с ошибочным exacttext locator сохранён как
+неуспешный, v2/v3 PASS; существующие assertions не ослаблялись.
+Snapshot N320-S1:692 inputs SHA `0477899a…19dd80`, visual194 SHA `345c9818…b80e3c`.
+Runtime/tests/config заморожены. Независимый TEST PASS: полный check0,
+1121 unit, target54/full632+32 прежних skipped, три build/audit0.
+FUNCTIONAL PASS:18/18 групп,5 consumers×3 browsers и pending/sent/rate/unavailable/
+failure; strict0px overflow, keyboard/Enter-hide, lint-scope и MarkdownAST5/5.
+JS879163/905600, CSS68886/72000, initial248910/304800; бюджеты прежние.
+Source692/corevisual194/oldvisual598/protected580 неизменны. Независимый UI
+просмотрел все81 новых PNG и15 QA-state PNG: **desktop/tablet/mobile PASS**,
+N-ML-01/02 закрыты, новых findings нет. Supplemental35 также без изменений.
+Backend/API/budgets/lockfile/Figma неизменны, stage не запускался.
+[Scope](evidence/module-layout/Codex-R2/scope.md),
+evidence `artifacts/frontend-v2/module-layout/Codex-R2/`.
+[Итоговый handoff](evidence/module-layout/Codex-R2/handoff.md).
+Прежние format/lint блокеры сняты; все автоматические final gates зелёные.
+Перед выпуском остаётся отдельный живой stage QA; deploy/merge/push не выполнялись.
+
+## Codex · Оболочка четырёх разделов · 31.10.2026 · ML-S2 завершён
+
+По новому поручению владельца выбранная оболочка Radar расширена на диалоги
+(список и деталь), аналитику, интеграции и все шесть вкладок настроек. Контекст
+зависит от раздела, у настроек выделена шестерёнка и убран повтор контекста;
+сохранены предупреждения недоступности realtime. Admin/access/onboarding и
+plain-layout страницы остаются вне переноса. Backend/API/Figma/budgets неизменны.
+
+Перед началом сверены 651/651 вход предыдущего US-M02-04 R4. ML-S1:
+TEST/FUNCTIONAL frontend PASS, unit1121, E2E578/32 прежних skipped, target54,
+три build/audit0, JS879144/905600. UI S1 UNVERIFIED: payments-state на кадрах
+были ниже viewport; дефектов новой оболочки не найдено. Root доснял21/21
+сценарий,69 PNG: targeted payments loading/error/empty, full-page и viewport
+длинных списков, settings/integrations overlays/busy и older-message busy.
+
+ML-S2 runtime/tests неизменны. Полный inventory исправлен:685 inputs теперь
+включают также index/public/root configs и capture helpers (31 добавленный input,
+дополнительные21 build/config файла git-clean и совпали с HEAD). Manifest SHA
+`5baf3b24…afa8e8`, visual598 SHA `0823885c…12e70`; source archive без opaque env/auth
+содержимого. TEST/FUNCTIONAL S2 PASS: свежие coverage1121, три build/audit0,
+fullE2E578/32 прежних skipped; production106/106 побайтно равныS1. Supplemental
+семантика PASS (21audit,6ожидаемыхmockwrites,0unexpected,112уникальныхUUID),
+12 runtime probes переиспользованы по неизменным hashes. Независимый UI просмотрел
+все 69 новых PNG и повторно использовал свой просмотр неизменных S1 кадров:
+**desktop/tablet/mobile PASS**. Source685/visual598/protected580 неизменны.
+
+Low N-ML-01: прежний email banner даёт0.578125px прозрачного padding за320,
+текст/контролы видны, то же наRadar. Date320 обрезка года аналитики подтверждена
+в восстановленнойR4 иML-S1: одинаковые width115/x37/168, body не менялся.
+Оба прежних body-замечания вне переноса, доказательства сохранены.
+Общий release gate остаётся FAIL по прежним5 format docs и lint artifacts;
+source gates зелёные. Stage/nativeOS UNVERIFIED. Backend/API/budgets/lockfile/
+Figma не менялись, commit/push/deploy/merge нет. Текущий перенос оболочки закрыт;
+перед выпуском остаются внешние gates и живой stage. [Handoff](evidence/module-layout/Codex-R1/handoff.md).
+[Scope и ML-01–14](evidence/module-layout/Codex-R1/scope.md),
+артефакты `artifacts/frontend-v2/module-layout/Codex-R1/`.
+
+## Codex · Radar и US-M02-04 завершены · 31.10.2026
+
+Оба этапа выполнены последовательно по поручению владельца с сохранением
+исходников и evidence Claude. **TEST / FUNCTIONAL целевого frontend/mock scope
+PASS; UI desktop/tablet/mobile PASS** для обоих этапов. Backend/API/Figma,
+бюджеты, lockfile и настройки агентов не менялись; commit/push/deploy/merge нет.
+
+Radar S3b: manifest604 SHA `91fe0caa…5d4e1e`; coverage1120/1120, E2E497/32
+прежних skipped, три build и audit:release exit0. Исправлено наложение сумм
+на320/344; font20/28 только в узком контейнере,375/390 и выше прежние.
+Добавлены проверки фокуса, viewport, bounds сумм и реального late-response A→B.
+[Handoff Radar](evidence/radar-layout/Codex-R1/handoff.md),
+артефакты `artifacts/frontend-v2/radar-layout/Codex-R1/`; исходный и финальный
+снимки заархивированы. Два UI Low (titleellipsis320/footerwrap1023) сохранены.
+
+US-M02-04 R4: manifest651 SHA `44990f23…f9fd044`; кнопка320 переносит подпись
+внутри прежних46 px при17/20, G07/F03 сохраняют PNG в testInfo.outputPath с guard
+до записи/проверкой реального PNG/attachments. Новые27 browser cases проверяют
+9 ширин×3 проекта, enabled/invalid/saving/retry, bounds/спиннер/«Назад», стабильный
+размер и PUT-only retry. Unit85/85, coverage1120/1120, targetE2E42/42,
+fullE2E524 passed/32 прежних skipped, manager3/3, три build и audit:release —0.
+JS878461/905600, initial248756/304800, CSS68893/72000; admin вне initial.
+В двух output roots по24 новыхG07/F03PNG, все265 файлов первого сохранены;
+у580 historical PNG неизменны SHA/mtime_ns/size до/между/после прогонов.
+
+UI R4 просмотрел36 exact-frame пар и36 RU footer кадров, source651/visual416
+неизменны. Radar после M2 CSS переснят:47/59 PNG побайтно равны S3b,12 изменённых
+просмотрены, regressionPASS. N-R7-2/N-R7-6 остаются minor.
+[Handoff US-M02-04](evidence/us-m02-04/Codex-R4/handoff.md),
+артефакты `artifacts/frontend-v2/us-m02-04/Codex-R4/`.
+
+Ограничения: общий release gate FAIL по формату5 внешних m02-step4 документов
+и lint ignored artifacts. Source-scoped gates зелёные. Stage, nativeOSselect,
+широкие manual nested-комбинации — UNVERIFIED; все24AC полностью не заявляются.
+Следующий шаг перед выпуском — внешние gates и живые проверки разрешённого
+stage-контура; текущие frontend-задачи закрыты без изменения backend.
+
+## Radar · Перенос оболочки C · Claude-R1 · в приёмке · 30.10.2026
+
+По [ТЗ](RADAR-LAYOUT-CLAUDE-TASK.md) реализована оболочка C только для маршрутов
+`radar` и `risk` (`meta.shell = 'radar'`, новый `RadarShell`): desktop-колонка 240
+с workspace внизу, шапка с контекстом/датой/именем/«Аккаунт →»/настройками/«Выйти»;
+tablet/phone app bars 72/64, drawers 360/344 (`UiDialog size="drawer"`), компактная
+phone-сводка и лента без переключателя вида; деталь риска во всех состояниях в той же
+оболочке. Settings/Admin/прочие разделы — прежний AppShell. Снимок S1
+`f5d308e9…3913` (манифест 564 файла, HEAD `4e175e9` + рабочее дерево).
+Ведущий: typecheck/api/fsd/coverage/architecture/audit:release = 0; e2e матрица
+493 passed + исправленный mobile-тест; бюджеты в норме (entry 67 736, CSS 68 374,
+totalJs 878 237, initial 248 756). Внешнее: `format:check` — 5 чужих docs m02-step4,
+`lint` — gitignored `artifacts/**` других прогонов. Evidence:
+`artifacts/frontend-v2/radar-layout/Claude-R1/` (actual, reference 27 PNG + SHA-256,
+compare, source-map, brief). S1: lidradar-qa TEST PASS, FUNCTIONAL PASS (17 AC; AC-10/11/12 mock, stage UNVERIFIED);
+visual-review desktop/tablet/mobile PASS with notes (Medium T-1/M-1 — значения сводки не на одной
+линии; Low D-1, T-2, M-3, T-3/M-2). После S1 исправлено (не заморожено, приёмка не повторена):
+RadarSummary subgrid + подпись 18 px + строки 44/44/48 на desktop (карточка 138 = Figma),
+двухстрочная шапка Radar с планшета, «Фильтры» bg-canvas, select workspace pr-8/truncate,
+RiskWorkspace gap-4 на телефоне. Адресно: unit 16/16, typecheck 0, prettier 0; e2e не перезапущен.
+G07/F03 контрольные копии: `Claude-R1/g07-control/`. Следующий шаг: кадры фокуса и viewport 320
+в capture-спеке, полная пересъёмка, снимок S2, повтор QA (затронутые + final gates) и UI, handoff;
+затем этап 2 US-M02-04 (текст поручения не получен — объём по краткой формулировке и Codex-R3).
+
+## Radar · ТЗ переноса текущего layout в Claude Code · 30.10.2026
+
+По поручению владельца подготовлено [ТЗ Claude](RADAR-LAYOUT-CLAUDE-TASK.md):
+существующая оболочка C, desktop-header/logout, последние tablet/phone app bars,
+drawers и компактная phone-лента, включая состояния детали риска. Live read-only
+Figma подтвердил 23 канонических root IDs; source-map сохранён в
+`artifacts/frontend-v2/radar-layout-task-2026-10-30/source-map.json`.
+ТЗ содержит 17 критериев, точные ссылки, API/денежные ограничения, границы общего
+AppShell и существующую схему Sonnet: ведущий → QA TEST/FUNCTIONAL → UI трёх
+адаптивов. Доступ/Онбординг и чужие изменения сохраняются; backend/API/Figma
+не менять, бюджеты не повышать. Это подготовка передачи, не запуск реализации.
+Срез: `frontend/v2-implementation`, HEAD `4e175e914719f380dcadb05ccf28d34e9de08439`.
+Runtime/tests/config не менялись, продуктовые проверки не запускались;
+TEST/FUNCTIONAL/browser UI/stage этого переноса — NOT_RUN.
+Следующий шаг — передать Claude стартовый промпт из раздела 10 ТЗ.
+
+## Решение владельца · Фиксация макетов до релиза 01.11.2026
+
+30.10.2026 зафиксированы макеты Доступа и Онбординга — до релиза их не править.
+Radar также зафиксирован: крупные изменения запрещены, допустимы только
+точечные исправления дефектов с сохранением структуры/навигации/дизайна.
+[Правило и источники](DESIGN-FREEZE.md), baseline:
+`evidence/design-freeze-2026-10-30/baseline.json`.
+Ограничение учитывает общие Figma masters/styles/variables/tokens и имеет
+приоритет над прежними планами доработки этих макетов. Guard добавлен в
+AGENTS/CLAUDE, DESIGN, SOURCES, WORKFLOW и RELEASE-SCOPE; design-index содержит
+машиночитаемый `releaseDesignFreeze`. До фактического выпуска разработку и QA
+вести по текущим эталонам. Макеты/runtime/API/US и production не менялись;
+новые TEST/FUNCTIONAL/UI/stage verdict не выдавались. Следующий шаг — реализация
+и проверка согласованного объёма к релизу по существующим поручениям.
+
+## Figma · Настройки / Администрирование · Оболочка C · Готово · 30.10.2026
+
+По поручению владельца обновлены 285 full-shell frames: 132 настроек (44×3)
+и 153 администрирования (51×3). Root IDs/размеры сохранены, сверены 285/285 хедеров.
+Совпали 132 business subtree fingerprints настроек, 139 local-frame fingerprints
+и 726 business hashes Admin. Независимый **CANVAS desktop/tablet/phone и menus
+PASS** по двум разделам; реально просмотрены 10 новых PNG, findings0.
+Settings: 6 вкладок/selector сохранены, appnav нейтрален, gear активен, workspace
+снизу. Admin: 9 platform-разделов, роль/UTC, нижний return сохранены; 2 исходных
+neutral menus и 18 selected overlays привязаны к соответствующим экранам.
+Все 4 прежних drawer IDs сохранены. [Evidence](evidence/settings-admin-shell-rollout-2026-10-30.md),
+артефакты `artifacts/frontend-v2/settings-admin-shell-rollout-2026-10-30/`.
+Во время задачи тестовые/proposal sections Radar стали недоступны вне mutation
+logs исполнителей: 4/4 оставшихся source fingerprints совпали; актуальные
+canonical appbars `1048:9337` / `1048:9359` присутствуют. Их pointers обновлены
+в design-index; исторические provenance IDs сохранены. До/после fingerprints
+excluded Admin access/legacy fragments отдельно UNVERIFIED (только scope summary).
+Runtime/API/US не менялись; TEST/FUNCTIONAL/browser UI/stage не запускались.
+Figma-поручение закрыто, runtime и его интерактивность проверяются отдельно.
+
 ## Figma · Диалоги / Аналитика / Интеграции · Оболочка Radar C · 30.10.2026
 
 По прямому поручению владельца оболочка C применена на 180 основных frames:
@@ -165,6 +409,28 @@ critical load **287 349 ≤ 304 800 B**; это не новая production-сб�
 имеют указанные в отчёте ограничения. Код/бюджеты/дизайн не правились.
 UiDialog, bounded budget-analysis и copy остаются рекомендуемым следующим
 объёмом, не новым автоматически согласованным поручением.
+
+## US-M02-04 · Независимая проверка Claude R8 · Codex R3b · 30.10.2026
+
+Проверены все шесть рекомендаций: адресные **TEST PASS / FUNCTIONAL PASS**.
+Свежие 83/83 unit и 45/45 browser tests (Chromium/WebKit/mobile), manager-denial
+probe 3/3. Полные 1108/1108 coverage и 476 passed / 32 прежних skipped из R8
+переиспользованы по совпавшим inputs, не выдаются за новый полный запуск.
+Свежая production-сборка: JS **870 190 ≤ 905 600 B**, initial **248 725 ≤ 304 800 B**;
+лимиты, backend/API и код не менялись.
+
+**UI: desktop PASS с minor / tablet PASS с minor / mobile FAIL.** На 320 px
+надпись «Сохранить и продолжить» выходит за поверхность кнопки — UI-R3-01,
+AC-22. Новые 55 captures и 15 narrow PNG проверены независимой UI ролью.
+Нужны локальное исправление footer и регрессия границ текста; текущий запрос —
+только review. Общий check exit 1 на форматировании шести внешних документов;
+общего release PASS нет. Stage, native-select Arrow и широкий nested scope — UNVERIFIED.
+
+HEAD `4e175e9`, R8d **556/556**, R3b **721/721** inputs и **138/138** новых UI
+evidence неизменны. Параллельная design-freeze дельта документов учтена явно.
+Новый AppShell sidebar/header отделён от эталонов onboarding.
+[Отчёт, evidence, ограничения и побочный эффект G07 screenshot path](evidence/us-m02-04/Codex-R3/review.md).
+Следующий шаг: исправить UI-R3-01 по отдельному поручению и повторить затронутые проверки.
 
 ## US-M02-04 · Шесть пунктов Codex-R2 · Claude R8 · 30.10.2026
 

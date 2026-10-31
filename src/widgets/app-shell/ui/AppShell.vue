@@ -5,6 +5,9 @@
  * (`meta.v2`) сами рисуют контекст и заголовок; верхняя полоса остаётся на
  * узких экранах (меню, бренд) и на ещё не перенесённых страницах. На узких
  * экранах меню открывается на весь экран с ловушкой фокуса.
+ *
+ * Маршруты с `meta.shell === 'radar'` получают общую оболочку C — `RadarShell`.
+ * Вариант применяется к Radar/risk, диалогам, аналитике, интеграциям и настройкам.
  */
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
@@ -12,6 +15,7 @@ import { UiDialog, UiIcon } from '@/shared/ui'
 import { AccountDeletionBanner, EmailVerificationBanner } from '@/features/auth-session'
 import RealtimeBadge from './RealtimeBadge.vue'
 import SidebarBody from './SidebarBody.vue'
+import RadarShell from './RadarShell.vue'
 import { useSessionStore } from '@/entities/session'
 
 const emit = defineEmits<{
@@ -25,9 +29,8 @@ const menuOpen = ref(false)
 
 const title = computed(() => route.meta.title ?? 'LidRadar')
 const v2 = computed(() => route.meta.v2 === true)
-/** Карточка риска — шапка с кнопкой «Меню» (Figma 220:3175 / 220:2960); Radar — бургер (630:6182 / 630:7204). */
-const textMenu = computed(() => route.name === 'risk')
 const organizationName = computed(() => session.membership?.organizationName ?? '')
+const radarShell = computed(() => route.meta.shell === 'radar')
 </script>
 
 <template>
@@ -37,7 +40,14 @@ const organizationName = computed(() => session.membership?.organizationName ?? 
   >
     К основному содержимому
   </a>
-  <div class="min-h-dvh lg:grid lg:grid-cols-[var(--spacing-sidebar)_minmax(0,1fr)]">
+  <RadarShell
+    v-if="radarShell"
+    @logged-out="(result) => emit('loggedOut', result)"
+    @workspace-switched="(id) => emit('workspaceSwitched', id)"
+  >
+    <slot />
+  </RadarShell>
+  <div v-else class="min-h-dvh lg:grid lg:grid-cols-[var(--spacing-sidebar)_minmax(0,1fr)]">
     <aside
       class="hidden border-r border-hairline bg-panel lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:self-start lg:overflow-y-auto lg:p-6"
     >
@@ -48,30 +58,8 @@ const organizationName = computed(() => session.membership?.organizationName ?? 
     </aside>
 
     <div class="flex min-w-0 flex-col">
-      <!-- Страницы v2 на узких экранах: бренд слева, текстовая кнопка «Меню» справа (Figma 220:3175 / 220:2960). -->
       <header
-        v-if="v2 && textMenu"
-        class="flex h-20 items-center justify-between gap-4 px-4 md:px-8 lg:hidden"
-      >
-        <div class="flex min-w-0 items-center gap-4">
-          <p class="flex shrink-0 items-center gap-2.5 text-xl leading-7 font-semibold text-ink">
-            <UiIcon name="radar" class="size-7" />LidRadar
-          </p>
-          <p class="hidden truncate text-sm leading-5 text-muted md:block">
-            {{ organizationName }}
-          </p>
-        </div>
-        <button
-          type="button"
-          class="h-[46px] w-24 shrink-0 rounded-button border border-line bg-canvas text-field leading-5 font-medium text-ink hover:bg-panel"
-          aria-haspopup="dialog"
-          @click="menuOpen = true"
-        >
-          Меню
-        </button>
-      </header>
-      <header
-        v-else-if="v2"
+        v-if="v2"
         class="flex h-20 items-center gap-4 border-b border-hairline bg-paper px-4 md:px-8 lg:hidden"
       >
         <button
@@ -119,7 +107,7 @@ const organizationName = computed(() => session.membership?.organizationName ?? 
     </div>
   </div>
 
-  <UiDialog v-model:open="menuOpen" title="Меню" size="full" tone="panel">
+  <UiDialog v-if="!radarShell" v-model:open="menuOpen" title="Меню" size="full" tone="panel">
     <div class="flex min-h-[calc(100dvh-8rem)] flex-col gap-4">
       <RealtimeBadge />
       <SidebarBody

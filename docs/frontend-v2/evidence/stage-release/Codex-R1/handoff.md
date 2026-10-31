@@ -1,5 +1,23 @@
 # Stage release candidate · 31.10.2026
 
+## Дополнение: rc2 и строгий gate rc3
+
+[RC2 GitHub41213723148](https://github.com/AleksandrKisler/Lidradar-front/actions/runs/41213723148),
+commit `6820a65`, tag `release/2026-11-01-rc2`: quality1162/Python10,
+build×3/audit/container PASS; E2E712PASS/1flaky/32skip,2retryattempts.
+Native radio проверки на Linux прошли. Retry команды команды снова проявил
+раздельное geometry измерение: avatar/badge axis diff55px при прежнем≤2.
+GitHub jobзелёный, поэтому автоматический deployment начал выполняться;
+этот результат не объявлен чистым browserPASS.
+
+Кандидат `release/2026-11-01-rc3` сохраняет все численные требования и Axe:
+одновременные boxes всей строки, правого края и телефона, fonts.ready и
+двухкадровая стабильность; web-first ожидание≤5000ms вместо разовых чтений.
+Невидимые/disconnected elements не принимаются. Никаких runtime/CSS/API/budget
+изменений. Плюс `--fail-on-flaky-tests` в обоих CI shards: retry сохраняет
+диагностику, но делает jobFAIL и блокирует stage-deploy. CLI negative probe
+и независимые результаты пишутся в `CI-FIX2/qa`; actualLinux CI отдельно.
+
 ## Дополнение: первый GitHub CI и кандидат rc2
 
 `3317d58`/`release/2026-11-01-rc1` отправлены в stage обычным atomic push.

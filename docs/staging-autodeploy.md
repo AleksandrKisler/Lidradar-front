@@ -6,7 +6,7 @@
 
 Feature → локальные TEST/FUNCTIONAL/UI по scope → merge stage → push stage → GitHub quality/builds/e2e/container → stage-deploy. Выкатывается конкретный github.sha последнего stage push. Устаревший SHA отвергается, очередь не прерывает уже идущий выпуск. Main/PR/workflow_dispatch автоматически ничего не выкатывают.
 
-Браузерная матрица выполняется двумя shards с прежними projects/workers/retries. Все случаи распределяются ровно один раз; reports имеют разные имена. `fail-fast: false` сохраняет evidence обоих shards при сбое. Deployment зависит от успешного завершения всей matrix `e2e`, наряду с остальными gates.
+Браузерная матрица выполняется двумя shards с прежними projects/workers/retries. Все случаи распределяются ровно один раз; reports имеют разные имена. `fail-fast: false` сохраняет evidence обоих shards при сбое. `--fail-on-flaky-tests` делает даже успешный retry ошибкой job: для deployment требуется чистый PASS. Deployment зависит от успешного завершения всей matrix `e2e`, наряду с остальными gates.
 
 Backend остаётся на текущем deployed commit. Серверный helper переиспользует release.sh: dry-run, exact web-suffix tag, сборка, backup, запуск, smoke и штатный rollback при допустимой схеме. Не подавлять ошибки здоровья/копий/места на диске. Песочница только stage/local; Basic Auth и тестовые данные сохраняются.
 

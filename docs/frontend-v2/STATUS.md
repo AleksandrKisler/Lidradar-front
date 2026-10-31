@@ -1,5 +1,32 @@
 # Статус frontend v2
 
+## Stage RC3 · 31.10.2026 · строгий flaky gate
+
+RC2 `6820a65`/`release/2026-11-01-rc2` отправлен вstage. GitHub41213723148:
+quality1162/Python10/build×3/audit/container PASS; E2E712PASS/1flaky/32skip,
+деплой начал выполняться по зелёному job status. Native keyboard fix прошёл на
+Linux; flaky относится к другому раздельному измерению той же строки команды:
+avatar/badge axis diff55px, порог≤2. Это не чистый браузерный PASS.
+
+RC3 правит только tests/CI/prose: вся геометрия строки/правого края/телефона
+измеряется атомарно, после fonts.ready и со стабильностью двух кадров;
+прежние пороги≤2/<1/≤1/x≥0/right≤375, count2 и Axe сохранены. Новое CI option
+`--fail-on-flaky-tests` блокирует deployment даже при успешном retry.
+Новый immutable tag будет `release/2026-11-01-rc3`; runtime/API/UI/budgets прежние.
+Evidence/приёмка `artifacts/frontend-v2/stage-freeze-2026-10-31/CI-FIX2/`.
+Actual stage deploy/health сверяется отдельно; production не менялся.
+
+CI-FIX2 независимо принят: **TEST PASS / FUNCTIONAL PASS**; freshcheck1162,
+Python10/YAML13, strict30/30за41sec,0retries/failed/flaky. NegativeCLIprobe:
+firstFAIL/retryPASS→1flaky→exit1, hardblock подтверждён. Shard745exact.
+731/731inputs unchanged sourcee9470d5f…; runtime/UI436 прежние. После фиксации
+rc3 обязательны новый полный Linux CI и stage verification.
+
+Первый actualautodeploy rc2 ужеуспешен: backend0d06d96b62b0, frontend6820a65,
+image0d06d96b62b0-w6820a659;11/11stage checksPASS (exactSHA/image/clean/health/
+APIhash/migrationchecksum/helper/services). Новыхмиграцийнет; smokeexit0.
+Это подтверждает механизм автодеплоя отдельно от чистого browserPASS rc3.
+
 ## Stage RC · 31.10.2026 · локальные CI fixes приняты
 
 Кандидат `3317d58` и immutable tag `release/2026-11-01-rc1` отправлены обычным

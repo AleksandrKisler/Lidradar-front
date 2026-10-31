@@ -1376,13 +1376,12 @@ test.describe('US-M01-01 · адаптивы, клавиатура и нижня
     for (const [path, ready] of pages) {
       if (path === '/register (C)') {
         state.mode = 'invite_only'
-        await page.goto('/register')
-      } else {
-        // Каждый кадр — самостоятельный вход; hash-only переход с invalid reset
-        // не размонтирует страницу и не является загрузкой новой ссылки.
-        await page.goto('/login')
-        await page.goto(path)
       }
+      // Каждый кадр — новый document, включая hash-only reset. Промежуточный
+      // /login запускал второй bootstrap до завершения lazy imports первого;
+      // neutral document размонтирует предыдущий кадр без лишнего app bootstrap.
+      await page.goto('about:blank')
+      await page.goto(path === '/register (C)' ? '/register' : path)
       await expect(ready()).toBeVisible()
       const product = await box(page.getByTestId('auth-product-line'))
       const links = page.getByTestId('auth-legal').getByRole('link')

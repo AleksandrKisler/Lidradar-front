@@ -1,5 +1,24 @@
 # Stage release candidate · 31.10.2026
 
+## Дополнение: rc3 strict block и кандидат rc4
+
+[Strict RC3 GitHub41215749019](https://github.com/AleksandrKisler/Lidradar-front/actions/runs/41215749019):
+quality1162/Python10/build×3/audit/container PASS; E2E712PASS/1flaky/32skip.
+Strictflag вернулexit1 и stage-deploySKIPPED. Native и teamgeometry исправления
+прошли, actualstage остался6820rc2 с провереннымиhealth/API/migrations.
+
+CI-RC3-01 — однаmobileflake AccessT28 доfooterchecks: последовательныеgoto/login
+с интерваломоколо6ms пересеклисьсlazyimports; traceсодержитstatus-1chunks,
+`TypeError: Importing a module script failed`, WebKitinternalerror наmainJS/CSS,
+failurePNGпустой. Независимыйexplorerподтвердилnav/bootstraprace; отдельная
+WebKit/runtimeпричинаединичнымtraceнеисключается, нуженновыйstrictLinuxrun.
+
+Test-only кандидат `release/2026-11-01-rc4` открываеткаждыйиз8кадровчерез
+neutralabout:blank ипрямойцелевойURL вместо лишнегоapp/loginbootstrap. Fixtures,
+патчиAPI,всеready/geometry/footerlinkassertionsиtimeouts сохранены. AccessUI,
+runtime/API/budgets иG01approval не меняются. CI-FIX3 содержитtrace/diagnosis/
+snapshot/независимыеTESTиFUNCTIONAL;actualGitHub/deployфиксируютсяотдельно.
+
 ## Дополнение: rc2 и строгий gate rc3
 
 [RC2 GitHub41213723148](https://github.com/AleksandrKisler/Lidradar-front/actions/runs/41213723148),

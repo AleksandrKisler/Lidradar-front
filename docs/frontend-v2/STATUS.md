@@ -1,5 +1,26 @@
 # Статус frontend v2
 
+## Stage RC4 · 31.10.2026 · изоляция T28 navigation
+
+Strict rc3 GitHub41215749019: quality1162/build×3/audit/container/Python10 PASS,
+E2E712PASS/1flaky/32skip; строгий gate заблокировал deploy, stage остался наrc2.
+Native/teamgeometry прошли. Новая единственнаяflake mobile AccessT28: второй
+goto/login начиналсядоlazyimportsпервого; traceфиксирует moduleimportfailed,
+WebKitinternalerrorдляmainJS/CSS иblankframeдоfooterassertions.
+
+CI-RC3-01: test-only подготовкакаждогоиз8кадровчерезabout:blank, затемцелевойURL.
+Тежеfixtures/readychecks/footergeometry/linksecurityassertions/timeouts. Runtime,
+Accessдизайн ипринятыйG01 не меняются. Новыйtag `release/2026-11-01-rc4`;
+evidence/независимаяприёмка `artifacts/frontend-v2/stage-freeze-2026-10-31/CI-FIX3/`.
+ПослеlocalPASS обязательныновыйполныйstrictLinuxCI иactualstageverification.
+
+CI-FIX3 независимо принят: **TEST PASS / FUNCTIONAL PASS** (test-only scope).
+Freshcheck1162unit, strictT28=30/30за31.2sec,30attempts/0retry/failed/flaky.
+Byteproofsame8paths/mocks/ready/geometry/security/narrowassertions;731/731unchanged,
+source6728b8ea…; все745caseIDs прежние. НовыйLinuxCI/actualdeployещёUNVERIFIED;
+единичныйtraceнеисключаетотдельныйWebKit/runtime риск. Послеcommit/tagrc4 идут
+atomicstagepush, обязательныйполныйstrictCI ипроверкафактическогосервера.
+
 ## Stage RC3 · 31.10.2026 · строгий flaky gate
 
 RC2 `6820a65`/`release/2026-11-01-rc2` отправлен вstage. GitHub41213723148:

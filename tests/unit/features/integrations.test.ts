@@ -92,6 +92,7 @@ describe('интеграции', () => {
       global: { plugins: plugins() },
       attachTo: document.body,
     })
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(dialog().text()).toContain('Подключить Telegram')
     expect(dialog().find('select[name="provider"]').exists()).toBe(false)
@@ -132,6 +133,7 @@ describe('интеграции', () => {
       global: { plugins: plugins() },
       attachTo: document.body,
     })
+    await vi.dynamicImportSettled()
     await flushPromises()
     // Поле называет источник токена, а панель с пятью шагами стоит рядом (макет «Подключить Telegram»).
     expect(dialog().text()).toContain('Токен выдаёт @BotFather')
@@ -166,6 +168,7 @@ describe('интеграции', () => {
       global: { plugins: plugins() },
       attachTo: document.body,
     })
+    await vi.dynamicImportSettled()
     await flushPromises()
     await dialog().get('input[name="connectionName"]').setValue('Telegram · переписка')
     await dialog()
@@ -190,6 +193,7 @@ describe('интеграции', () => {
       global: { plugins: plugins() },
       attachTo: document.body,
     })
+    await vi.dynamicImportSettled()
     await flushPromises()
     await dialog().get('input[name="connectionName"]').setValue('Telegram · переписка')
     await dialog().get('input[name="botToken"]').setValue(token)
@@ -233,6 +237,7 @@ describe('интеграции', () => {
       global: { plugins: plugins() },
       attachTo: document.body,
     })
+    await vi.dynamicImportSettled()
     await flushPromises()
     await dialog().get('input[name="connectionName"]').setValue('Telegram · переписка')
 
@@ -263,6 +268,7 @@ describe('интеграции', () => {
       attachTo: document.body,
     })
     await wrapper.get('button').trigger('click')
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(dialog().text()).toContain('Telegram · переписка · Telegram · бизнес-бот')
     await dialog()

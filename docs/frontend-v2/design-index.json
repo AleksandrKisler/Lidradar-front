@@ -7887,7 +7887,30 @@
     "latestApprovalRevision": "R43",
     "latestDecisionManifest": "artifacts/frontend-v2/settings-polish/figma-2026-10-31/r43.json"
   },
+  "accountLinkColorCorrection": {
+    "id": "N-ACCOUNT-LINK-COLOR-01",
+    "date": "2026-11-02",
+    "priority": "P2",
+    "status": "implemented-and-verified",
+    "textColor": "#005BB5",
+    "computedTextColor": "rgb(0, 91, 181)",
+    "runtimeToken": "text-link",
+    "figmaVariableId": "VariableID:421:3230",
+    "figmaVariableName": "color/link",
+    "scope": "All current application header text account links on desktop/tablet/mobile wherever visible; avatar/brand/buttons unchanged.",
+    "supersedes": "Color only of desktopHeaderCorrection; spacing/32,1120x44 and horizontal40 unchanged.",
+    "nativeSourceMap": "artifacts/frontend-v2/account-link-color/sources/source-map.json",
+    "figmaEvidence": "artifacts/frontend-v2/account-link-color/figma/",
+    "evidence": "docs/frontend-v2/evidence/account-link-color-2026-11-02.md",
+    "historicalQaException": "QA-S8-01 retained only in historical evidence; ordinary axe checks have no exception."
+  },
   "settingsNotificationsSelection": {
+    "accountLinkColorCorrection": {
+      "decisionId": "N-ACCOUNT-LINK-COLOR-01",
+      "reference": "accountLinkColorCorrection",
+      "textColor": "#005BB5",
+      "precedence": "Apply over historical desktopHeaderCorrection/approvedSnapshot for text fill only."
+    },
     "status": "approved",
     "approvedAt": "2026-11-01",
     "approvalRevision": "R47",
@@ -8134,6 +8157,12 @@
     }
   },
   "settingsTeamSelection": {
+    "accountLinkColorCorrection": {
+      "decisionId": "N-ACCOUNT-LINK-COLOR-01",
+      "reference": "accountLinkColorCorrection",
+      "textColor": "#005BB5",
+      "precedence": "Apply over historical desktopHeaderCorrection/approvedSnapshot for text fill only."
+    },
     "status": "approved",
     "approvedAt": "2026-11-01",
     "approvalRevision": "R54",
@@ -8456,6 +8485,12 @@
     "runtimeChanges": false
   },
   "settingsPrivacySelection": {
+    "accountLinkColorCorrection": {
+      "decisionId": "N-ACCOUNT-LINK-COLOR-01",
+      "reference": "accountLinkColorCorrection",
+      "textColor": "#005BB5",
+      "precedence": "Apply over historical desktopHeaderCorrection/approvedSnapshot for text fill only."
+    },
     "status": "approved",
     "createdAt": "2026-11-01",
     "revision": "R57",

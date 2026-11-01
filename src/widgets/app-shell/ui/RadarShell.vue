@@ -44,9 +44,6 @@ const settingsCurrent = computed(() => isSectionCurrent('/settings', false, rout
 const redesignedSettings = computed(() =>
   ['settings-notifications', 'settings-team'].includes(String(route.name)),
 )
-const correctedDesktopSettings = computed(() =>
-  ['settings-notifications', 'settings-team', 'settings-privacy'].includes(String(route.name)),
-)
 const locationContext = computed(() =>
   ['radar', 'risk', 'conversations', 'conversation'].includes(String(route.name)),
 )
@@ -145,8 +142,7 @@ function onSwitched(tenantId: string): void {
           </p>
           <RouterLink
             :to="{ name: 'account' }"
-            class="hidden h-11 min-w-[93px] items-center justify-center text-sm leading-5 hover:underline md:flex"
-            :class="redesignedSettings ? 'text-ink' : 'text-link'"
+            class="hidden h-11 min-w-[93px] items-center justify-center text-sm leading-5 text-link hover:underline md:flex"
             >Аккаунт&nbsp;→</RouterLink
           >
           <RouterLink
@@ -210,8 +206,7 @@ function onSwitched(tenantId: string): void {
               </p>
               <RouterLink
                 :to="{ name: 'account' }"
-                class="flex h-11 min-w-[93px] items-center justify-center text-sm leading-5 hover:underline"
-                :class="correctedDesktopSettings ? 'text-brand' : 'text-link'"
+                class="flex h-11 min-w-[93px] items-center justify-center text-sm leading-5 text-link hover:underline"
                 >Аккаунт&nbsp;→</RouterLink
               >
               <RouterLink

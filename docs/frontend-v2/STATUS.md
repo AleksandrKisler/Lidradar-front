@@ -1,5 +1,35 @@
 # Статус frontend v2
 
+## Codex · Account link #005BB5 · 02.11.2026 · C3 принят в header scope
+
+N-ACCOUNT-LINK-COLOR-01/P2 реализован: текстовые Account-ссылки всегда text-link
+(#005BB5,rgb0/91/181),два route-dependent цвета RadarShell удалены. Геометрия,
+типографика,href,brand/avatar/buttons прежние. Ordinary axe без исключений;
+подготовленный waiver C1 не принят/не опубликован и сохранён как SUPERSEDED.
+Исторические QA-S8-01/S10/RC8 raw FAIL не переписаны.
+
+C3 frozen:/private/tmp/lidradar-account-link-color-c3,979inputs,manifest SHA
+4a5ae2396a1446cdd3b9e05deb23e9ce61b952dec2b0590c19a6f6101a749411.
+TEST PASS / FUNCTIONAL PASS AC1–6; UI хедеров desktop/tablet/mobile PASS.
+C3 check1213/106+architecture13 и preprod exit0. Verified reuse C1:
+builds dev/prod/audit exit0; stock1102=1068PASS+34expectedSKIP,0fail/retry/flaky;
+135новыхAccountcases и12прежнихaxeFAILcases теперьPASS безwaiver.
+C3/C1captures/C1poststock142/142bundlefiles byte-equal,976unchangedinputs;
+C3 единственныйtestdelta—6awaitvi.dynamicImportSettled вexistingintegrationunit
+(8/8boundedprobe,assertions/timeoutsнезаменены). C1rawcheck1210/3FAIL сохранён;
+C2preparation_NOT_ACCEPTED,непроверенныйsnapshot сохранён.
+
+Figma359/359localTEXTfillbindingscolor/link;geometry/fonts359/359,pagefingerprints5/5,
+Access/flows8/8 иvariables8/8 стабильны. Новые25nativePNG+25crops,source-map и
+accountLinkColorCorrection вindex. Capture27/27PASS,117PNG/145files. UI27pairs
+(11viewed+16strictbothSHAreusewithinC3)+54extras+3nativefull+reference просмотрены.
+Input/capture/stockSHAguards0drift. Послеприёмки—толькоmainreport/STATUS/indexstatus.
+
+[Отчёт](evidence/account-link-color-2026-11-02.md),artifacts account-link-color/C3/:
+qa/test-report.md,ui/report.md,comparisons/index.json. P3UI-RC8-01 остаётся OPEN;
+Privacy body/старый overlay внеheader-onlyscope. StageRC8/backend/API/production
+не менялись;push/deploy/merge не выполнялись. Порт4173 освобождён,чужой4174сохранён.
+
 ## Codex · Настройки S10 · Stage RC8 опубликован · 01.11.2026
 
 По поручению владельца S10 закоммичен и выложен только на stage. Код —

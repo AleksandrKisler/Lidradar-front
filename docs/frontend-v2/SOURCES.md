@@ -149,6 +149,15 @@ Tablet/mobile и общие masters сохранены. Используй `desk
 в трёх selections и [evidence](evidence/settings-desktop-header-2026-11-01.md)
 поверх исторических approval snapshots; это не новый runtime PASS.
 
+Новое решение владельца02.11.2026 `N-ACCOUNT-LINK-COLOR-01` заменяет только
+цвет: все текстовые «Аккаунт →» в текущих app headers используют `color/link`
+`#005BB5` (`text-link`),включаяtablet. Отступ32/1120×44/горизонтальный40 и
+типографика сохранены;brand/avatar/buttons прежние. Применяй
+`accountLinkColorCorrection` поверх прежних `desktopHeaderCorrection` и
+`approvedSnapshot`. Исторический #0071E3 не является текущим эталоном этой ссылки.
+Новые25nativePNG,включая18Privacyheaderstates,и source map — в
+`artifacts/frontend-v2/account-link-color/`; [отчёт](evidence/account-link-color-2026-11-02.md).
+
 Access/Onboarding: approved `id` из ledger, не legacy `sourceId` из plan.
 Для согласованных 30.10.2026 US-M01-03–08 используй также
 `access.userStoryFlows`: шесть точных путей, 47 desktop-сцен и версия

@@ -32,7 +32,7 @@ for (const route of HEADER_ROUTES) {
         visible: true,
       })
       expect(geometry.account).toMatchObject({
-        color: 'rgb(0, 113, 227)',
+        color: 'rgb(0, 91, 181)',
         href: '/account',
         height: 44,
       })
@@ -66,7 +66,7 @@ for (const route of HEADER_ROUTES) {
       expect(overlay.shellHeader).toEqual(before.shellHeader)
       expect(overlay.shellHeader).toMatchObject({ x: 280, y: 32, width: 1120, height: 44 })
       expect(overlay.account).toEqual(before.account)
-      expect(overlay.account.color).toBe('rgb(0, 113, 227)')
+      expect(overlay.account.color).toBe('rgb(0, 91, 181)')
       expect(overlay.title).toEqual(before.title)
       expect(overlay.dialogs).toHaveLength(1)
       expect(fixture.writes()).toHaveLength(0)
@@ -105,11 +105,7 @@ for (const route of HEADER_ROUTES) {
         expect(geometry.account.height).toBe(44)
         expect(geometry.account.y).toBe(adaptive.name === 'tablet' ? 13.5 : 9.5)
         expect(geometry.account.color).toBe(
-          adaptive.name === 'mobile'
-            ? 'rgb(0, 113, 227)'
-            : route.kind === 'privacy'
-              ? 'rgb(0, 91, 181)'
-              : 'rgb(29, 29, 31)',
+          adaptive.name === 'mobile' ? 'rgb(0, 113, 227)' : 'rgb(0, 91, 181)',
         )
         expect(geometry.title.y).toBe(
           route.kind === 'privacy'

@@ -2,7 +2,7 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { isAbsolute, resolve } from 'node:path'
+import { dirname, isAbsolute, resolve } from 'node:path'
 import {
   HEADER_NOW,
   privacyHeaderFixture,
@@ -23,8 +23,8 @@ type Source = Frame & {
 const ROOT = resolve('artifacts/frontend-v2/settings-notifications-team/Codex-R1/header-correction')
 const OUT = resolve(process.env.HEADER_CAPTURE_OUT ?? `${ROOT}/tests/browser`)
 const run = process.env.HEADER_CAPTURE_RUN ?? `${process.pid}-${Date.now()}`
-const selection = JSON.parse(readFileSync('docs/frontend-v2/design-index.json', 'utf8'))
-  .settingsPrivacySelection as {
+const designIndex = JSON.parse(readFileSync('docs/frontend-v2/design-index.json', 'utf8'))
+const selection = designIndex.settingsPrivacySelection as {
   adaptives: Record<
     Adaptive,
     { primaryScreenId: string; states: Record<string, Record<string, string>> }
@@ -65,7 +65,11 @@ const png = (path: string) => {
   }
 }
 function reference(frame: Frame) {
-  const path = `${ROOT}/${frame.adaptive === 'desktop' ? 'source-map' : 'regression-source-map'}.json`
+  const currentMap = designIndex.accountLinkColorCorrection?.nativeSourceMap
+  const path = currentMap
+    ? resolve(currentMap)
+    : `${ROOT}/${frame.adaptive === 'desktop' ? 'source-map' : 'regression-source-map'}.json`
+  const nativeRoot = currentMap ? dirname(path) : ROOT
   const all = JSON.parse(readFileSync(path, 'utf8')) as { entries: Source[] }
   const matches = all.entries.filter(
     (source) => source.package === 'privacy' && source.nodeId === frame.nodeId,
@@ -76,13 +80,13 @@ function reference(frame: Frame) {
   const native = png(
     isAbsolute(source.nativePng.path)
       ? source.nativePng.path
-      : resolve(ROOT, source.nativePng.path),
+      : resolve(nativeRoot, source.nativePng.path),
   )
   expect(native.sha256).toBe(source.nativePng.sha256)
   expect([native.width, native.height]).toEqual([source.width, source.height])
   if (frame.adaptive === 'desktop') {
     expect(source.expectedHeader?.top).toBe(32)
-    expect(source.expectedHeader?.accountColor.toUpperCase()).toBe('#0071E3')
+    expect(source.expectedHeader?.accountColor.toUpperCase()).toBe('#005BB5')
   }
   return { ...source, nativePng: native }
 }
@@ -178,7 +182,7 @@ async function capture(
   const geometry = await settingsHeaderGeometry(page)
   if (frame.adaptive === 'desktop') {
     expect(geometry.shellHeader).toMatchObject({ x: 280, y: 32, width: 1120, height: 44 })
-    expect(geometry.account.color).toBe('rgb(0, 113, 227)')
+    expect(geometry.account.color).toBe('rgb(0, 91, 181)')
   } else {
     expect(geometry.appbar).toMatchObject({ y: 0, height: frame.adaptive === 'tablet' ? 72 : 64 })
     expect(geometry.account.color).toBe(

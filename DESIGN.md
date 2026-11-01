@@ -95,6 +95,13 @@ phone `1499:26740`390×1568;66 кадров, по22 на адаптив. Кар�
 `settingsPrivacySelection.canvasCleanup`, evidence —
 `artifacts/frontend-v2/settings-polish/figma-2026-10-31/privacy-cleanup-r59/manifest.json`.
 
+Текстовая ссылка «Аккаунт →» в актуальных хедерах приложения02.11.2026
+использует единый `color/link`/`text-link` `#005BB5` на всех адаптивах,где
+показывается. Это заменяет только цвет из N-SHELL-HEADER-01; desktop top32
+и геометрия прежние. Brand #0071E3,аватар и остальные акценты не меняются.
+Эталон: `accountLinkColorCorrection` поверх historical header/approval snapshots;
+[решение и evidence](docs/frontend-v2/evidence/account-link-color-2026-11-02.md).
+
 ## Визуальное направление
 
 Спокойный рабочий web-интерфейс. Точное воспроизведение Figma, без переосмысления.

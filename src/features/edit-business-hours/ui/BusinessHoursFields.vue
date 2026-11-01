@@ -11,7 +11,7 @@
  * а приглушает их карточка страницы; каркас без точки приглушает саму неделю.
  */
 import { computed } from 'vue'
-import { UiIcon } from '@/shared/ui'
+import { readTimeInput, UiIcon } from '@/shared/ui'
 import { WEEKDAYS, weekIssues, type DayDraft } from '@/entities/location'
 
 const props = defineProps<{
@@ -67,7 +67,7 @@ function applyToAll(): void {
 }
 
 const timeClass =
-  'h-[46px] min-w-0 flex-1 rounded-button border border-[#d2d2d7] bg-paper px-3 text-center text-field text-ink md:w-24 md:flex-none lg:h-[34px] lg:text-left aria-invalid:border-danger-ink disabled:bg-paper disabled:text-ink disabled:opacity-100 [&::-webkit-calendar-picker-indicator]:hidden'
+  'h-[46px] min-w-0 flex-1 rounded-button border border-[#d2d2d7] bg-paper px-3 text-center text-field text-ink md:w-24 md:flex-none lg:h-[34px] lg:text-left aria-invalid:border-danger-ink disabled:bg-paper disabled:text-ink disabled:opacity-100'
 </script>
 
 <template>
@@ -126,13 +126,16 @@ const timeClass =
               <span class="sr-only">{{ labelOf(day.weekday) }}, начало</span>
               <input
                 :value="placeholder ? '' : day.opensAt"
-                :type="blank ? 'text' : 'time'"
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                :placeholder="blank ? '' : placeholder ? '--:--' : 'ЧЧ:ММ'"
                 :name="`opens-${day.weekday}`"
                 :class="timeClass"
                 :aria-invalid="errors[day.weekday] ? true : undefined"
                 :aria-describedby="errors[day.weekday] ? errorId(day.weekday) : undefined"
                 :disabled="disabled || placeholder"
-                @input="change(day.weekday, { opensAt: ($event.target as HTMLInputElement).value })"
+                @input="change(day.weekday, { opensAt: readTimeInput($event) })"
               />
             </label>
             <label
@@ -142,15 +145,16 @@ const timeClass =
               <span class="sr-only">{{ labelOf(day.weekday) }}, окончание</span>
               <input
                 :value="placeholder ? '' : day.closesAt"
-                :type="blank ? 'text' : 'time'"
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                :placeholder="blank ? '' : placeholder ? '--:--' : 'ЧЧ:ММ'"
                 :name="`closes-${day.weekday}`"
                 :class="timeClass"
                 :aria-invalid="errors[day.weekday] ? true : undefined"
                 :aria-describedby="errors[day.weekday] ? errorId(day.weekday) : undefined"
                 :disabled="disabled || placeholder"
-                @input="
-                  change(day.weekday, { closesAt: ($event.target as HTMLInputElement).value })
-                "
+                @input="change(day.weekday, { closesAt: readTimeInput($event) })"
               />
             </label>
           </div>

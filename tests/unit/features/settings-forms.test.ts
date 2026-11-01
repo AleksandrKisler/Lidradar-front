@@ -429,6 +429,11 @@ describe('формы настроек', () => {
     await flushPromises()
     // Стартовая неделя новой точки — не «несохранённые изменения»: уход без правок не пугает.
     expect(wrapper.emitted('update:dirty')?.at(-1)).toEqual([false])
+    await wrapper.get('input[name="opens-1"]').setValue('09:00 PM')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(wrapper.text()).toContain('Укажите время открытия и закрытия')
+    expect(fetchMock).not.toHaveBeenCalled()
     await wrapper.get('input[name="opens-1"]').setValue('21:00')
     expect(wrapper.emitted('update:dirty')?.at(-1)).toEqual([true])
     await wrapper.get('form').trigger('submit')

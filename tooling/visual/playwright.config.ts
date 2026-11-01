@@ -12,7 +12,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['list']],
   outputDir: '../../artifacts/frontend-v2/.pw',
-  // Язык интерфейса браузера — русский: поля времени показывают 24-часовой формат, как у пользователей.
+  // Язык кадров фиксирован; отображение ЧЧ:ММ задаёт само поле, независимо от локали ОС.
   use: {
     baseURL: 'http://127.0.0.1:4173',
     browserName: 'chromium',

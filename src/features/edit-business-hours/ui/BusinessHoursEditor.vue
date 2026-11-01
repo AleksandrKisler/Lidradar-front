@@ -13,7 +13,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { describeError, isApiError } from '@/shared/api'
-import { UiAlert, UiButton, UiGlyph } from '@/shared/ui'
+import { readTimeInput, UiAlert, UiButton, UiGlyph } from '@/shared/ui'
 import {
   WEEKDAYS,
   defaultWeek,
@@ -242,7 +242,7 @@ defineExpose({ save })
 /** Поле времени: на телефоне и планшете крупное, на десктопе компактное (Figma «Точка и график»). */
 const timeClass = computed(
   () =>
-    'h-[46px] min-w-0 flex-1 rounded-field border border-line bg-paper px-3 text-field text-ink md:flex-none lg:h-[34px] aria-invalid:border-danger [&::-webkit-calendar-picker-indicator]:hidden ' +
+    'h-[46px] min-w-0 flex-1 rounded-field border border-line bg-paper px-3 text-field text-ink md:flex-none lg:h-[34px] aria-invalid:border-danger ' +
     (settings.value
       ? 'px-3.5 text-left disabled:opacity-50 lg:disabled:bg-canvas md:w-24'
       : 'text-center disabled:text-muted md:w-24 lg:w-20'),
@@ -261,9 +261,10 @@ const errorText = (weekday: number): string => {
     : `${day}: ${message.charAt(0).toLowerCase()}${message.slice(1)}`
 }
 /** Правка поля снимает ошибку дня: в виде `settings` кнопка «Сохранить график» ждёт исправления. */
-function clearError(weekday: number): void {
+function updateTime(day: DayDraft, field: 'opensAt' | 'closesAt', event: Event): void {
+  day[field] = readTimeInput(event)
   saved.value = false
-  if (settings.value) delete errors.value[weekday]
+  if (settings.value) delete errors.value[day.weekday]
 }
 
 /** Кнопка неактивна из-за ошибки дня (а не из-за ожидания ответа): белая с рамкой, как в Figma. */
@@ -364,13 +365,16 @@ const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === week
               <span class="sr-only">{{ labelOf(day.weekday) }}, открытие</span>
               <input
                 v-model="day.opensAt"
-                type="time"
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                placeholder="ЧЧ:ММ"
                 :name="`opens-${day.weekday}`"
                 :class="timeClass"
                 :aria-invalid="opensInvalid(day.weekday) ? true : undefined"
                 :aria-describedby="errors[day.weekday] ? `day-error-${day.weekday}` : undefined"
                 :disabled="submitting"
-                @input="clearError(day.weekday)"
+                @input="updateTime(day, 'opensAt', $event)"
               />
             </label>
             <label
@@ -381,13 +385,16 @@ const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === week
               <span class="sr-only">{{ labelOf(day.weekday) }}, закрытие</span>
               <input
                 v-model="day.closesAt"
-                type="time"
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                placeholder="ЧЧ:ММ"
                 :name="`closes-${day.weekday}`"
                 :class="timeClass"
                 :aria-invalid="errors[day.weekday] ? true : undefined"
                 :aria-describedby="errors[day.weekday] ? `day-error-${day.weekday}` : undefined"
                 :disabled="submitting"
-                @input="clearError(day.weekday)"
+                @input="updateTime(day, 'closesAt', $event)"
               />
             </label>
           </div>

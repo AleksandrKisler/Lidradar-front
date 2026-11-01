@@ -102,6 +102,20 @@ describe('PreferenceEditor', () => {
     wrapper.unmount()
   })
 
+  it('отклоняет 12-часовую запись и недопустимый час без PUT', async () => {
+    const wrapper = mountEditor({ deliveryMode: 'DIGEST' })
+    for (const value of ['09:00 PM', '25:00']) {
+      await wrapper.get('input[name="digest-PROMISE_NOT_FULFILLED"]').setValue(value)
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(
+        wrapper.get('input[name="digest-PROMISE_NOT_FULFILLED"]').attributes('aria-invalid'),
+      ).toBe('true')
+    }
+    wrapper.unmount()
+  })
+
   it('отправляет полное тело PUT и сообщает об успехе', async () => {
     fetchMock.mockImplementation(async (request) =>
       request.method === 'PUT'

@@ -98,7 +98,7 @@ test('US-M02-06: empty state, validation, one create despite duplicate submit, e
   fixture = await settingsFixture(page, { empty: true })
   await openSettings(page)
   await expect(page.getByRole('heading', { name: 'Точек пока нет', exact: true })).toBeVisible()
-  await expect(page.locator('input[type=time]')).toHaveCount(0)
+  await expect(page.locator('input[name^="opens-"], input[name^="closes-"]')).toHaveCount(0)
   await page.getByRole('button', { name: 'Добавить точку', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Добавить точку', exact: true })
   await dialog.getByRole('button', { name: 'Добавить точку', exact: true }).click()
@@ -362,7 +362,7 @@ for (const width of [320, 344, 375, 390, 768, 834, 1023, 1024, 1440]) {
       page.getByRole('list', { name: 'Список точек' }).getByRole('button', { pressed: true }),
     ).toHaveCount(1)
     const bounds = await page
-      .locator('main select, main input[type=time]')
+      .locator('main select, main input[name^="opens-"], main input[name^="closes-"]')
       .evaluateAll((elements) =>
         elements
           .filter((element) => element.getClientRects().length)

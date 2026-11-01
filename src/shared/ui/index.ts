@@ -36,3 +36,4 @@ export { default as UiChannelMark } from './UiChannelMark.vue'
 export { default as UiAccessDenied } from './UiAccessDenied.vue'
 export const UiTooltip = /* @__PURE__ */ defineAsyncComponent(() => import('./UiTooltip.vue'))
 export { GLYPHS } from './glyphs'
+export { readTimeInput } from './time-input'

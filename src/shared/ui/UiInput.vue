@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { readTimeInput } from './time-input'
 /**
  * Текстовое поле по макету: высота 46, радиус 10, состояние ошибки
  * подсвечивается рамкой и объявляется через `aria-invalid`.
@@ -48,12 +49,13 @@ const model = defineModel<string | undefined>({ default: '' })
     :id="id"
     v-model="model"
     v-bind="$attrs"
-    :type="type"
+    :type="type === 'time' ? 'text' : type"
     :disabled="disabled"
-    :placeholder="placeholder"
-    :autocomplete="autocomplete"
+    :placeholder="placeholder ?? (type === 'time' ? 'ЧЧ:ММ' : undefined)"
+    :autocomplete="autocomplete ?? (type === 'time' ? 'off' : undefined)"
     :maxlength="maxlength"
-    :inputmode="inputmode"
+    :inputmode="type === 'time' ? 'numeric' : inputmode"
+    @input="type === 'time' && (model = readTimeInput($event))"
     :aria-invalid="invalid || undefined"
     :aria-describedby="describedBy"
     :class="[

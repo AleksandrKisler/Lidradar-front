@@ -55,12 +55,12 @@ const model = defineModel<string | undefined>({ default: '' })
     :autocomplete="autocomplete ?? (type === 'time' ? 'off' : undefined)"
     :maxlength="maxlength"
     :inputmode="type === 'time' ? 'numeric' : inputmode"
-    @input="type === 'time' && (model = readTimeInput($event))"
     :aria-invalid="invalid || undefined"
     :aria-describedby="describedBy"
     :class="[
       'h-input w-full rounded-field border bg-paper px-3.5 text-field text-ink text-ellipsis placeholder:text-secondary disabled:cursor-not-allowed disabled:opacity-70',
       invalid ? 'border-danger' : 'border-line hover:border-muted/60',
     ]"
+    @input="type === 'time' && (model = readTimeInput($event))"
   />
 </template>

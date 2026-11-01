@@ -9,6 +9,7 @@ import {
   invitationStatusLabel,
   invitationStatusTone,
   isLastActiveOwner,
+  isTeamEventToday,
   memberActionAvailability,
   memberInitials,
   memberStatusLabel,
@@ -72,6 +73,21 @@ describe('подписи команды', () => {
     expect(invitationStatusLabel('Y')).toBe('Y')
     expect(ROLE_CAPABILITIES.OWNER.can.length).toBeGreaterThan(ROLE_CAPABILITIES.MANAGER.can.length)
     expect(ROLE_CAPABILITIES.MANAGER.cannot).toHaveLength(1)
+  })
+})
+
+describe('даты истории команды', () => {
+  it('определяет сегодняшний день в зоне организации, а не по UTC', () => {
+    const asOf = Date.parse('2026-11-01T00:30:00Z')
+    expect(isTeamEventToday('2026-10-31T22:30:00Z', 'Europe/Moscow', asOf)).toBe(true)
+    expect(isTeamEventToday('2026-10-31T22:30:00Z', 'UTC', asOf)).toBe(false)
+    expect(isTeamEventToday('2026-11-02T00:30:00Z', 'Europe/Moscow', asOf)).toBe(false)
+  })
+  it('не придумывает дату при неизвестном значении или часовом поясе', () => {
+    const asOf = Date.parse('2026-11-01T00:30:00Z')
+    expect(isTeamEventToday(null, 'UTC', asOf)).toBe(false)
+    expect(isTeamEventToday('invalid', 'UTC', asOf)).toBe(false)
+    expect(isTeamEventToday('2026-11-01T00:30:00Z', 'bad/timezone', asOf)).toBe(false)
   })
 })
 

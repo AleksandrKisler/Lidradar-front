@@ -4,12 +4,13 @@
  * на планшете и телефоне — подписанный выбор раздела. Разделы организации доступны владельцу,
  * уведомления — любому активному участнику, поэтому список строится по правам роли.
  */
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { UiSelect } from '@/shared/ui'
 import { useSessionStore, type Permission } from '@/entities/session'
 
-defineProps<{ scrolling?: boolean }>()
+const props = defineProps<{ scrolling?: boolean; mobileScrollOffset?: number | undefined }>()
+const strip = ref<HTMLElement>()
 const session = useSessionStore()
 const route = useRoute()
 const router = useRouter()
@@ -31,6 +32,21 @@ const tabs = computed(() =>
 )
 const options = computed(() => tabs.value.map((tab) => ({ value: tab.to.name, label: tab.label })))
 const current = computed(() => String(route.name ?? ''))
+async function positionActive() {
+  if (props.mobileScrollOffset === undefined || !strip.value) return
+  await nextTick()
+  const active = strip.value.querySelector<HTMLElement>('[aria-current="page"]')
+  strip.value.scrollLeft =
+    window.innerWidth < 768 && active
+      ? Math.min(props.mobileScrollOffset, active.offsetLeft - strip.value.offsetLeft)
+      : 0
+}
+onMounted(() => {
+  void positionActive()
+  window.addEventListener('resize', positionActive)
+})
+onBeforeUnmount(() => window.removeEventListener('resize', positionActive))
+watch(current, positionActive)
 
 const selectKey = ref(0)
 async function open(name: string | undefined): Promise<void> {
@@ -62,15 +78,15 @@ function moveFocus(event: KeyboardEvent): void {
 <template>
   <div>
     <nav
+      ref="strip"
       aria-label="Разделы настроек"
       :class="scrolling ? 'settings-tabs min-w-0 overflow-x-auto' : 'hidden lg:block'"
       @keydown="moveFocus"
     >
       <ul
+        :style="scrolling ? { minWidth: `${tabs.length * 188 - 8}px` } : undefined"
         :class="
-          scrolling
-            ? 'grid min-w-[1120px] grid-flow-col auto-cols-fr gap-2'
-            : 'grid grid-flow-col auto-cols-fr'
+          scrolling ? 'grid grid-flow-col auto-cols-fr gap-2' : 'grid grid-flow-col auto-cols-fr'
         "
       >
         <li v-for="tab in tabs" :key="tab.label">

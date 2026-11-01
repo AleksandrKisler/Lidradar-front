@@ -1,154 +1,130 @@
 <script setup lang="ts">
-/**
- * Участники компании (макет 12): текущий пользователь помечен «вы», отозванные
- * остаются в списке с датой — на них ссылаются факты, история сохраняется.
- *
- * Раскладка выбирается по ширине самой карточки (container query), а не окна.
- * В широкой — таблица из четырёх столбцов: бейджи и кнопки стоят на одной
- * линии с центром аватара, заметка о защите владельца висит под кнопками.
- * В узкой — каждый участник блоком: человек, затем роль и доступ, затем
- * действия; горизонтальной прокрутки нет, кнопки не уходят за край. Роли ARIA
- * заданы явно, чтобы смена `display` не стёрла табличную семантику.
- */
-import { computed } from 'vue'
-import { formatDateTime } from '@/shared/lib'
-import { UiBadge } from '@/shared/ui'
+import { computed, ref } from 'vue'
 import { roleLabel } from '@/entities/session'
 import {
-  memberInitials,
+  memberActionAvailability,
+  teamDate,
   memberStatusLabel,
-  memberStatusTone,
-  sortMembers,
   type Member,
   type TeamRole,
 } from '@/entities/team'
 import { MemberActions } from '@/features/team/manage-member'
-
 const props = defineProps<{
   tenantId: string
   members: Member[]
+  allMembers?: Member[]
   currentUserId: string
   timeZone: string
+  headings?: boolean
 }>()
 const emit = defineEmits<{
   roleChanged: [member: Member, role: TeamRole, self: boolean]
   revoked: [member: Member, self: boolean]
 }>()
-
-const rows = computed(() => sortMembers(props.members))
-
-/** Места переноса длинной почты: после «@», «.», «_» и «-», а не посреди слова. */
+// A concurrent revoke may move the target to another section while its command is
+// settling. Keep that mounted editor until the user closes it; rows disappear after close.
+const openTargets = ref(new Map<string, Member>())
+function trackDialog(member: Member, open: boolean) {
+  if (open) openTargets.value.set(member.userId, member)
+  else openTargets.value.delete(member.userId)
+}
+const rows = computed(() => {
+  const retained = [...openTargets.value.values()]
+    .filter((target) => !props.members.some((member) => member.userId === target.userId))
+    .map((target) => props.allMembers?.find((member) => member.userId === target.userId) ?? target)
+  const all = [...props.members, ...retained]
+  // Owners remain first; preserve API order inside each group (including historical rows).
+  return [
+    ...all.filter((member) => member.status === 'ACTIVE' && member.role === 'OWNER'),
+    ...all.filter((member) => member.status !== 'ACTIVE' || member.role !== 'OWNER'),
+  ]
+})
 const emailParts = (email: string) => email.match(/[^@._-]+[@._-]?|[@._-]/g) ?? [email]
 </script>
-
 <template>
-  <div class="@container">
-    <table role="table" class="block w-full text-left text-sm @3xl:table">
-      <caption class="sr-only">
-        Участники компании
-      </caption>
-      <thead role="rowgroup" class="sr-only @3xl:not-sr-only @3xl:table-header-group">
-        <tr role="row" class="@3xl:table-row">
-          <th
-            scope="col"
-            role="columnheader"
-            class="border-b border-line pr-4 pb-3 text-xs font-medium text-muted"
-          >
-            Сотрудник
-          </th>
-          <th
-            scope="col"
-            role="columnheader"
-            class="w-32 border-b border-line pr-4 pb-3 text-xs font-medium text-muted"
-          >
-            Роль
-          </th>
-          <th
-            scope="col"
-            role="columnheader"
-            class="w-44 border-b border-line pr-4 pb-3 text-xs font-medium text-muted"
-          >
-            Доступ
-          </th>
-          <th scope="col" role="columnheader" class="w-px border-b border-line pb-3">
-            <span class="sr-only">Действия</span>
-          </th>
-        </tr>
-      </thead>
-      <tbody role="rowgroup" class="block divide-y divide-line @3xl:table-row-group">
-        <tr
-          v-for="member in rows"
-          :key="member.membershipId"
-          role="row"
-          class="flex flex-wrap items-center gap-x-2 gap-y-3 py-4 @3xl:table-row"
-        >
-          <td
-            role="cell"
-            class="basis-full @3xl:table-cell @3xl:basis-auto @3xl:py-4 @3xl:pr-4 @3xl:align-top"
-          >
-            <div class="flex items-start gap-3">
-              <span
-                class="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-pale text-sm font-medium text-brand-dark"
-                aria-hidden="true"
-              >
-                {{ memberInitials(member.displayName, member.email) }}
-              </span>
-              <span class="mt-0.5 min-w-0">
-                <span
-                  class="block text-base font-medium [overflow-wrap:anywhere]"
-                  :class="member.status === 'ACTIVE' ? 'text-ink' : 'text-muted'"
-                >
-                  {{ member.displayName
-                  }}<span v-if="member.userId === currentUserId" class="font-normal text-muted">
-                    · вы</span
-                  >
-                </span>
-                <span v-if="member.email" class="block text-sm text-muted [overflow-wrap:anywhere]"
-                  ><template v-for="(part, index) in emailParts(member.email)" :key="index"
-                    >{{ part }}<wbr /></template
-                ></span>
-                <!-- Обезличенная учётная запись (ADR 0059): адреса нет, членство закрыто. -->
-                <span v-else class="block text-sm text-muted" data-testid="member-closed-account"
-                  >Учётная запись удалена</span
-                >
-              </span>
-            </div>
-          </td>
-          <td role="cell" class="@3xl:table-cell @3xl:py-4 @3xl:pr-4 @3xl:align-top">
-            <div class="flex items-center @3xl:min-h-11">
-              <UiBadge :tone="member.role === 'OWNER' ? 'brand' : 'neutral'">
-                {{ roleLabel(member.role) }}
-              </UiBadge>
-            </div>
-          </td>
-          <td
-            role="cell"
-            class="flex flex-wrap items-center gap-x-2 gap-y-1 @3xl:table-cell @3xl:py-4 @3xl:pr-4 @3xl:align-top"
-          >
-            <div class="flex items-center @3xl:min-h-11">
-              <UiBadge :tone="memberStatusTone(member.status)">
-                {{ memberStatusLabel(member.status) }}
-              </UiBadge>
-            </div>
-            <p v-if="member.revokedAt" class="text-xs text-muted">
-              {{ formatDateTime(member.revokedAt, timeZone) }}
+  <div>
+    <div
+      v-if="headings"
+      class="hidden items-center gap-5 border-b border-line pb-4 text-xs leading-[18px] text-muted md:flex"
+      aria-hidden="true"
+    >
+      <span class="min-w-0 flex-1">Участник</span><span class="w-[250px]">Роль и доступ</span
+      ><span class="w-16 text-center">Действие</span>
+    </div>
+    <ul
+      class="divide-y divide-line"
+      :class="headings ? 'md:pt-4' : ''"
+      aria-label="Участники компании"
+    >
+      <li
+        v-for="member in rows"
+        :key="member.membershipId"
+        class="relative flex min-w-0 flex-col gap-2 py-[10px]"
+      >
+        <div class="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:gap-5">
+          <div class="order-2 min-w-0 flex-1 md:order-none">
+            <p class="text-base leading-[22px] font-semibold break-words text-ink">
+              {{ member.displayName }}<span v-if="member.userId === currentUserId"> · Вы</span>
             </p>
-          </td>
-          <td
-            role="cell"
-            class="basis-full @3xl:table-cell @3xl:basis-auto @3xl:py-4 @3xl:align-top"
+            <p
+              v-if="member.email"
+              class="mt-1 text-sm leading-5 text-muted [overflow-wrap:anywhere]"
+            >
+              <template v-for="(part, index) in emailParts(member.email)" :key="index"
+                >{{ part }}<wbr
+              /></template>
+            </p>
+            <p v-else class="mt-1 text-sm leading-5 text-muted" data-testid="member-closed-account">
+              Учётная запись закрыта
+            </p>
+          </div>
+          <div
+            class="order-1 flex min-w-0 items-center justify-between gap-3 md:order-none md:w-[250px] md:justify-start"
+          >
+            <span class="text-sm leading-5 text-ink">{{ roleLabel(member.role) }}</span>
+            <span
+              class="flex h-7 items-center rounded-full px-[10px] text-xs leading-[18px]"
+              :class="
+                member.status === 'ACTIVE' ? 'bg-success-pale text-success' : 'bg-canvas text-muted'
+              "
+              >{{
+                member.status === 'ACTIVE'
+                  ? '✓ Активен'
+                  : member.status === 'DISABLED'
+                    ? 'Отозван'
+                    : memberStatusLabel(member.status)
+              }}</span
+            >
+          </div>
+          <div
+            v-if="
+              memberActionAvailability(member, allMembers ?? members).changeRole ||
+              openTargets.has(member.userId)
+            "
+            class="order-3 flex justify-end md:order-none"
           >
             <MemberActions
               :tenant-id="tenantId"
               :member="member"
-              :members="members"
+              :members="allMembers ?? members"
               :current-user-id="currentUserId"
+              @dialog-changed="(open) => trackDialog(member, open)"
               @role-changed="(target, role, self) => emit('roleChanged', target, role, self)"
               @revoked="(target, self) => emit('revoked', target, self)"
             />
-          </td>
-        </tr>
-      </tbody>
-    </table>
+          </div>
+          <span v-else class="hidden w-16 md:block" />
+        </div>
+        <p
+          v-if="memberActionAvailability(member, allMembers ?? members).reason"
+          class="text-xs leading-[18px] text-muted"
+        >
+          Последний владелец. Сначала назначьте ещё одного владельца.
+        </p>
+        <p v-if="member.revokedAt" class="text-xs leading-[18px] text-muted">
+          Отозван {{ teamDate(member.revokedAt, timeZone, !!member.email) }}
+        </p>
+      </li>
+    </ul>
   </div>
 </template>

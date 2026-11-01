@@ -41,6 +41,12 @@ const route = useRoute()
 const menuOpen = ref(false)
 
 const settingsCurrent = computed(() => isSectionCurrent('/settings', false, route.name))
+const redesignedSettings = computed(() =>
+  ['settings-notifications', 'settings-team'].includes(String(route.name)),
+)
+const correctedDesktopSettings = computed(() =>
+  ['settings-notifications', 'settings-team', 'settings-privacy'].includes(String(route.name)),
+)
 const locationContext = computed(() =>
   ['radar', 'risk', 'conversations', 'conversation'].includes(String(route.name)),
 )
@@ -93,7 +99,12 @@ function onSwitched(tenantId: string): void {
   <div class="min-h-dvh lg:grid lg:grid-cols-[var(--spacing-sidebar)_minmax(0,1fr)]">
     <!-- Правое поле 23 px + рамка 1 px: содержимое 192 px, как в Figma 27:2766. -->
     <aside
-      class="hidden border-r border-hairline bg-panel lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:justify-between lg:gap-6 lg:self-start lg:overflow-y-auto lg:py-6 lg:pr-[23px] lg:pl-6"
+      :class="
+        redesignedSettings
+          ? 'lg:min-h-dvh lg:self-stretch'
+          : 'lg:sticky lg:top-0 lg:h-dvh lg:self-start lg:overflow-y-auto'
+      "
+      class="hidden border-r border-hairline bg-panel lg:flex lg:flex-col lg:justify-between lg:gap-6 lg:py-6 lg:pr-[23px] lg:pl-6"
     >
       <div class="flex flex-col gap-6">
         <p class="flex h-8 items-center gap-2 text-xl leading-7 font-semibold text-ink">
@@ -134,7 +145,8 @@ function onSwitched(tenantId: string): void {
           </p>
           <RouterLink
             :to="{ name: 'account' }"
-            class="hidden h-11 min-w-[93px] items-center justify-center text-sm leading-5 text-link hover:underline md:flex"
+            class="hidden h-11 min-w-[93px] items-center justify-center text-sm leading-5 hover:underline md:flex"
+            :class="redesignedSettings ? 'text-ink' : 'text-link'"
             >Аккаунт&nbsp;→</RouterLink
           >
           <RouterLink
@@ -162,19 +174,22 @@ function onSwitched(tenantId: string): void {
       <main
         id="main"
         :class="
-          ['settings-company', 'settings-services'].includes(String(route.name))
-            ? 'gap-5 pt-6'
-            : 'gap-4 pt-4'
+          redesignedSettings
+            ? 'gap-6 pt-6 lg:pt-8'
+            : ['settings-company', 'settings-services'].includes(String(route.name))
+              ? 'gap-5 pt-6 lg:py-8'
+              : 'gap-4 pt-4 lg:py-8'
         "
-        class="flex flex-1 flex-col px-4 pb-6 md:gap-6 md:px-8 md:py-6 lg:px-10 lg:py-8"
+        class="flex flex-1 flex-col px-4 pb-6 md:gap-6 md:px-8 md:py-6 lg:px-10"
       >
         <div
-          :class="
+          :class="[
             ['settings-company', 'settings-services'].includes(String(route.name))
               ? 'leading-5 md:max-lg:-mx-2 lg:leading-[18px]'
-              : 'leading-[18px]'
-          "
-          class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted md:gap-x-4 lg:min-h-11 lg:gap-x-5 lg:gap-y-2"
+              : 'leading-[18px]',
+            redesignedSettings ? 'hidden lg:flex' : 'flex',
+          ]"
+          class="flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted md:gap-x-4 lg:min-h-11 lg:gap-x-5 lg:gap-y-2"
         >
           <p class="min-w-0 break-words">
             <!-- Один разделитель в тексте; шире на desktop (двойные пробелы в Figma 27:2810). -->
@@ -195,7 +210,8 @@ function onSwitched(tenantId: string): void {
               </p>
               <RouterLink
                 :to="{ name: 'account' }"
-                class="flex h-11 min-w-[93px] items-center justify-center text-sm leading-5 text-link hover:underline"
+                class="flex h-11 min-w-[93px] items-center justify-center text-sm leading-5 hover:underline"
+                :class="correctedDesktopSettings ? 'text-brand' : 'text-link'"
                 >Аккаунт&nbsp;→</RouterLink
               >
               <RouterLink

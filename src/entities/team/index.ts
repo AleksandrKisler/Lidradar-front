@@ -46,3 +46,6 @@ export {
   useMembersQuery,
   useInvitationsQuery,
 } from './api/team-api'
+export { default as TeamIcon } from './ui/TeamIcon.vue'
+export { teamDate, isTeamEventToday } from './model/date'
+export { default as TeamRolePicker } from './ui/TeamRolePicker.vue'

@@ -1563,7 +1563,10 @@ test('UI: менеджер — разделы по правам и нейтра�
     '/admin/dead-letters',
   ]) {
     await page.goto(path)
-    await expect(page.getByText('Раздел недоступен'), path).toBeVisible()
+    await expect(
+      page.getByText(path === '/settings/team' ? 'Раздел доступен владельцу' : 'Раздел недоступен'),
+      path,
+    ).toBeVisible()
   }
   expect([...new Set(adminRequests)], 'без права — только /admin/me').toEqual(['/api/v1/admin/me'])
   await page.goto('/settings/privacy')

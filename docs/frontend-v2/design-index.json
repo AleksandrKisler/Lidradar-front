@@ -7894,8 +7894,8 @@
     "fileKey": "jN8Hhzn6ObIAEi7FoY9kPu",
     "pageNodeId": "523:54633",
     "approvedAreaId": "1392:15150",
-    "canvasAreaName": "Настройки / Уведомления — Redesign / На согласование",
-    "canvasAreaNameNote": "Original draft label retained; owner approval is recorded here as R47.",
+    "canvasAreaName": "Настройки / Уведомления — Утверждено",
+    "canvasAreaNameNote": "R58 synchronized the area and overview captions to approved; owner approval R47 remains unchanged. Earlier snapshot hashes include the former captions. Label-only evidence: artifacts/frontend-v2/settings-polish/figma-2026-10-31/settings-status-labels-r58/manifest.json",
     "storyIds": [
       "US-M10-01",
       "US-M10-02",
@@ -8111,6 +8111,560 @@
       "authorized": false,
       "requiresSeparateUserInstruction": true
     },
-    "designFreeze": "Settings remains outside the Access design freeze."
+    "designFreeze": "Settings remains outside the Access design freeze.",
+    "desktopHeaderCorrection": {
+      "taskId": "N-SHELL-HEADER-01",
+      "status": "applied-owner-requested-fix",
+      "date": "2026-11-01",
+      "referenceHeaderId": "1307:13352",
+      "headerTop": 32,
+      "paddingVariable": "spacing/32",
+      "accountColor": "#0071E3",
+      "accountColorVariable": "hig/accent",
+      "correctedHeaderCount": 12,
+      "scope": "Desktop headers on all main states and open-dialog hosts; auto-layout content moves down8px. Tablet/mobile and local components preserved. Historical approvals/approvedSnapshot unchanged.",
+      "currentSnapshot": {
+        "nodeCount": 7275,
+        "fnv1a32": "8f99529f",
+        "methodScript": "artifacts/frontend-v2/settings-polish/figma-2026-10-31/desktop-header-fix-2026-11-01/bind-and-verify.js"
+      },
+      "evidenceManifest": "artifacts/frontend-v2/settings-polish/figma-2026-10-31/desktop-header-fix-2026-11-01/manifest.json",
+      "report": "docs/frontend-v2/evidence/settings-desktop-header-2026-11-01.md",
+      "runtimeAcceptance": "NOT_IMPLIED_BY_FIGMA_CORRECTION"
+    }
+  },
+  "settingsTeamSelection": {
+    "status": "approved",
+    "approvedAt": "2026-11-01",
+    "approvalRevision": "R54",
+    "fileKey": "jN8Hhzn6ObIAEi7FoY9kPu",
+    "pageNodeId": "523:54633",
+    "approvedAreaId": "1426:18281",
+    "canvasAreaName": "Настройки / Команда и доступ — Утверждено",
+    "canvasAreaNameNote": "R58 synchronized the area and overview captions to approved; owner approval R54 remains unchanged. Earlier snapshot hashes include the former captions. Label-only evidence: artifacts/frontend-v2/settings-polish/figma-2026-10-31/settings-status-labels-r58/manifest.json",
+    "storyIds": ["US-M11-01", "US-M11-04", "US-M11-05", "US-M11-06", "US-M11-07", "US-M11-08"],
+    "constructionRevisions": ["R48", "R49", "R50", "R51", "R52", "R53"],
+    "scope": "Team settings: members, invitation creation, role changes and member/invitation revocation with their main/dialog/open-host states.141 composed frames,47 per adaptive. Includes final compact Plus/Pencil/Trash actions and mobile right alignment.",
+    "supersedes": "For Settings Team only, replaces historical team visual references. Data/privacy tab, frozen Access and acceptance-of-invitation screens, approved Company/Services/Notifications and business contracts are unchanged; legacy Figma references are preserved.",
+    "adaptives": {
+      "desktop": {
+        "status": "approved",
+        "approvedAt": "2026-11-01",
+        "primaryScreenId": "1427:18286",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "fullPageSize": {
+          "width": 1440,
+          "height": 1504
+        },
+        "sectionIds": ["1427:18285", "1430:21714", "1433:22399"],
+        "composedFrameCount": 47,
+        "dialogPresentation": "Centered dialogs; current dimensions per frame in approval manifest",
+        "states": {
+          "main": {
+            "default": "1427:18286",
+            "loading": "1427:18480",
+            "initial-error": "1427:18589",
+            "refresh-error": "1427:18677",
+            "invitations-error": "1427:18876",
+            "no-pending": "1427:19052",
+            "minimal": "1427:19225",
+            "long-list": "1427:19335",
+            "history": "1427:19633",
+            "limited": "1427:19849",
+            "two-owners": "1427:19937",
+            "member-updated": "1427:20133",
+            "member-revoked": "1427:20332",
+            "invite-revoked": "1427:20527",
+            "invite-created": "1427:20722",
+            "invite-created-owner": "1434:23380"
+          },
+          "invite": {
+            "form": "1430:21715",
+            "owner": "1430:21744",
+            "saving": "1430:21773",
+            "created": "1430:21806",
+            "copied": "1430:21829",
+            "copy-error": "1430:21853",
+            "error": "1430:21879",
+            "validation": "1430:21911",
+            "owner-saving": "1434:23579",
+            "owner-created": "1434:23612",
+            "owner-copied": "1434:23635"
+          },
+          "role": {
+            "form": "1430:21940",
+            "selected": "1430:21968",
+            "saving": "1430:21996",
+            "saved": "1430:22028",
+            "error": "1430:22059",
+            "last-owner": "1430:22090",
+            "self-edit": "1430:22119",
+            "self-demotion": "1430:22147"
+          },
+          "revokeMember": {
+            "confirm": "1430:22166",
+            "saving": "1430:22184",
+            "error": "1430:22206",
+            "self-removal": "1430:22227"
+          },
+          "revokeInvitation": {
+            "confirm": "1430:22245",
+            "saving": "1430:22263",
+            "error": "1430:22285",
+            "used": "1430:22306"
+          },
+          "openDialogs": {
+            "invite": "1433:22400",
+            "role": "1433:22516",
+            "revokeMember": "1433:22631",
+            "revokeInvitation": "1433:22736"
+          }
+        }
+      },
+      "tablet": {
+        "status": "approved",
+        "approvedAt": "2026-11-01",
+        "primaryScreenId": "1428:19529",
+        "viewport": {
+          "width": 834,
+          "height": 1194
+        },
+        "fullPageSize": {
+          "width": 834,
+          "height": 1522
+        },
+        "sectionIds": ["1428:19528", "1430:22326", "1433:22841"],
+        "composedFrameCount": 47,
+        "dialogPresentation": "Centered dialogs; current dimensions per frame in approval manifest",
+        "states": {
+          "main": {
+            "default": "1428:19529",
+            "loading": "1428:19706",
+            "initial-error": "1428:19792",
+            "refresh-error": "1428:19856",
+            "invitations-error": "1428:20038",
+            "no-pending": "1428:20195",
+            "minimal": "1428:20349",
+            "long-list": "1428:20437",
+            "history": "1428:20718",
+            "limited": "1428:20919",
+            "two-owners": "1428:20983",
+            "member-updated": "1428:21161",
+            "member-revoked": "1428:21342",
+            "invite-revoked": "1428:21521",
+            "invite-created": "1428:21700",
+            "invite-created-owner": "1434:23659"
+          },
+          "invite": {
+            "form": "1430:22327",
+            "owner": "1430:22356",
+            "saving": "1430:22385",
+            "created": "1430:22418",
+            "copied": "1430:22441",
+            "copy-error": "1430:22465",
+            "error": "1430:22491",
+            "validation": "1430:22523",
+            "owner-saving": "1434:23829",
+            "owner-created": "1434:23862",
+            "owner-copied": "1434:23885"
+          },
+          "role": {
+            "form": "1430:22552",
+            "selected": "1430:22580",
+            "saving": "1430:22608",
+            "saved": "1430:22640",
+            "error": "1430:22671",
+            "last-owner": "1430:22702",
+            "self-edit": "1430:22731",
+            "self-demotion": "1430:22759"
+          },
+          "revokeMember": {
+            "confirm": "1430:22778",
+            "saving": "1430:22796",
+            "error": "1430:22818",
+            "self-removal": "1430:22839"
+          },
+          "revokeInvitation": {
+            "confirm": "1430:22857",
+            "saving": "1430:22875",
+            "error": "1430:22897",
+            "used": "1430:22918"
+          },
+          "openDialogs": {
+            "invite": "1433:22842",
+            "role": "1433:22934",
+            "revokeMember": "1433:23025",
+            "revokeInvitation": "1433:23106"
+          }
+        }
+      },
+      "mobile": {
+        "status": "approved",
+        "approvedAt": "2026-11-01",
+        "primaryScreenId": "1428:21909",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "fullPageSize": {
+          "width": 390,
+          "height": 2071
+        },
+        "sectionIds": ["1428:21908", "1430:22938", "1433:23187"],
+        "composedFrameCount": 47,
+        "dialogPresentation": "Full-screen390×844 popups",
+        "states": {
+          "main": {
+            "default": "1428:21909",
+            "loading": "1428:22077",
+            "initial-error": "1428:22158",
+            "refresh-error": "1428:22222",
+            "invitations-error": "1428:22395",
+            "no-pending": "1428:22544",
+            "minimal": "1428:22690",
+            "long-list": "1428:22772",
+            "history": "1428:23044",
+            "limited": "1428:23234",
+            "two-owners": "1428:23298",
+            "member-updated": "1428:23468",
+            "member-revoked": "1428:23641",
+            "invite-revoked": "1428:23810",
+            "invite-created": "1428:23979",
+            "invite-created-owner": "1434:23909"
+          },
+          "invite": {
+            "form": "1430:22939",
+            "owner": "1430:22968",
+            "saving": "1430:22997",
+            "created": "1430:23030",
+            "copied": "1430:23053",
+            "copy-error": "1430:23077",
+            "error": "1430:23103",
+            "validation": "1430:23135",
+            "owner-saving": "1434:24070",
+            "owner-created": "1434:24103",
+            "owner-copied": "1434:24126"
+          },
+          "role": {
+            "form": "1430:23164",
+            "selected": "1430:23192",
+            "saving": "1430:23220",
+            "saved": "1430:23252",
+            "error": "1430:23283",
+            "last-owner": "1430:23314",
+            "self-edit": "1430:23343",
+            "self-demotion": "1430:23371"
+          },
+          "revokeMember": {
+            "confirm": "1430:23390",
+            "saving": "1430:23408",
+            "error": "1430:23430",
+            "self-removal": "1430:23451"
+          },
+          "revokeInvitation": {
+            "confirm": "1430:23469",
+            "saving": "1430:23487",
+            "error": "1430:23509",
+            "used": "1430:23530"
+          },
+          "openDialogs": {
+            "invite": "1433:23188",
+            "role": "1433:23275",
+            "revokeMember": "1433:23361",
+            "revokeInvitation": "1433:23437"
+          }
+        }
+      }
+    },
+    "composedFrameCount": 141,
+    "approvedSnapshot": {
+      "areaId": "1426:18281",
+      "nodeCount": 13147,
+      "fnv1a32": "274d5fbb",
+      "snapshotMethod": "FNV-1a32 over UTF-16 JSON of sorted id/parent/type/name/visibility/opacity/geometry/text/font/paint/stroke/layout/reactions/mainComponent records; root included. Record keys and code preserved in approval evidence.",
+      "snapshotScript": "artifacts/frontend-v2/settings-polish/figma-2026-10-31/team-redesign-r54/snapshot-read.js"
+    },
+    "behavior": {
+      "permissions": "OWNER with member.manage manages members/invitations. MANAGER has no team-list fetch or invented read-only team view; limited state explains403 when reached directly.",
+      "roles": ["OWNER", "MANAGER"],
+      "invitation": "Choose role and optional note up to500 characters. One-time code is valid7 days, shown only at creation; owner copies and transmits it manually. No invented email delivery, resend, recovery or invitation-role editing.",
+      "saving": "Explicit per-operation dialogs; no page/block autosave. Saving blocks command controls; errors retain input and provide retry.",
+      "protection": "Last active owner cannot be demoted/revoked. Self-demotion/revocation is explicit and only allowed when another active owner exists; explain access loss.",
+      "history": "Revoked access and completed invitations remain distinguishable from active/pending entries. Account deletion remains distinct from access revocation.",
+      "mobile": "Cards replace wide rows. Invite uses blue Plus; member role/revoke and invitation revoke use compact icon actions with48×44 hit areas. Action visual right edge aligns with Active badge. Dialogs are full-screen390×844.",
+      "prototype": "Existing key invite/role/revoke routes preserved; static design prototype is not evidence of runtime behavior or complete input handling."
+    },
+    "evidenceManifest": "artifacts/frontend-v2/settings-polish/figma-2026-10-31/team-redesign-r54/manifest.json",
+    "runtimeAcceptance": "NOT_RUN",
+    "implementation": {
+      "authorized": false,
+      "requiresSeparateUserInstruction": true
+    },
+    "designFreeze": "Settings remains outside the Access design freeze.",
+    "desktopHeaderCorrection": {
+      "taskId": "N-SHELL-HEADER-01",
+      "status": "applied-owner-requested-fix",
+      "date": "2026-11-01",
+      "referenceHeaderId": "1307:13352",
+      "headerTop": 32,
+      "paddingVariable": "spacing/32",
+      "accountColor": "#0071E3",
+      "accountColorVariable": "hig/accent",
+      "correctedHeaderCount": 20,
+      "scope": "Desktop headers on all main states and open-dialog hosts; auto-layout content moves down8px. Tablet/mobile and local components preserved. Historical approvals/approvedSnapshot unchanged.",
+      "currentSnapshot": {
+        "nodeCount": 13147,
+        "fnv1a32": "23451a0c",
+        "methodScript": "artifacts/frontend-v2/settings-polish/figma-2026-10-31/desktop-header-fix-2026-11-01/bind-and-verify.js"
+      },
+      "evidenceManifest": "artifacts/frontend-v2/settings-polish/figma-2026-10-31/desktop-header-fix-2026-11-01/manifest.json",
+      "report": "docs/frontend-v2/evidence/settings-desktop-header-2026-11-01.md",
+      "runtimeAcceptance": "NOT_IMPLIED_BY_FIGMA_CORRECTION"
+    }
+  },
+  "settingsPageCleanup": {
+    "revision": "R55",
+    "completedAt": "2026-11-01",
+    "pageNodeId": "523:54633",
+    "scope": "Cleanup of obsolete Settings Company/Schedule, Services/Prices, Notifications and Team/Access screens; update US links and preserve Data/Account plus approved designs.",
+    "retainedApprovedAreaIds": [
+      "1189:10891",
+      "1246:10269",
+      "1277:11797",
+      "1307:13282",
+      "1338:13676",
+      "1352:14063",
+      "1392:15150",
+      "1426:18281"
+    ],
+    "removedFrameCount": 128,
+    "removedNodeCount": 7853,
+    "settingsNavigationNodesUpdated": 140,
+    "usPageNodeId": "689:3915",
+    "usLinksUpdated": 39,
+    "remainingPrototypeTargets": 255,
+    "missingPrototypeTargets": 0,
+    "approvedVisualPreservation": "MATCH: all8 visual fingerprints and node counts unchanged. Reactions are excluded because obsolete navigation targets were retargeted.",
+    "priorLegacyNotes": "Supersedes earlier notes that obsolete Figma frames/references were retained. Historical external evidence is preserved; deleted canvas nodes must not be used as current references.",
+    "priorSnapshotNotes": "Approval fingerprints that include reactions remain historical where navigation was retargeted. Approved layouts, content, components, styles and geometry are unchanged.",
+    "retainedOtherSections": "Data and Account screens/dialogs remain under their original IDs; section names and introductory descriptions identify this remaining scope.",
+    "usSnapshots": "Historical US screenshots keep their26.10.2026 provenance labels;39 source links and their labels now open current approved frames. Story text/business requirements were not changed.",
+    "evidenceManifest": "artifacts/frontend-v2/settings-polish/figma-2026-10-31/settings-cleanup-r55/manifest.json",
+    "runtimeChanges": false
+  },
+  "settingsPrivacySelection": {
+    "status": "approved",
+    "createdAt": "2026-11-01",
+    "revision": "R57",
+    "fileKey": "jN8Hhzn6ObIAEi7FoY9kPu",
+    "pageNodeId": "523:54633",
+    "canvasAreaName": "Настройки / Данные и конфиденциальность — Утверждено",
+    "referenceAreaId": "1392:15150",
+    "existingSourceId": "531:4174",
+    "canvasCleanup": {
+      "revision": "R59",
+      "completedAt": "2026-11-01",
+      "removedLegacyFrameCount": 41,
+      "removedLegacyNodeCount": 3155,
+      "removedSourceDisposition": "Legacy source531:4174 and all40 other obsolete desktop/tablet/mobile Privacy frames/dialogs deleted from the canvas; historical evidence retained outside Figma.",
+      "settingsNavigationNodesUpdated": 124,
+      "usPageNodeId": "689:3915",
+      "usLinksUpdated": 5,
+      "usSnapshotSourceId": "1499:23486",
+      "approvedAreasPreserved": 9,
+      "accountFrameSubtreesPreserved": 49,
+      "visualPreservation": "MATCH: all58 preserved frame/area subtrees. Fingerprints exclude retargeted reactions.",
+      "prototypeTargetAudit": {
+        "uniqueTargets": 278,
+        "missing": 0
+      },
+      "evidenceManifest": "artifacts/frontend-v2/settings-polish/figma-2026-10-31/privacy-cleanup-r59/manifest.json"
+    },
+    "storyIds": ["US-M14-01", "US-M14-02", "US-M14-04", "US-M14-07"],
+    "scope": "One isolated Privacy redesign: consent, organization ZIP export and4 legal documents,desktop/tablet/mobile,66 composed frames. Personal export and account deletion remain in Account.",
+    "adaptives": {
+      "desktop": {
+        "primaryScreenId": "1499:23486",
+        "width": 1440,
+        "fullPageHeight": 1222,
+        "composedFrameCount": 22,
+        "states": {
+          "main": {
+            "never": "1499:23486",
+            "active": "1499:23614",
+            "revoked": "1499:23742",
+            "loading": "1499:23871",
+            "load-error": "1499:23997",
+            "refresh-error": "1499:24124",
+            "readonly": "1499:24252",
+            "archive-preparing": "1499:24364",
+            "archive-saved": "1499:24493",
+            "archive-error": "1499:24624",
+            "archive-busy": "1499:24755",
+            "archive-limit": "1499:24886",
+            "grant-saved": "1499:25017",
+            "revoke-saved": "1499:25148"
+          },
+          "grant": {
+            "confirm": "1500:25104",
+            "saving": "1500:25130",
+            "error": "1500:25157"
+          },
+          "revoke": {
+            "confirm": "1500:25186",
+            "saving": "1500:25209",
+            "error": "1500:25233"
+          },
+          "openDialogs": {
+            "grant": "1500:25260",
+            "revoke": "1500:25347"
+          }
+        },
+        "status": "approved",
+        "approvedAt": "2026-11-01"
+      },
+      "tablet": {
+        "primaryScreenId": "1499:25281",
+        "width": 834,
+        "fullPageHeight": 1276,
+        "composedFrameCount": 22,
+        "states": {
+          "main": {
+            "never": "1499:25281",
+            "active": "1499:25385",
+            "revoked": "1499:25489",
+            "loading": "1499:25594",
+            "load-error": "1499:25696",
+            "refresh-error": "1499:25799",
+            "readonly": "1499:25903",
+            "archive-preparing": "1499:25991",
+            "archive-saved": "1499:26096",
+            "archive-error": "1499:26203",
+            "archive-busy": "1499:26310",
+            "archive-limit": "1499:26417",
+            "grant-saved": "1499:26524",
+            "revoke-saved": "1499:26631"
+          },
+          "grant": {
+            "confirm": "1500:25432",
+            "saving": "1500:25458",
+            "error": "1500:25485"
+          },
+          "revoke": {
+            "confirm": "1500:25514",
+            "saving": "1500:25537",
+            "error": "1500:25561"
+          },
+          "openDialogs": {
+            "grant": "1500:25588",
+            "revoke": "1500:25651"
+          }
+        },
+        "status": "approved",
+        "approvedAt": "2026-11-01"
+      },
+      "mobile": {
+        "primaryScreenId": "1499:26740",
+        "width": 390,
+        "fullPageHeight": 1568,
+        "composedFrameCount": 22,
+        "states": {
+          "main": {
+            "never": "1499:26740",
+            "active": "1499:26844",
+            "revoked": "1499:26948",
+            "loading": "1499:27053",
+            "load-error": "1499:27155",
+            "refresh-error": "1499:27258",
+            "readonly": "1499:27362",
+            "archive-preparing": "1499:27450",
+            "archive-saved": "1499:27555",
+            "archive-error": "1499:27662",
+            "archive-busy": "1499:27769",
+            "archive-limit": "1499:27876",
+            "grant-saved": "1499:27983",
+            "revoke-saved": "1499:28090"
+          },
+          "grant": {
+            "confirm": "1500:25712",
+            "saving": "1500:25738",
+            "error": "1500:25765"
+          },
+          "revoke": {
+            "confirm": "1500:25794",
+            "saving": "1500:25817",
+            "error": "1500:25841"
+          },
+          "openDialogs": {
+            "grant": "1500:25868",
+            "revoke": "1500:25931"
+          }
+        },
+        "status": "approved",
+        "approvedAt": "2026-11-01"
+      }
+    },
+    "composedFrameCount": 66,
+    "reviewIds": {
+      "concept": "1502:25687",
+      "behavior": "1502:25697",
+      "focus": "1502:25678"
+    },
+    "evidenceManifest": "artifacts/frontend-v2/settings-polish/figma-2026-10-31/privacy-redesign-r57/manifest.json",
+    "implementation": {
+      "authorized": false,
+      "designApproved": true,
+      "requiresSeparateUserInstruction": true
+    },
+    "currentSourceSelectionChanged": true,
+    "openQuestion": "Align already-created-dataset revocation wording between lifecycle and legal AI document before implementation.90/365 days shown as policy terms; runtime enforcement not verified.",
+    "approvedAt": "2026-11-01",
+    "approvalRevision": "R57",
+    "approvedAreaId": "1499:23110",
+    "canvasAreaNameNote": "R58 synchronized the area caption to approved; owner approval R57 remains unchanged. Earlier snapshot hashes include the former caption. Label-only evidence: artifacts/frontend-v2/settings-polish/figma-2026-10-31/settings-status-labels-r58/manifest.json",
+    "constructionRevisions": ["R56"],
+    "finalCopy": {
+      "dialog": [
+        "Новые переписки и вердикты перестанут включаться в наборы данных.",
+        "Работа Radar продолжится без изменений.",
+        "История выдачи и отзыва согласия сохранится."
+      ],
+      "success": "Согласие отозвано.",
+      "claimsExcluded": ["Наборы удалены", "Удаление запущено"]
+    },
+    "approvalScope": "All66 desktop/tablet/mobile designs plus final revoke dialog/success wording accepted by owner. Data-set deletion/retention policy is not changed by this UI approval.",
+    "supersedes": "Settings Privacy visuals only. Personal data export and account deletion remain in Account. Legacy Privacy531:4174 and40 other obsolete frames/dialogs were deleted from the canvas in R59; historical evidence is retained outside Figma.",
+    "approvedSnapshot": {
+      "areaId": "1499:23110",
+      "nodeCount": 5282,
+      "fnv1a32": "5457f9c2",
+      "method": "FNV-1a32 UTF-16 over sorted id/parent/type/name/visibility/opacity/geometry/text/font/paint/stroke/layout/reactions/mainComponent records; root included. Script saved in evidence.",
+      "script": "artifacts/frontend-v2/settings-polish/figma-2026-10-31/privacy-redesign-r57/snapshot-read.js"
+    },
+    "historicalDraftManifest": "artifacts/frontend-v2/settings-polish/figma-2026-10-31/privacy-redesign-r56/manifest.json",
+    "runtimeAcceptance": "NOT_RUN",
+    "desktopHeaderCorrection": {
+      "taskId": "N-SHELL-HEADER-01",
+      "status": "applied-owner-requested-fix",
+      "date": "2026-11-01",
+      "referenceHeaderId": "1307:13352",
+      "headerTop": 32,
+      "paddingVariable": "spacing/32",
+      "accountColor": "#0071E3",
+      "accountColorVariable": "hig/accent",
+      "correctedHeaderCount": 16,
+      "scope": "Desktop headers on all main states and open-dialog hosts; auto-layout content moves down8px. Tablet/mobile and local components preserved. Historical approvals/approvedSnapshot unchanged.",
+      "currentSnapshot": {
+        "nodeCount": 5282,
+        "fnv1a32": "048dd72a",
+        "methodScript": "artifacts/frontend-v2/settings-polish/figma-2026-10-31/desktop-header-fix-2026-11-01/bind-and-verify.js"
+      },
+      "evidenceManifest": "artifacts/frontend-v2/settings-polish/figma-2026-10-31/desktop-header-fix-2026-11-01/manifest.json",
+      "report": "docs/frontend-v2/evidence/settings-desktop-header-2026-11-01.md",
+      "runtimeAcceptance": "NOT_IMPLIED_BY_FIGMA_CORRECTION"
+    }
   }
 }

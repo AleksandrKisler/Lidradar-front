@@ -47,6 +47,12 @@ const props = withDefaults(
     locationForm?: boolean | undefined
     /** Тот же responsive каркас для форм каталога; остальные consumers прежние. */
     entityForm?: boolean | undefined
+    /** Approved notification/team dialogs; opt-in geometry leaves existing consumers unchanged. */
+    settingsRedesign?: boolean | undefined
+    /** R54 header center is 8px below notification dialogs, without moving the body. */
+    teamRedesign?: boolean | undefined
+    contentHeight?: number | undefined
+    footerInset?: number | undefined
     returnFocus?: (() => HTMLElement | null) | undefined
     success?: boolean | undefined
     successHeight?: number | undefined
@@ -65,6 +71,10 @@ const props = withDefaults(
     settingsForm: false,
     locationForm: false,
     entityForm: false,
+    settingsRedesign: false,
+    teamRedesign: false,
+    contentHeight: undefined,
+    footerInset: undefined,
     returnFocus: undefined,
     success: false,
     successHeight: 575,
@@ -86,7 +96,7 @@ const pad = computed(() =>
     : 'px-6 md:px-8',
 )
 const widths = { sm: 640, md: 760, lg: 960, xl: 1120 } as const
-const formLayout = computed(() => props.locationForm || props.entityForm)
+const formLayout = computed(() => props.locationForm || props.entityForm || props.settingsRedesign)
 const viewport = ref<[height: string, top: string]>(['100dvh', '0px'])
 onMounted(() => {
   const view = formLayout.value && window.visualViewport
@@ -120,7 +130,9 @@ function guard(event: Event): void {
       <DialogOverlay
         v-if="overlay"
         class="fixed inset-0 z-40 bg-black/[.17]"
-        :style="entityForm ? { backgroundColor: 'rgb(29 29 31 / 18%)' } : undefined"
+        :style="
+          entityForm || settingsRedesign ? { backgroundColor: 'rgb(29 29 31 / 18%)' } : undefined
+        "
         @click="entityForm && dismissible && (open = false)"
       />
       <DialogContent
@@ -134,9 +146,19 @@ function guard(event: Event): void {
         ]"
         :style="{
           '--sw': `${widths[size]}px`,
-          '--st':
-            size === 'xl' ? 'calc(50% + 52px)' : tabletAsDesktop ? '50%' : 'calc(50% + 2.5rem)',
-          '--sh': size === 'xl' ? '800px' : 'auto',
+          '--st': settingsRedesign
+            ? '50%'
+            : size === 'xl'
+              ? 'calc(50% + 52px)'
+              : tabletAsDesktop
+                ? '50%'
+                : 'calc(50% + 2.5rem)',
+          '--sh':
+            settingsRedesign && contentHeight
+              ? `${contentHeight}px`
+              : size === 'xl'
+                ? '800px'
+                : 'auto',
           '--ss-h': `${successHeight}px`,
           '--vh': viewport[0],
           '--vt': viewport[1],
@@ -149,13 +171,20 @@ function guard(event: Event): void {
       >
         <header
           :class="[
-            formLayout
-              ? 'flex h-16 shrink-0 items-center justify-between gap-4 pl-4 pr-[7px] md:h-auto md:px-8 md:pt-8'
-              : [
-                  'grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-3 pt-6 md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-y-1',
-                  pad,
-                  footerFill ? 'md:pt-10' : 'md:pt-8',
-                ],
+            settingsRedesign
+              ? [
+                  'flex shrink-0 items-center justify-between gap-3 pl-4 md:h-[78px] md:pl-6',
+                  teamRedesign
+                    ? 'h-[70px] pt-2 pr-4 md:pt-4 md:pr-6'
+                    : 'h-16 pr-[7px] md:pr-[15px]',
+                ]
+              : formLayout
+                ? 'flex h-16 shrink-0 items-center justify-between gap-4 pl-4 pr-[7px] md:h-auto md:px-8 md:pt-8'
+                : [
+                    'grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-3 pt-6 md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-y-1',
+                    pad,
+                    footerFill ? 'md:pt-10' : 'md:pt-8',
+                  ],
           ]"
         >
           <span v-if="$slots.mark" class="row-span-2 hidden md:block"><slot name="mark" /></span>
@@ -198,17 +227,19 @@ function guard(event: Event): void {
           class="sheet-body"
           :class="[
             'min-h-0 flex-1 overflow-y-auto',
-            formLayout
-              ? success
-                ? 'flex px-4 text-sm leading-5 font-normal md:px-8 md:pb-3'
-                : 'px-4 py-4 md:px-8 md:py-6'
-              : [
-                  'pb-6',
-                  pad,
-                  footerFill ? (tabletAsDesktop ? 'md:pb-6' : 'md:pb-8') : 'md:pb-7',
-                  settingsForm ? 'lg:pb-6' : '',
-                  $slots.toolbar ? 'pt-4' : 'pt-[22px] md:pt-[30px]',
-                ],
+            settingsRedesign
+              ? 'p-4 md:p-6'
+              : formLayout
+                ? success
+                  ? 'flex px-4 text-sm leading-5 font-normal md:px-8 md:pb-3'
+                  : 'px-4 py-4 md:px-8 md:py-6'
+                : [
+                    'pb-6',
+                    pad,
+                    footerFill ? (tabletAsDesktop ? 'md:pb-6' : 'md:pb-8') : 'md:pb-7',
+                    settingsForm ? 'lg:pb-6' : '',
+                    $slots.toolbar ? 'pt-4' : 'pt-[22px] md:pt-[30px]',
+                  ],
           ]"
         >
           <DialogDescription
@@ -235,30 +266,42 @@ function guard(event: Event): void {
         </div>
         <footer
           v-if="$slots.footer"
+          :style="
+            settingsRedesign
+              ? {
+                  paddingInline: footerInset !== undefined ? `${footerInset}px` : undefined,
+                  paddingBottom: !teamRedesign ? '18px' : undefined,
+                }
+              : undefined
+          "
           :class="[
             'flex shrink-0 flex-col gap-3 border-t md:flex-row md:items-center md:justify-between',
             formLayout ? 'border-line' : 'border-hairline',
-            formLayout
-              ? 'p-4 md:mx-8 md:px-0 md:pt-6 md:pb-8'
-              : [
-                  'py-4',
-                  footerFill ? (tabletAsDesktop ? 'mx-4 md:mx-8' : 'mx-4 md:mx-6 lg:mx-8') : pad,
-                  size === 'xl' ? 'md:py-[13px]' : footerFill ? 'md:pt-6 md:pb-8' : 'md:py-5',
-                ],
+            settingsRedesign
+              ? 'px-4 py-4 md:px-6'
+              : formLayout
+                ? 'p-4 md:mx-8 md:px-0 md:pt-6 md:pb-8'
+                : [
+                    'py-4',
+                    footerFill ? (tabletAsDesktop ? 'mx-4 md:mx-8' : 'mx-4 md:mx-6 lg:mx-8') : pad,
+                    size === 'xl' ? 'md:py-[13px]' : footerFill ? 'md:pt-6 md:pb-8' : 'md:py-5',
+                  ],
           ]"
         >
           <p v-if="$slots.note" class="text-xs text-secondary"><slot name="note" /></p>
           <div
             :class="[
-              formLayout
-                ? 'flex w-full flex-col-reverse gap-3 md:flex-row md:gap-4 md:[&>*]:flex-1'
-                : [
-                    'flex gap-3 md:flex-row',
-                    settingsForm ? 'lg:grid lg:grid-cols-2 lg:gap-4' : '',
-                    footerFill
-                      ? 'flex-col md:w-full md:[&>*]:flex-1'
-                      : 'flex-col-reverse md:ml-auto',
-                  ],
+              settingsRedesign
+                ? 'flex w-full flex-col-reverse gap-3 md:flex-row md:[&>*]:flex-1'
+                : formLayout
+                  ? 'flex w-full flex-col-reverse gap-3 md:flex-row md:gap-4 md:[&>*]:flex-1'
+                  : [
+                      'flex gap-3 md:flex-row',
+                      settingsForm ? 'lg:grid lg:grid-cols-2 lg:gap-4' : '',
+                      footerFill
+                        ? 'flex-col md:w-full md:[&>*]:flex-1'
+                        : 'flex-col-reverse md:ml-auto',
+                    ],
             ]"
           >
             <slot name="footer" />

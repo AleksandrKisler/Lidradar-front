@@ -35,7 +35,7 @@ test.describe('стенд · пустая организация', () => {
     await expect(page.getByText('Источников пока нет')).toBeVisible()
     await page.goto('/settings/team')
     await expect(
-      page.getByRole('table', { name: 'Участники компании' }).locator('tbody tr'),
+      page.getByRole('region', { name: 'Участники с доступом' }).getByRole('listitem'),
     ).toHaveCount(1)
     await stand.context.close()
   })

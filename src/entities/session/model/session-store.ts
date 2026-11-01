@@ -37,6 +37,9 @@ export const useSessionStore = defineStore('session', () => {
   const signOutReason = ref<SignOutReason | null>(null)
 
   let inflight: Promise<void> | null = null
+  // A self-role refresh must never restore an identity invalidated by logout,
+  // a newer login or an explicit workspace selection while that read was pending.
+  let identityVersion = 0
 
   const isAuthenticated = computed(() => status.value === 'authenticated')
   /**
@@ -88,6 +91,7 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   function becomeGuest(reason: SignOutReason | null): void {
+    identityVersion++
     user.value = null
     memberships.value = []
     canCreateOrganization.value = false
@@ -103,9 +107,12 @@ export const useSessionStore = defineStore('session', () => {
    * гостя; любая другая ошибка пробрасывается вызывающему.
    */
   async function load(): Promise<void> {
+    const version = ++identityVersion
     try {
-      applyIdentity(await fetchMe())
+      const identity = await fetchMe()
+      if (version === identityVersion) applyIdentity(identity)
     } catch (error) {
+      if (version !== identityVersion) return
       if (isApiError(error) && error.isUnauthenticated) {
         becomeGuest(null)
         return
@@ -147,6 +154,7 @@ export const useSessionStore = defineStore('session', () => {
   /** Выбирает организацию из списка членств; чужой идентификатор отклоняется. */
   function selectTenant(id: string): boolean {
     if (!user.value || !memberships.value.some((item) => item.tenantId === id)) return false
+    identityVersion++
     tenantId.value = id
     rememberPreferredTenant(user.value.id, id)
     return true
@@ -154,6 +162,7 @@ export const useSessionStore = defineStore('session', () => {
 
   /** Снимает выбор организации, не трогая запомненное предпочтение. */
   function clearTenant(): void {
+    identityVersion++
     tenantId.value = null
   }
 
@@ -177,6 +186,7 @@ export const useSessionStore = defineStore('session', () => {
    */
   async function logout(): Promise<{ confirmed: boolean }> {
     const userId = user.value?.id
+    const version = ++identityVersion
     let confirmed = true
     try {
       await logoutRequest()
@@ -184,7 +194,7 @@ export const useSessionStore = defineStore('session', () => {
       confirmed = false
     } finally {
       if (userId) forgetPreferredTenant(userId)
-      becomeGuest('manual')
+      if (version === identityVersion) becomeGuest('manual')
     }
     return { confirmed }
   }

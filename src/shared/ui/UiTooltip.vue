@@ -12,6 +12,8 @@ const props = defineProps<{
   mobileFull?: boolean
   /** Information attached to document content follows its anchor beyond the viewport. */
   documentRelative?: boolean
+  toggleOnClick?: boolean
+  inverted?: boolean
 }>()
 const id = useId()
 const anchor = ref<HTMLElement>()
@@ -24,6 +26,22 @@ const position = ref<CSSProperties>({
   position: 'fixed',
 })
 let timer: ReturnType<typeof setTimeout> | undefined
+const touch = ref(false)
+function hover() {
+  if (
+    !props.toggleOnClick ||
+    typeof matchMedia === 'undefined' ||
+    matchMedia('(hover: hover)').matches
+  )
+    show()
+}
+function activate() {
+  if (!props.hoverOnly) {
+    if (props.toggleOnClick && touch.value && open.value) hide()
+    else show()
+  }
+  touch.value = false
+}
 
 function cancelHide() {
   clearTimeout(timer)
@@ -60,10 +78,11 @@ function place() {
   const width = mobile
     ? window.innerWidth - 32
     : Math.min(props.width ?? 280, window.innerWidth - 32)
+  const gap = props.inverted ? 4 : 8
   const above = props.above || (!props.documentRelative && rect.bottom + 180 > window.innerHeight)
   position.value = {
     left: `${(mobile ? 16 : Math.max(8, Math.min(props.alignEnd ? rect.right - width : rect.left - (props.mobileFull ? 80 : 0), window.innerWidth - width - 8))) + (props.documentRelative ? scrollX : 0)}px`,
-    top: `${(above ? rect.top - 8 : rect.bottom + 8) + (props.documentRelative ? scrollY : 0)}px`,
+    top: `${(above ? rect.top - gap : rect.bottom + gap) + (props.documentRelative ? scrollY : 0)}px`,
     width: `${width}px`,
     transform: above ? 'translateY(-100%)' : '',
     position: props.documentRelative ? 'absolute' : 'fixed',
@@ -95,11 +114,13 @@ watch(
   <span
     ref="anchor"
     class="inline-flex items-center"
-    @mouseenter="show"
+    @pointerdown="touch = $event.pointerType === 'touch'"
+    @pointercancel="touch = false"
+    @mouseenter="hover"
     @mouseleave="scheduleHide"
-    @focusin="!props.hoverOnly && show()"
+    @focusin="!props.hoverOnly && !touch && show()"
     @focusout="hide"
-    @click="!props.hoverOnly && show()"
+    @click="activate"
   >
     <slot :described-by="open ? id : undefined" />
     <Teleport to="body">
@@ -107,7 +128,12 @@ watch(
         v-if="open"
         :id="id"
         role="tooltip"
-        class="ui-tooltip fixed z-[100] rounded-field border border-line bg-paper p-3 text-sm leading-5 text-ink"
+        class="ui-tooltip fixed z-[100] text-sm leading-5"
+        :class="
+          inverted
+            ? 'rounded-[18px] bg-ink px-4 py-3 text-white'
+            : 'rounded-field border border-line bg-paper p-3 text-ink'
+        "
         :style="position"
         @mouseenter="cancelHide"
         @mouseleave="scheduleHide"

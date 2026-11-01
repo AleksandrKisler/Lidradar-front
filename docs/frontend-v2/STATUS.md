@@ -1,5 +1,94 @@
 # Статус frontend v2
 
+## Codex · Настройки S10 → Stage RC7 · 01.11.2026 · выпуск разрешён
+
+Владелец принял S10 и поручил коммит и stage deploy. Production исключён.
+Runtime/tests/tooling/contracts/scripts совпадают с принятым S10; raw TEST FAIL
+по QA-S8-01 сохранён. FUNCTIONAL frontend/mock и UI всех3адаптивов PASS.
+Preflight stage exit0: RC6,backend ed577f84e992,API/миграция прежние,
+checkout чистые,7services running/health. Полный dirty backup сохранён;
+параллельные Integrations/Codex правки остаются в рабочем дереве.
+Commit/tag/CI/deploy/live smoke ещё не объявлены выполненными.
+[Отчёт выпуска](evidence/stage-release/Codex-R1/settings-s10-rc7.md),
+artifacts: `settings-notifications-team/Codex-R1/stage-rc7/`.
+
+## Figma · Desktop-хедеры настроек · 01.11.2026 · исправлено
+
+`N-SHELL-HEADER-01`: по поручению владельца все48 desktop-хедеров Уведомлений,
+Команды и Данных (12/20/16) приведены к `1307:13352`: ссылка «Аккаунт» —
+`hig/accent`/`#0071E3`, верхний отступ32px через `spacing/32` вместо24.
+Auto layout сохранён; контент сдвинут вниз8px, основные полные экраны имеют
+высоту1238/1504/1222. Структурные проверки48/48, сохранность содержимого,
+ширин и числа узлов7275/13147/5282 PASS;26 контрольных ветвей tablet/mobile,
+локальных компонентов и материалов совпали по hash, эталон прежний.
+Исходный хедер и три итоговых полных PNG реально просмотрены. Исторические
+approval snapshots не переписывались; добавлен `desktopHeaderCorrection`.
+[Отчёт](evidence/settings-desktop-header-2026-11-01.md), manifest/PNG/scripts —
+`artifacts/frontend-v2/settings-polish/figma-2026-10-31/desktop-header-fix-2026-11-01/`.
+Runtime/тесты/stage/production не менялись; TEST/FUNCTIONAL/browser UI/Present
+NOT RUN. Следующий runtime/UI QA — по обновлённому source snapshot.
+
+## Codex · N-SNT-REDESIGN-01 · 01.11.2026 · S10 принят с contrast exception
+
+Завершены NotificationsR47/TeamR54:US-M10-01…07,US-M11-01/04…08,
+N-SN/N-ST-ADAPTIVE-01 иdesktopheader N-SHELL-HEADER-01 (включаяPrivacyheader).
+**FUNCTIONAL PASS (frontend/mock); UI desktop/tablet/mobile PASS. Raw TEST FAIL**
+сохранён только по явно принятому QA-S8-01: account#0071E3 на#F5F5F7,4.31<4.5.
+Белаяподложка не применена,тесты/пороги не ослаблены. Решение владельца:
+`evidence/settings-notifications-team/accepted-contrast-exception-2026-11-01.md`.
+
+Принят immutable S10 `/private/tmp/lidradar-notifications-team-s10`,HEAD1df33d7,
+1096inputs,manifestSHA
+`aa3ae00a23f8b8acaa9e5758000c729abebacb074ae63a23140ce66b2486520e`.
+Check1213/106+arch13,builddev/preprod/prod,auditrelease exit0;
+JS903380/905600,CSS71967/72000,largest103901/110100,initial237710/304800.
+FullstockCI exit1:967cases=921PASS+12acceptedcontrastFAIL+34expectedSKIP,
+36failedattempts/24retries/flaky0,8.6min. ScopedNotif42/Team30/Header36/timeformat18
+PASS. Все12FAILоднойпричины;34skips=30stand+4browser-specific,неcoveragePASS.
+
+S8UI5групп исправлены только вruntime: общие validation summaries/disabledInvite,
+Telegramdestructivecolor,busycontrols/cancel,mobileRetrywidth. ExactSVG16×16
+readonlyexport,Notificationsopacity0.45/Team0.65;nativeinputsdisabledсохранены.
+QA-S9-01lowheight13px закрыт S10:scroll только приsubmit,5строгихkeyboardPASS;
+ещё15focusedPASS. ПервичныеdiagnostictimingFAILсохранены/разобраны,criteriaнеослаблены.
+Все172guardedtests/tooling/contracts/scripts SHA unchanged сS8;макет не менялся.
+
+Capture255/255PASS,774files сохранены;142/142preprod/capture/postCIbundle equal.
+ПослеQA/UI1096inputs неизменны,mainruntime/tests/tooling/contracts/scripts равныS10.
+UI274items+5contexts:50новыхexactpairsпросмотрены,178reuseпоstrictnative+actualSHA
+из полного личного S8просмотра;18header+9responsive+18Team+1functionalпросмотрены.
+Все3адаптиваPASS,новыхin-scopefindingsнет. Teamloading1pxnonblocker;
+PrivacyR57oldoverlay/tabletсохраненывнеscopeполногоbody/dialogredesign.
+
+Отчёты: `evidence/settings-notifications-team/implementation-2026-11-01.md`,
+`artifacts/frontend-v2/settings-notifications-team/Codex-R1/S10/qa/test-report.md`,
+`S10/ui/report.md` и `S10/ui/review-progress.json`. S1…S9evidence/dirty/untracked/
+чужиеCodex/designdocs сохранены. FUNCTIONAL/UI — независимые Sol/high иTerra/high
+с explicitownerexception;hardpresetconfigsне менялись. Production/Figma/backend/
+API/generated/roles/lifecycle/money/deps/lockне менялись,push/deploy/mergeнет.
+4173свободен,чужой4174нетронут. Live stage/persistence/реальнаяdeliveryUNVERIFIED.
+Согласованныйfrontend/mockобъём завершён;дальнейшаяlive/releaseприёмкаотдельно.
+
+## Codex · N-SNT-REDESIGN-01 · 01.11.2026 · ТЗ подготовлено
+
+По поручению владельца подготовлена задача на реализацию редизайнов двух
+вкладок настроек: «Уведомления» R47 и «Команда и доступ» R54, все три адаптива.
+ТЗ: `tasks/SETTINGS-NOTIFICATIONS-TEAM-REDESIGN-CODEX.md`; пакеты
+`N-SN-ADAPTIVE-01` / `N-ST-ADAPTIVE-01`. Указаны US-M10-01…07 и
+US-M11-01/04…08, stable API, файлы/владельцы, проверки, независимая приёмка,
+обработка unknown/late ответов, защиты владельца и полная матрица 228 кадров.
+
+Figma прочитана без правок: live metadata подтвердили все87+141 IDs,
+получены design context со screenshot двух desktop main; approved fingerprints
+повторно не вычислялись. Подготовительный manifest780 inputs, metadata/context
+и source-check — `artifacts/frontend-v2/settings-notifications-team/`
+`Codex-preparation-2026-11-01/`. HEAD при фиксации подготовки
+`6e7b340e683998a1d7f582360ec3e9bbf954b41c`, ветка frontend/v2-implementation,
+рабочее дерево dirty; 24-часовой runtime commit внешней сессии сохранён.
+Эта задача меняет только документацию; реализация не запущена,
+TEST/FUNCTIONAL/UI не запускались и не получили новый PASS.
+Следующий шаг — отдельное поручение выполнить подготовленное ТЗ.
+
 ## Codex · Stage RC5 · 01.11.2026 · публикация разрешена
 
 Владелец поручил отправить на stage весь актуальный frontend с новыми разделами.

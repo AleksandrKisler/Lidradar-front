@@ -90,18 +90,17 @@ for (const locale of ['ru-RU', 'en-US']) {
         await page.unrouteAll({ behavior: 'wait' })
         await mockOwner(page)
         await page.goto('/settings/notifications')
-        const row = page
-          .getByRole('list', { name: 'Настройки по типам рисков' })
-          .locator(':scope > li')
-          .filter({ hasText: 'Обещание не выполнено' })
-        await row.getByText('Обещание не выполнено', { exact: true }).click()
+        await page
+          .getByRole('button', { name: 'Изменить: Обещание не выполнено', exact: true })
+          .click()
+        const row = page.getByRole('dialog', { name: 'Настроить уведомления', exact: true })
         await row.getByLabel('Как уведомлять', { exact: true }).selectOption('DIGEST')
         await row.getByLabel('Время сводки', { exact: true }).fill('2300')
-        await row.getByLabel('Не беспокоить ночью', { exact: true }).check()
-        await row.getByLabel('Не беспокоить с', { exact: true }).fill('2230')
+        await row.getByLabel('Не беспокоить в тихие часы', { exact: true }).check()
+        await row.getByLabel('С', { exact: true }).fill('2230')
         await row.getByLabel('До', { exact: true }).fill('0700')
         await clock(row.getByLabel('Время сводки', { exact: true }), '23:00')
-        await clock(row.getByLabel('Не беспокоить с', { exact: true }), '22:30')
+        await clock(row.getByLabel('С', { exact: true }), '22:30')
         await clock(row.getByLabel('До', { exact: true }), '07:00')
         await expect(page.locator('input[type=time]')).toHaveCount(0)
         const preference = page.waitForRequest(
@@ -115,7 +114,7 @@ for (const locale of ['ru-RU', 'en-US']) {
           quietHoursStart: '22:30',
           quietHoursEnd: '07:00',
         })
-        await expect(row.getByText('Настройка сохранена.', { exact: true })).toBeVisible()
+        await expect(row.getByText('✓ Настройка сохранена', { exact: true })).toBeVisible()
         await ready(page)
         await page.screenshot({ path: info.outputPath('notifications-24h.png'), fullPage: true })
       })

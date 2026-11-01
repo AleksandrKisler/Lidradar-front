@@ -77,17 +77,19 @@ test.describe('стенд · небольшая студия', () => {
       page.getByRole('table', { name: 'Услуги организации' }).getByRole('row').nth(1),
     ).toBeVisible()
     await page.getByRole('link', { name: 'Уведомления' }).click()
-    await expect(page.getByRole('region', { name: 'Ваши уведомления в Telegram' })).toContainText(
-      /Не подключены|Подключены/,
+    await expect(page.getByRole('region', { name: 'Куда приходят уведомления' })).toContainText(
+      /Не подключён|Подключён/,
     )
     const preferenceRows = page
       .getByRole('list', { name: 'Настройки по типам рисков' })
       .locator(':scope > li')
-    await expect(preferenceRows).toHaveCount(5)
+    await expect(preferenceRows).toHaveCount(6)
     await page.screenshot({ path: 'test-results/stand-notifications.png', fullPage: true })
     await page.getByRole('link', { name: 'Команда' }).click()
-    const memberRows = page.getByRole('table', { name: 'Участники компании' }).locator('tbody tr')
-    await expect(memberRows.filter({ hasText: 'вы' })).toHaveCount(1)
+    const memberRows = page
+      .getByRole('region', { name: 'Участники с доступом' })
+      .getByRole('listitem')
+    await expect(memberRows.filter({ hasText: 'Вы' })).toHaveCount(1)
     await page.screenshot({ path: 'test-results/stand-team.png', fullPage: true })
     await page.getByRole('link', { name: 'Данные' }).click()
     await expect(

@@ -7,7 +7,15 @@
  * попыток; ручная проверка доступна всегда. Отключение не трогает
  * подключение источника переписки — это другой ресурс и другой запрос.
  */
-import { computed, onScopeDispose, ref, shallowRef, toValue, type MaybeRefOrGetter } from 'vue'
+import {
+  computed,
+  onScopeDispose,
+  ref,
+  shallowRef,
+  toValue,
+  watch,
+  type MaybeRefOrGetter,
+} from 'vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { organizationKeys } from '@/entities/organization'
 import {
@@ -50,6 +58,10 @@ export function useTelegramLink(
   let expiryTimer: ReturnType<typeof setTimeout> | null = null
   /** Область уничтожена: запоздавший ответ выпуска не должен заново запускать таймеры и опрос. */
   let disposed = false
+  let generation = 0
+  const context = () => ({ tenant: tenant(), generation })
+  const current = (input: ReturnType<typeof context>) =>
+    !disposed && input.tenant === tenant() && input.generation === generation
 
   function stopPolling(): void {
     if (pollTimer !== null) clearTimeout(pollTimer)
@@ -63,9 +75,16 @@ export function useTelegramLink(
   }
 
   async function refreshStatus(): Promise<boolean> {
-    const status = await fetchTelegramLinkStatus(tenant())
-    queryClient.setQueryData(notificationKeys.link(tenant()), status)
-    return status.linked
+    const input = context()
+    try {
+      const status = await fetchTelegramLinkStatus(input.tenant)
+      if (!current(input)) return false
+      queryClient.setQueryData(notificationKeys.link(input.tenant), status)
+      return status.linked
+    } catch (cause) {
+      if (current(input)) throw cause
+      return false
+    }
   }
 
   /** Привязка подтверждена: ссылка больше не нужна, шаг онбординга перечитывается. */
@@ -91,8 +110,10 @@ export function useTelegramLink(
       schedulePoll()
       return
     }
+    const input = context()
     polls.value += 1
     const linked = await refreshStatus().catch(() => false)
+    if (!current(input)) return
     if (linked) {
       await markLinked()
       return
@@ -115,13 +136,23 @@ export function useTelegramLink(
   }
 
   const issue = useMutation({
-    mutationFn: () => issueTelegramLinkToken(tenant()),
+    mutationFn: async () => {
+      const input = context()
+      try {
+        const issued = await issueTelegramLinkToken(input.tenant)
+        return current(input) ? { issued, input } : null
+      } catch (cause) {
+        if (current(input)) throw cause
+        return null
+      }
+    },
     onMutate: () => {
       check.reset()
       disable.reset()
     },
-    onSuccess: (issued) => {
-      if (disposed) return
+    onSuccess: (result) => {
+      if (!result || !current(result.input)) return
+      const issued = result.issued
       token.value = issued
       expired.value = false
       polls.value = 0
@@ -143,21 +174,46 @@ export function useTelegramLink(
   })
 
   const disable = useMutation({
-    mutationFn: () => disableTelegramLink(tenant()),
+    mutationFn: async () => {
+      const input = context()
+      try {
+        await disableTelegramLink(input.tenant)
+        return current(input) ? input : null
+      } catch (cause) {
+        if (current(input)) throw cause
+        return null
+      }
+    },
     onMutate: () => {
       issue.reset()
       check.reset()
     },
-    onSuccess: async () => {
+    onSuccess: async (input) => {
+      if (!input || !current(input)) return
       token.value = null
       expired.value = false
       clearTimers()
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: notificationKeys.link(tenant()) }),
-        queryClient.invalidateQueries({ queryKey: organizationKeys.onboarding(tenant()) }),
+        queryClient.invalidateQueries({ queryKey: notificationKeys.link(input.tenant) }),
+        queryClient.invalidateQueries({ queryKey: organizationKeys.onboarding(input.tenant) }),
       ])
     },
   })
+
+  watch(
+    tenant,
+    () => {
+      generation++
+      clearTimers()
+      token.value = null
+      expired.value = false
+      polls.value = 0
+      issue.reset()
+      check.reset()
+      disable.reset()
+    },
+    { flush: 'sync' },
+  )
 
   onScopeDispose(() => {
     disposed = true

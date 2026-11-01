@@ -16,15 +16,24 @@ withDefaults(
     textClass?: string | undefined
     /** Идентификатор трассировки для обращения в поддержку. */
     traceId?: string | undefined
+    /** Plain bordered feedback used by approved settings dialogs. */
+    compact?: boolean | undefined
   }>(),
-  { tone: 'info', icon: undefined, title: '', traceId: '', textClass: '' },
+  { tone: 'info', icon: undefined, title: '', traceId: '', textClass: '', compact: false },
 )
 
 const tones = {
-  info: 'border-info/20 bg-info-pale text-ink',
-  success: 'border-success/20 bg-success-pale text-ink',
-  warning: 'border-warning/20 bg-warning-pale text-ink',
-  danger: 'border-danger/20 bg-danger-pale text-ink',
+  info: 'bg-info-pale text-ink',
+  success: 'bg-success-pale text-ink',
+  warning: 'bg-warning-pale text-ink',
+  danger: 'bg-danger-pale text-ink',
+} as const
+
+const borders = {
+  info: 'border-info/20',
+  success: 'border-success/20',
+  warning: 'border-warning/20',
+  danger: 'border-danger/20',
 } as const
 
 const icons = {
@@ -45,15 +54,28 @@ const titles = {
 <template>
   <div
     :role="tone === 'danger' || tone === 'warning' ? 'alert' : 'status'"
-    :class="['rounded-field border px-[15px] py-[11px] text-sm leading-5', tones[tone]]"
+    :class="[
+      'rounded-field border text-sm leading-5',
+      tones[tone],
+      compact ? 'p-3' : 'px-[15px] py-[11px]',
+      compact
+        ? tone === 'danger'
+          ? 'border-danger'
+          : tone === 'success'
+            ? 'border-success'
+            : borders[tone]
+        : borders[tone],
+    ]"
   >
     <div class="flex items-start gap-3">
       <span v-if="$slots.icon" :class="['inline-flex size-5 shrink-0', titles[tone]]"
         ><slot name="icon"
       /></span>
-      <UiIcon v-else :name="icon ?? icons[tone]" :class="['size-5', titles[tone]]" />
+      <UiIcon v-else-if="!compact" :name="icon ?? icons[tone]" :class="['size-5', titles[tone]]" />
       <div class="min-w-0">
-        <p v-if="title" :class="['font-medium', titles[tone], textClass]">{{ title }}</p>
+        <p v-if="title" :class="[compact ? 'font-normal' : 'font-medium', titles[tone], textClass]">
+          {{ title }}
+        </p>
         <div :class="title ? 'mt-1' : ''"><slot /></div>
         <p v-if="traceId" class="mt-2 text-xs text-muted" :class="textClass">
           Идентификатор запроса: <code class="select-all">{{ traceId }}</code>

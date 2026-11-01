@@ -11,7 +11,12 @@ export {
   TELEGRAM_LINK_TTL_MINUTES,
   CLOCK_TIME_PATTERN,
 } from './model/types'
-export { deliveryModeLabel, deliveryModeDescription, severityThresholdLabel } from './model/labels'
+export {
+  deliveryModeLabel,
+  deliveryModeDescription,
+  severityThresholdLabel,
+  notificationTimeZoneLabel,
+} from './model/labels'
 export {
   draftFromPreference,
   validateDraft,

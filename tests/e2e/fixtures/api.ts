@@ -974,6 +974,7 @@ export async function mockOwner(page: Page, options: OwnerMockOptions = {}): Pro
     [
       'NO_RESPONSE',
       'BOOKING_NOT_CONFIRMED',
+      'UNFINISHED_AGREEMENT',
       'PROMISE_NOT_FULFILLED',
       'CUSTOMER_SILENT_AFTER_PRICE',
       'FOLLOW_UP_CANDIDATE',

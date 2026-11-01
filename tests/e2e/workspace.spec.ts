@@ -398,9 +398,9 @@ test.describe('владелец организации', () => {
     await page.setViewportSize({ width: 1440, height: 1000 })
     await page.goto('/settings/team')
     await expect(page.getByRole('heading', { name: 'Команда и доступ' })).toBeVisible()
-    const inviteButton = page.getByRole('button', { name: 'Пригласить' })
+    const inviteButton = page.getByRole('button', { name: 'Пригласить участника' })
     await openWithKeyboard(inviteButton)
-    const invite = page.getByRole('dialog', { name: 'Пригласить в команду' })
+    const invite = page.getByRole('dialog', { name: 'Пригласить участника' })
     await expect(invite).toBeVisible()
     await expectTabCycle(invite, 6)
     // Клик снаружи закрывает окно, пока нет отправки.
@@ -1335,55 +1335,60 @@ test.describe('владелец организации', () => {
 
   test('уведомления: личная привязка Telegram и настройки по типам рисков', async ({ page }) => {
     await page.goto('/settings/notifications')
-    await expect(page.getByRole('heading', { name: 'Уведомления без лишнего шума' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Уведомления', exact: true })).toBeVisible()
     await expectSettingsSection(page, 'Уведомления')
-    const telegram = page.getByRole('region', { name: 'Ваши уведомления в Telegram' })
-    await expect(telegram).toContainText('Не подключены')
+    const telegram = page.getByRole('region', { name: 'Куда приходят уведомления' })
+    await expect(telegram).toContainText('Не подключён')
     const rows = page
       .getByRole('list', { name: 'Настройки по типам рисков' })
       .locator(':scope > li')
-    await expect(rows).toHaveCount(5)
+    await expect(rows).toHaveCount(6)
     await expectNoAxeViolations(page)
-
-    // Telegram-канал без привязки предупреждает, но не запрещает сохранение.
-    const row = rows.filter({ hasText: 'Обещание не выполнено' })
-    await row.getByText('Обещание не выполнено', { exact: true }).click()
-    await row.getByLabel('Личные уведомления в Telegram', { exact: true }).check()
-    await expect(row.getByRole('status')).toContainText('Telegram не привязан')
-
-    // Одноразовая ссылка открывается в новой вкладке без opener; проверка подтверждает привязку.
-    await telegram.getByRole('button', { name: 'Подключить уведомления' }).click()
-    const open = telegram.getByRole('link', { name: 'Открыть бота' })
+    const edit = () =>
+      rows
+        .filter({ hasText: 'Обещание не выполнено' })
+        .getByRole('button', { name: 'Изменить: Обещание не выполнено', exact: true })
+        .click()
+    await edit()
+    let editor = page.getByRole('dialog', { name: 'Настроить уведомления', exact: true })
+    await editor.getByLabel('Личные уведомления в Telegram', { exact: true }).check()
+    await expect(editor.getByRole('status')).toContainText('Telegram не подключён')
+    await editor.getByRole('button', { name: 'Отмена', exact: true }).click()
+    await page
+      .getByRole('dialog', { name: 'Закрыть без сохранения?' })
+      .getByRole('button', { name: 'Не сохранять', exact: true })
+      .click()
+    await telegram.getByRole('button', { name: 'Подключить Telegram', exact: true }).click()
+    const linking = page.getByRole('dialog', { name: 'Личные уведомления в Telegram', exact: true })
+    const open = linking.getByRole('link', { name: 'Открыть бота', exact: true })
     await expect(open).toHaveAttribute(
       'href',
       'https://t.me/lidradar_e2e_bot?start=e2e-one-time-token',
     )
     await expect(open).toHaveAttribute('rel', 'noopener noreferrer')
     await expect(open).toHaveAttribute('target', '_blank')
-    await expect(telegram).toContainText('Ссылка действует до')
-    // До подтверждения в боте любая проверка честно отвечает «ещё не привязан».
-    await telegram.getByRole('button', { name: 'Проверить привязку' }).click()
-    await expect(telegram.getByRole('status')).toContainText('Привязка ещё не завершена')
+    await expect(linking).toContainText('Ссылка действует до')
+    await linking.getByRole('button', { name: 'Проверить привязку', exact: true }).click()
+    await expect(linking.getByRole('status')).toContainText('Привязка ещё не завершена')
     confirmTelegramLink(page)
-    // Дальше без кликов: ограниченная автопроверка (раз в 5 с) сама увидит
-    // подтверждение, а кнопка после этого исчезает — клик по ней был бы гонкой.
-    await expect(telegram).toContainText('Подключены', { timeout: 15_000 })
-    await expect(telegram).toContainText('Привязка активна')
-    await expect(row.getByRole('status')).toHaveCount(0)
-
-    // Полное тело PUT: сводка в 10:30 и тихие часы через полночь.
-    await row.getByLabel('Как уведомлять', { exact: true }).selectOption('DIGEST')
-    await row.getByLabel('Время сводки', { exact: true }).fill('10:30')
-    await row.getByLabel('Не беспокоить ночью', { exact: true }).check()
-    await row.getByLabel('Не беспокоить с', { exact: true }).fill('22:00')
-    await row.getByLabel('До', { exact: true }).fill('07:00')
-    await expect(row).toContainText('22:00–07:00, через полночь')
+    await expect(telegram).toContainText('Подключён', { timeout: 15000 })
+    await expect(linking).toHaveCount(0)
+    await edit()
+    editor = page.getByRole('dialog', { name: 'Настроить уведомления', exact: true })
+    await editor.getByLabel('Личные уведомления в Telegram', { exact: true }).check()
+    await expect(editor.getByText(/Telegram не подключён/)).toHaveCount(0)
+    await editor.getByLabel('Как уведомлять', { exact: true }).selectOption('DIGEST')
+    await editor.getByLabel('Время сводки', { exact: true }).fill('10:30')
+    await editor.getByLabel('Не беспокоить в тихие часы', { exact: true }).check()
+    await editor.getByLabel('С', { exact: true }).fill('22:00')
+    await editor.getByLabel('До', { exact: true }).fill('07:00')
+    await expect(editor).toContainText('22:00–07:00, через полночь')
     const put = page.waitForRequest(
       (request) =>
         request.method() === 'PUT' &&
         request.url().includes('/notifications/preferences/PROMISE_NOT_FULFILLED'),
     )
-    await row.getByRole('button', { name: 'Сохранить' }).click()
+    await editor.getByRole('button', { name: 'Сохранить', exact: true }).click()
     expect((await put).postDataJSON()).toEqual({
       minimumSeverity: 'MEDIUM',
       deliveryMode: 'DIGEST',
@@ -1394,187 +1399,138 @@ test.describe('владелец организации', () => {
       quietHoursEnd: '07:00',
       digestTime: '10:30',
     })
-    await expect(row).toContainText('Настройка сохранена')
-    await expect(row).toContainText('Настроено вами')
-    await expect(row).toContainText('Сводкой раз в день')
+    await expect(editor).toContainText('Настройка сохранена')
+    await expect(editor).toContainText('Настроено вами')
     await expectNoAxeViolations(page)
-
-    // Сброс возвращает серверное значение по умолчанию.
-    await row.getByRole('button', { name: 'Вернуть по умолчанию' }).click()
-    const confirm = page.getByRole('dialog', { name: 'Вернуть настройку по умолчанию?' })
+    await editor.getByRole('button', { name: 'Вернуть по умолчанию', exact: true }).click()
     const reset = page.waitForResponse(
       (response) =>
         response.request().method() === 'DELETE' &&
         response.url().includes('/notifications/preferences/PROMISE_NOT_FULFILLED'),
     )
-    await confirm.getByRole('button', { name: 'Вернуть', exact: true }).click()
+    await page
+      .getByRole('dialog', { name: 'Вернуть по умолчанию?', exact: true })
+      .getByRole('button', { name: 'Вернуть', exact: true })
+      .click()
     expect((await reset).status()).toBe(204)
-    await expect(row).toContainText('По умолчанию')
-    await expect(row.getByRole('button', { name: 'Вернуть по умолчанию' })).toHaveCount(0)
-
-    // Отключение личной привязки не трогает источники переписки.
-    await telegram.getByRole('button', { name: 'Отключить' }).click()
-    const unlink = page.getByRole('dialog', { name: 'Отключить личные уведомления?' })
-    await unlink.getByRole('button', { name: 'Отключить' }).click()
-    await expect(telegram).toContainText('Не подключены')
-
-    // Та же карточка доступна из интеграций и на необязательном шаге онбординга.
+    await expect(editor).toContainText('По умолчанию')
+    await expect(
+      editor.getByRole('button', { name: 'Вернуть по умолчанию', exact: true }),
+    ).toHaveCount(0)
+    await editor.getByRole('button', { name: 'Отмена', exact: true }).click()
+    await telegram.getByRole('button', { name: 'Управлять', exact: true }).click()
+    const unlink = page.getByRole('dialog', { name: 'Отключить Telegram?', exact: true })
+    await expect(unlink).toContainText('Источник переписки организации это не затрагивает')
+    await unlink.getByRole('button', { name: 'Отключить', exact: true }).click()
+    await expect(telegram).toContainText('Не подключён')
     await page.goto('/integrations')
-    await expect(page.getByRole('heading', { name: 'Ваши уведомления в Telegram' })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'Ваши уведомления в Telegram', exact: true }),
+    ).toBeVisible()
   })
 
   test('команда: участники, код приглашения, роли и отзыв доступа', async ({ page }) => {
     await page.goto('/settings/team')
-    await expect(page.getByRole('heading', { name: 'Команда и доступ' })).toBeVisible()
-    const rows = page.getByRole('table', { name: 'Участники компании' }).locator('tbody tr')
-    await expect(rows).toHaveCount(3)
+    await expect(page.getByRole('heading', { name: 'Команда и доступ', exact: true })).toBeVisible()
+    const active = page.getByRole('region', { name: 'Участники с доступом' }),
+      revoked = page.getByRole('region', { name: 'Без доступа' })
+    const rows = active.getByRole('listitem')
+    await expect(rows).toHaveCount(2)
     const me = rows.filter({ hasText: 'Мария Владелец' })
-    await expect(me).toContainText('вы')
-    // Единственный активный владелец защищён на клиенте с пояснением.
-    await expect(me.getByRole('button', { name: 'Сделать менеджером' })).toBeDisabled()
-    await expect(me.getByRole('button', { name: 'Отозвать доступ' })).toBeDisabled()
-    await expect(me).toContainText('Единственный активный владелец')
-    const former = rows.filter({ hasText: 'Пётр Бывший-Длиннофамильный' })
-    await expect(former).toContainText('Доступ отозван')
+    await expect(me).toContainText('Вы')
+    await expect(me.getByRole('button')).toHaveCount(0)
+    await expect(me).toContainText('Последний владелец')
+    const former = revoked.getByRole('listitem').filter({ hasText: 'Пётр Бывший-Длиннофамильный' })
+    await expect(former).toContainText('Отозван')
     await expect(former.getByRole('button')).toHaveCount(0)
-    await expect(page.getByText('Приглашений пока нет')).toBeVisible()
+    await expect(page.getByText('Ожидающих приглашений нет')).toBeVisible()
     await expectNoAxeViolations(page)
-
-    // Код показывается один раз и не появляется в списке приглашений.
-    await page.getByRole('button', { name: 'Пригласить' }).click()
-    const invite = page.getByRole('dialog', { name: 'Пригласить в команду' })
-    await invite.getByLabel('Заметка для себя').fill('Для Ивана из второй студии')
-    await invite.getByRole('button', { name: 'Выпустить код' }).click()
+    await page.getByRole('button', { name: 'Пригласить участника', exact: true }).click()
+    const invite = page.getByRole('dialog').filter({ visible: true })
+    await expect(invite).toHaveAccessibleName('Пригласить участника')
+    await invite.getByLabel('Заметка · необязательно').fill('Для Ивана из второй студии')
+    await invite.getByRole('button', { name: 'Создать приглашение', exact: true }).click()
     await expect(invite.getByTestId('invitation-code')).toHaveText(INVITATION_CODE)
-    await expect(invite).toContainText('показывается один раз')
+    await expect(invite).toContainText('один раз')
     await expectNoAxeViolations(page)
-    await invite.getByRole('button', { name: 'Готово' }).click()
-    await expect(invite).toBeHidden()
+    await invite.getByRole('button', { name: 'Готово', exact: true }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'Приглашение создано' })).toBeVisible()
     const invitations = page.getByRole('list', { name: 'Приглашения' })
     await expect(invitations.getByRole('listitem')).toHaveCount(1)
     await expect(invitations).toContainText('Ожидает')
     await expect(invitations).toContainText('Для Ивана из второй студии')
     await expect(page.getByText(INVITATION_CODE)).toHaveCount(0)
-
-    // Второй владелец снимает защиту с первого.
     const anna = rows.filter({ hasText: 'Анна Смирнова' })
-    await anna.getByRole('button', { name: 'Сделать владельцем' }).click()
-    const promote = page.getByRole('dialog', { name: 'Сделать владельцем?' })
-    await expect(promote).toContainText('Анна Смирнова (manager@example.test)')
-    await promote.getByRole('button', { name: 'Подтвердить' }).click()
+    await anna.getByRole('button', { name: 'Изменить доступ: Анна Смирнова', exact: true }).click()
+    const role = page.getByRole('dialog', { name: 'Изменить доступ', exact: true })
+    await expect(role).toContainText('manager@example.test')
+    await role.locator('input[value=OWNER]').check()
+    await role.getByRole('button', { name: 'Сохранить роль', exact: true }).click()
+    await expect(role).toContainText('Роль изменена')
+    await role.getByRole('button', { name: 'Готово', exact: true }).click()
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Роль изменена: Анна Смирнова' }),
+    ).toBeVisible()
     await expect(anna).toContainText('Владелец')
-    await expect(me.getByRole('button', { name: 'Сделать менеджером' })).toBeEnabled()
-
-    // Гонка: сервер отвечает 409 — интерфейс не заявляет успех и перечитывает список.
-    await anna.getByRole('button', { name: 'Сделать менеджером' }).click()
+    await expect(
+      me.getByRole('button', { name: 'Изменить доступ: Мария Владелец', exact: true }),
+    ).toBeVisible()
+    await anna.getByRole('button', { name: 'Изменить доступ: Анна Смирнова', exact: true }).click()
+    await role.locator('input[value=MANAGER]').check()
     failNextMemberCommand(page, 'LAST_OWNER')
-    const demote = page.getByRole('dialog', { name: 'Сделать менеджером?' })
-    await demote.getByRole('button', { name: 'Подтвердить' }).click()
-    await expect(demote.getByRole('alert')).toContainText('Последний владелец')
-    await demote.getByRole('button', { name: 'Отмена' }).click()
+    await role.getByRole('button', { name: 'Сохранить роль', exact: true }).click()
+    await expect(role.getByRole('alert')).toContainText('Последний владелец')
+    await role.getByRole('button', { name: 'Отмена', exact: true }).click()
     await expect(anna).toContainText('Владелец')
-
-    // Отзыв доступа: строка остаётся с пометкой, защита владельца возвращается.
-    await anna.getByRole('button', { name: 'Отозвать доступ' }).click()
-    const revoke = page.getByRole('dialog', { name: 'Отозвать доступ?' })
-    await expect(revoke).toContainText('Анна Смирнова (manager@example.test)')
-    await revoke.getByRole('button', { name: 'Отозвать доступ' }).click()
-    await expect(anna).toContainText('Доступ отозван')
-    await expect(anna.getByRole('button')).toHaveCount(0)
-    await expect(me.getByRole('button', { name: 'Отозвать доступ' })).toBeDisabled()
-
-    // Отзыв приглашения переводит его в историю без кнопки.
-    await invitations.getByRole('button', { name: 'Отозвать' }).click()
-    const revokeInvite = page.getByRole('dialog', { name: 'Отозвать приглашение?' })
-    await revokeInvite.getByRole('button', { name: 'Отозвать' }).click()
+    await anna.getByRole('button', { name: 'Изменить доступ: Анна Смирнова', exact: true }).click()
+    await role.getByRole('button', { name: 'Отозвать доступ...', exact: true }).click()
+    const revoke = page.getByRole('dialog', { name: 'Отозвать доступ?', exact: true })
+    await expect(revoke).toContainText('manager@example.test')
+    await revoke.getByRole('button', { name: 'Отозвать доступ', exact: true }).click()
+    const disabledAnna = revoked.getByRole('listitem').filter({ hasText: 'Анна Смирнова' })
+    await expect(disabledAnna).toContainText('Отозван')
+    await expect(disabledAnna.getByRole('button')).toHaveCount(0)
+    await expect(me.getByRole('button')).toHaveCount(0)
+    await invitations.getByRole('button', { name: 'Отозвать приглашение:', exact: false }).click()
+    const revokeInvite = page.getByRole('dialog', { name: 'Отозвать приглашение?', exact: true })
+    await revokeInvite.getByRole('button', { name: 'Отозвать приглашение', exact: true }).click()
     await expect(invitations).toContainText('Отозвано')
-    await expect(invitations.getByRole('button', { name: 'Отозвать' })).toHaveCount(0)
+    await expect(invitations.getByRole('button')).toHaveCount(0)
     await expectNoAxeViolations(page)
   })
 
-  test('команда: ряд выровнен по аватару, кнопки в линию, на телефоне без прокрутки', async ({
-    page,
-  }) => {
-    const stableBoxes = async (targets: Locator[]) => {
-      const handles = await Promise.all(targets.map((target) => target.elementHandle()))
-      try {
-        const { before, after } = await page.evaluate(async (elements) => {
-          await document.fonts.ready
-          const sample = () =>
-            elements.map((element) => {
-              if (!element?.isConnected) return null
-              const box = element.getBoundingClientRect()
-              if (!box.width || !box.height || getComputedStyle(element).visibility === 'hidden')
-                return null
-              return { x: box.x, y: box.y, width: box.width, height: box.height }
-            })
-          const before = sample()
-          await new Promise<void>((resolve) =>
-            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-          )
-          return { before, after: sample() }
-        }, handles)
-        expect(after).toEqual(before)
-        expect(after.every((box) => box !== null)).toBe(true)
-        return after.map((box) => box!)
-      } finally {
-        await Promise.all(handles.map((handle) => handle?.dispose()))
-      }
-    }
-    // Широкая карточка — таблица: бейджи и кнопки на одной линии с центром аватара.
-    await page.setViewportSize({ width: 1440, height: 900 })
+  test('команда: адаптивные действия и статусы, на телефоне без прокрутки', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
     await page.goto('/settings/team')
-    const rows = page.getByRole('table', { name: 'Участники компании' }).locator('tbody tr')
-    await expect(rows).toHaveCount(3)
-    for (const name of ['Мария Владелец', 'Анна Смирнова']) {
-      const row = rows.filter({ hasText: name })
-      const aligned = [
-        row.getByText(/^(Владелец|Менеджер)$/),
-        row.getByText('Активен', { exact: true }),
-        row.getByRole('button').first(),
-      ]
-      const buttons = row.getByRole('button')
-      await expect(buttons).toHaveCount(2)
-      // Вся строка измеряется атомарно и остаётся стабильной два кадра.
-      // Прежние пороги сохраняются для каждого бейджа и обеих кнопок.
-      await expect(async () => {
-        const boxes = await stableBoxes([
-          row.locator('span.rounded-full').first(),
-          ...aligned,
-          buttons.nth(1),
-        ])
-        const centers = boxes.map((box) => box.y + box.height / 2)
-        for (const center of centers.slice(1, 4)) {
-          expect(Math.abs(center - centers[0]!)).toBeLessThanOrEqual(2)
-        }
-        expect(Math.abs(centers[3]! - centers[4]!)).toBeLessThan(1)
-      }).toPass({ timeout: 5000 })
-    }
-    // Правый край действий совпадает с правым краем «Пригласить» над таблицей.
-    const invite = page.getByRole('button', { name: 'Пригласить' })
-    const lastAction = rows.filter({ hasText: 'Анна Смирнова' }).getByRole('button').last()
+    const active = page.getByRole('region', { name: 'Участники с доступом' })
+    const anna = active.getByRole('listitem').filter({ hasText: 'Анна Смирнова' })
+    const action = anna.getByRole('button', { name: 'Изменить доступ: Анна Смирнова', exact: true })
+    await expect(action).toBeVisible()
     await expect(async () => {
-      const [inviteBox, actionBox] = await stableBoxes([invite, lastAction])
+      const [status, button] = await Promise.all([
+        anna.getByText('✓ Активен', { exact: true }).boundingBox(),
+        action.boundingBox(),
+      ])
+      expect(status).not.toBeNull()
+      expect(button).not.toBeNull()
       expect(
-        Math.abs(inviteBox!.x + inviteBox!.width - actionBox!.x - actionBox!.width),
-      ).toBeLessThanOrEqual(1)
-    }).toPass({ timeout: 5000 })
-    await expectNoAxeViolations(page)
-
-    // Телефон: блоки вместо таблицы, страница не прокручивается вбок, кнопки целиком на экране.
+        Math.abs(status!.y + status!.height / 2 - button!.y - button!.height / 2),
+      ).toBeLessThanOrEqual(2)
+    }).toPass()
     await page.setViewportSize({ width: 375, height: 800 })
     await expect
-      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
       .toBe(true)
-    const annaButtons = rows.filter({ hasText: 'Анна Смирнова' }).getByRole('button')
-    await expect(annaButtons).toHaveCount(2)
-    await expect(async () => {
-      const boxes = await stableBoxes([annaButtons.nth(0), annaButtons.nth(1)])
-      for (const box of boxes) {
-        expect(box.x).toBeGreaterThanOrEqual(0)
-        expect(box.x + box.width).toBeLessThanOrEqual(375)
-      }
-    }).toPass({ timeout: 5000 })
+    const trash = anna.getByRole('button', { name: 'Отозвать доступ: Анна Смирнова', exact: true })
+    await expect(trash).toBeVisible()
+    for (const button of [action, trash]) {
+      const box = await button.boundingBox()
+      expect(box).not.toBeNull()
+      expect(box!.width).toBeGreaterThanOrEqual(44)
+      expect(box!.height).toBeGreaterThanOrEqual(44)
+      expect(box!.x).toBeGreaterThanOrEqual(0)
+      expect(box!.x + box!.width).toBeLessThanOrEqual(375)
+    }
     await expectNoAxeViolations(page)
   })
 
@@ -1911,10 +1867,10 @@ test.describe('менеджер организации', () => {
         ? sectionSelect.locator('option')
         : page.getByRole('navigation', { name: 'Разделы настроек' }).getByRole('link'),
     ).toHaveText(['Уведомления', 'Данные', 'Аккаунт'])
-    await expect(page.getByRole('region', { name: 'Ваши уведомления в Telegram' })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Куда приходят уведомления' })).toBeVisible()
     await expect(
       page.getByRole('list', { name: 'Настройки по типам рисков' }).locator(':scope > li'),
-    ).toHaveCount(5)
+    ).toHaveCount(6)
     await expectNoAxeViolations(page)
     if ((page.viewportSize()?.width ?? 0) >= 1024) {
       const sections = page.getByRole('navigation', { name: 'Разделы' })

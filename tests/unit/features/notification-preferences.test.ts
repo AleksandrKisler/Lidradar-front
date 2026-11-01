@@ -163,7 +163,7 @@ describe('PreferenceEditor', () => {
   it('предупреждает о Telegram без привязки и молчит при активной привязке', async () => {
     const unlinked = mountEditor()
     await unlinked.get('input[name="telegram-PROMISE_NOT_FULFILLED"]').setValue(true)
-    expect(unlinked.get('[role="status"]').text()).toContain('Telegram не привязан')
+    expect(unlinked.get('[role="status"]').text()).toContain('Telegram не подключён')
     unlinked.unmount()
     const linked = mountEditor({}, true)
     await linked.get('input[name="telegram-PROMISE_NOT_FULFILLED"]').setValue(true)
@@ -214,7 +214,7 @@ describe('PreferenceEditor', () => {
     wrapper.unmount()
   })
 
-  it('перечитанный список с той же настройкой не стирает черновик, изменённая — стирает', async () => {
+  it('refresh той же или изменённой серверной настройки сохраняет dirty черновик', async () => {
     const wrapper = mountEditor()
     const mode = () =>
       (wrapper.get('select[name="mode-PROMISE_NOT_FULFILLED"]').element as HTMLSelectElement).value
@@ -224,7 +224,132 @@ describe('PreferenceEditor', () => {
     await wrapper.setProps({
       preference: { ...preference, isDefault: false, updatedAt: '2026-09-24T10:00:00Z' },
     })
-    expect(mode()).toBe('IMMEDIATE')
+    expect(mode()).toBe('DIGEST')
+    wrapper.unmount()
+  })
+
+  it('два submit до ответа делают один PUT, определённый отказ сохраняет ввод для повтора', async () => {
+    let release!: (response: Response) => void
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = resolve
+        }),
+    )
+    const wrapper = mountEditor()
+    await wrapper.get('select').setValue('DIGEST')
+    await wrapper.get('form').trigger('submit')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(wrapper.get('select').attributes('disabled')).toBeDefined()
+    release(
+      jsonResponse(
+        { error: { code: 'VALIDATION_FAILED', message: 'private', traceId: 'trace' } },
+        400,
+      ),
+    )
+    await flushPromises()
+    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe('DIGEST')
+    expect(wrapper.emitted('saved')).toBeUndefined()
+    fetchMock.mockImplementation(async (request) =>
+      request.method === 'PUT'
+        ? jsonResponse({ ...preference, deliveryMode: 'DIGEST', isDefault: false })
+        : jsonResponse({ items: [] }),
+    )
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(fetchMock.mock.calls.filter(([request]) => request.method === 'PUT')).toHaveLength(2)
+    expect(wrapper.emitted('saved')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('поздний PUT прежнего tenant не сохраняет новую форму и не эмитит success', async () => {
+    let release!: (response: Response) => void
+    fetchMock.mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = resolve
+        }),
+    )
+    const wrapper = mountEditor()
+    await wrapper.get('select').setValue('DIGEST')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    const request = fetchMock.mock.calls[0]![0]
+    await wrapper.setProps({
+      tenantId: 'tenant-b',
+      preference: { ...preference, minimumSeverity: 'CRITICAL' },
+    })
+    release(jsonResponse({ ...preference, deliveryMode: 'DIGEST', isDefault: false }))
+    await flushPromises()
+    expect(request.headers.get('X-Tenant-ID')).toBe('tenant-a')
+    expect(wrapper.emitted('saved')).toBeUndefined()
+    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe('IMMEDIATE')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('ACK PUT + read failure оставляет успех; повтор чтения не повторяет PUT', async () => {
+    let readable = false
+    const result = { ...preference, deliveryMode: 'DIGEST', isDefault: false }
+    fetchMock.mockImplementation(async (request) =>
+      request.method === 'PUT'
+        ? jsonResponse(result)
+        : readable
+          ? jsonResponse({ items: [result] })
+          : jsonResponse({ error: { code: 'INTERNAL_ERROR' } }, 500),
+    )
+    const wrapper = mountEditor()
+    await wrapper.get('select').setValue('DIGEST')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.emitted('saved')).toHaveLength(1)
+    expect(wrapper.text()).toContain('Данные сохранены, но список не обновлён')
+    readable = true
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Обновить список')!
+      .trigger('click')
+    await flushPromises()
+    expect(fetchMock.mock.calls.filter(([request]) => request.method === 'PUT')).toHaveLength(1)
+    expect(wrapper.text()).not.toContain('Данные сохранены, но список не обновлён')
+    wrapper.unmount()
+  })
+
+  it('ACK DELETE + read failure повторяет только GET и принимает серверный default', async () => {
+    let readable = false
+    fetchMock.mockImplementation(async (request) =>
+      request.method === 'DELETE'
+        ? new Response(null, { status: 204 })
+        : readable
+          ? jsonResponse({ items: [preference] })
+          : jsonResponse({ error: { code: 'INTERNAL_ERROR' } }, 500),
+    )
+    const wrapper = mountEditor({ isDefault: false })
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Вернуть по умолчанию')!
+      .trigger('click')
+    await flushPromises()
+    await vi.dynamicImportSettled()
+    await flushPromises()
+    const dialog = body().get('[role="dialog"]')
+    await dialog
+      .findAll('button')
+      .find((button) => button.text() === 'Вернуть')!
+      .trigger('click')
+    await flushPromises()
+    expect(dialog.text()).toContain('Сброс подтверждён')
+    readable = true
+    await dialog
+      .findAll('button')
+      .find((button) => button.text() === 'Повторить чтение')!
+      .trigger('click')
+    await flushPromises()
+    expect(fetchMock.mock.calls.filter(([request]) => request.method === 'DELETE')).toHaveLength(1)
+    expect(wrapper.emitted('reset')).toHaveLength(1)
+    expect(wrapper.text()).toContain('По умолчанию')
     wrapper.unmount()
   })
 })

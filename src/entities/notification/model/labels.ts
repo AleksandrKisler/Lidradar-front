@@ -33,3 +33,16 @@ export function severityThresholdLabel(
 ): string {
   return thresholdLabels[value as NotificationPreference['minimumSeverity']] ?? value
 }
+
+export function notificationTimeZoneLabel(zone: string): string {
+  if (!zone) return 'Часовой пояс пока недоступен'
+  try {
+    const offset = new Intl.DateTimeFormat('en', { timeZone: zone, timeZoneName: 'shortOffset' })
+      .formatToParts(new Date())
+      .find((part) => part.type === 'timeZoneName')
+      ?.value.replace('GMT', 'UTC')
+    return `${zone}${offset ? ` (${offset})` : ''}`
+  } catch {
+    return zone
+  }
+}

@@ -52,6 +52,7 @@ describe('окно «Уведомления в Telegram»', () => {
       request.method === 'POST' ? jsonResponse(token(), 201) : jsonResponse({ linked: false }),
     )
     const wrapper = mountDialog()
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(posts()).toBe(1)
     const link = dialog().get('a[href^="https://t.me/"]')
@@ -68,6 +69,7 @@ describe('окно «Уведомления в Telegram»', () => {
       jsonResponse({ linked: true, linkedAt: '2026-10-23T12:00:00Z' }),
     )
     const wrapper = mountDialog()
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(posts()).toBe(0)
     expect(dialog().text()).toContain('Уведомления успешно подключены')
@@ -87,6 +89,7 @@ describe('окно «Уведомления в Telegram»', () => {
         : jsonResponse({ linked: false }),
     )
     const wrapper = mountDialog()
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(dialog().find('a[href]').exists()).toBe(false)
     expect(dialog().text()).toContain('Ссылка привязки непригодна')
@@ -112,6 +115,7 @@ describe('окно «Уведомления в Telegram»', () => {
       return jsonResponse({ linked: false })
     })
     const wrapper = mountDialog()
+    await vi.dynamicImportSettled()
     await flushPromises()
     const refresh = dialog()
       .findAll('button')
@@ -133,6 +137,7 @@ describe('окно «Уведомления в Telegram»', () => {
   it('пока статус читается, показана загрузка, а не кнопки', async () => {
     fetchMock.mockImplementation(() => new Promise(() => {}))
     const wrapper = mountDialog()
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(dialog().find('[role="status"][aria-label="Загружаем статус"]').exists()).toBe(true)
     expect(dialog().text()).not.toContain('Открыть бота')
@@ -151,6 +156,7 @@ describe('окно «Уведомления в Telegram»', () => {
       return jsonResponse({ linked: false })
     })
     const wrapper = mountDialog()
+    await vi.dynamicImportSettled()
     await vi.advanceTimersByTimeAsync(0)
     await flushPromises()
     expect(posts()).toBe(1)
@@ -173,6 +179,7 @@ describe('окно «Уведомления в Telegram»', () => {
         : jsonResponse({ linked: false })
     })
     const wrapper = mountDialog()
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(dialog().text()).toContain('Не удалось прочитать статус привязки')
     expect(posts()).toBe(0)

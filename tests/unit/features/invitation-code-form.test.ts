@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { mount, type VueWrapper } from '@vue/test-utils'
+import materialSprite from '@/shared/ui/assets/material-icons.svg?raw'
 import { InvitationCodeForm, type InvitationCodeStatus } from '@/features/auth-session'
 
 /**
@@ -107,14 +108,17 @@ describe('тексты и вид состояний B2', () => {
     const rejected = mountForm({ value: CODE, status: 'invalid' })
     const face = rejected.get('[data-testid="invitation-check-face"]')
     expect(face.classes()).toContain('bg-danger')
-    expect(face.find('path').attributes('d')).toContain('M432-820')
+    expect(face.get('use').attributes('href')).toMatch(/#priority-high$/)
+    const sprite = new DOMParser().parseFromString(materialSprite, 'image/svg+xml')
+    expect(sprite.querySelector('#priority-high path')?.getAttribute('d')).toContain('M432-820')
     rejected.unmount()
     for (const status of ['format', 'service', 'idle'] as const) {
       const form = mountForm({ value: CODE, status })
       expect(form.get('[data-testid="invitation-check-face"]').classes()).toContain('bg-brand')
-      expect(form.get('[data-testid="invitation-check-face"] path').attributes('d')).toContain(
-        'M647-440',
+      expect(form.get('[data-testid="invitation-check-face"] use').attributes('href')).toMatch(
+        /#arrow-forward$/,
       )
+      expect(sprite.querySelector('#arrow-forward path')?.getAttribute('d')).toContain('M647-440')
       form.unmount()
     }
     wrapper = null

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * «Настройки → Компания и график» (Figma 529:4216 и состояния). Организация и точки
+ * «Настройки → Компания и график» (Figma 1189:10892, 1246:10274, 1277:11798 и состояния). Организация и точки
  * загружаются независимо: ошибка одного блока не скрывает другой. Смена
  * выбранной точки при несохранённом графике и уход со страницы требуют
  * подтверждения. Ошибка повторного чтения не стирает показанное: строка над карточками
@@ -9,23 +9,24 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import {
+  UiAlert,
   UiButton,
   UiErrorState,
   UiGlyph,
-  UiSelect,
   UiSheetDialog,
   UiSkeleton,
   UiSpinner,
-  type UiSelectOption,
 } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
 import { timeZoneLabel, useOrganizationQuery } from '@/entities/organization'
-import { WEEKDAYS, describeDay, useLocationsQuery, type Location } from '@/entities/location'
+import { WEEKDAYS, useLocationsQuery, type Location } from '@/entities/location'
 import { OrganizationForm } from '@/features/edit-organization'
 import { LocationFormDialog } from '@/features/manage-locations'
 import { BusinessHoursEditor } from '@/features/edit-business-hours'
 import { useWorkspaceSwitchGuard } from '@/features/select-workspace'
 import SettingsPageHead from './SettingsPageHead.vue'
+import SettingsPointCard from './SettingsPointCard.vue'
+import SettingsSaveStatus from './SettingsSaveStatus.vue'
 
 const session = useSessionStore()
 const tenantId = computed(() => session.tenantId ?? '')
@@ -56,12 +57,26 @@ watch(
 const selected = computed<Location | null>(
   () => allLocations.value.find((item) => item.id === selectedId.value) ?? null,
 )
-const locationOptions = computed<UiSelectOption[]>(() =>
-  allLocations.value.map((item) => ({
-    value: item.id,
-    label: item.active ? item.name : `${item.name} (неактивна)`,
-  })),
+// Keep first-configuration guidance stable through saving; switch/reload starts a new context.
+const scheduleIntro = ref('')
+watch(
+  () => `${tenantId.value}:${selected.value?.id ?? ''}`,
+  () => {
+    scheduleIntro.value = selected.value?.businessHours.length
+      ? 'Указано местное время точки.\nВне рабочего графика счётчик ожидания не растёт.'
+      : 'Часы ниже — черновик для первой настройки.\nВне рабочего графика счётчик ожидания не растёт.'
+  },
+  { immediate: true },
 )
+type Status = 'saving' | 'saved' | 'error' | 'dirty' | 'idle'
+const companyStatus = ref<Status>('idle')
+const scheduleStatus = ref<Status>('idle')
+function updateScheduleStatus(status: Status) {
+  scheduleStatus.value = status
+  if (status === 'saving')
+    scheduleIntro.value =
+      'Указано местное время точки.\nВне рабочего графика счётчик ожидания не растёт.'
+}
 
 /**
  * Несохранённый график защищён окном «Сохранить изменения графика?» (Figma «Настройки»): смена точки и
@@ -87,17 +102,14 @@ watch(leaveOpen, (isOpen) => {
   if (!isOpen && leaveDecision) decideLeave(false)
 })
 
-const selectKey = ref(0)
 async function selectLocation(id: string | undefined, trigger?: HTMLElement): Promise<void> {
   if (!id || id === selectedId.value || hoursBusy.value) return
   const origin =
     trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null)
   origin?.focus()
   if (hoursDirty.value && !(await askToLeave())) {
-    selectKey.value += 1 // нативный список показывает выбранное: возвращаем прежнюю точку
     await nextTick()
     if (origin?.isConnected) origin.focus()
-    else document.getElementById('schedule-location')?.focus()
     return
   }
   selectedId.value = id
@@ -147,44 +159,44 @@ function retryRefresh(): void {
 }
 
 const dialogOpen = ref(false)
+const dialogTrigger = ref<HTMLElement | null>(null)
+function returnDialogFocus(): HTMLElement | null {
+  return dialogTrigger.value?.isConnected
+    ? dialogTrigger.value
+    : ([...document.querySelectorAll<HTMLElement>('[data-settings-add]')].find(
+        (element) => element.getClientRects().length,
+      ) ?? null)
+}
 const editing = ref<Location | null>(null)
-function openCreate(): void {
+function openCreate(event?: Event): void {
+  dialogTrigger.value = event?.currentTarget instanceof HTMLElement ? event.currentTarget : null
+  dialogTrigger.value?.focus()
   editing.value = null
   dialogOpen.value = true
 }
-function openEdit(location: Location): void {
+function openEdit(location: Location, trigger?: HTMLElement): void {
+  dialogTrigger.value = trigger ?? null
+  dialogTrigger.value?.focus()
   editing.value = location
   dialogOpen.value = true
 }
 </script>
 
 <template>
-  <div class="flex flex-col md:max-lg:-mx-2">
+  <div class="flex min-w-0 flex-col pb-2 md:max-lg:-mx-2">
     <SettingsPageHead
-      class="lg:[&_header]:gap-2"
       title="Компания и график"
       subtitle="Параметры компании, точки и рабочее время для проверки рисков."
+      scrolling-tabs
     />
-
-    <div
-      v-if="!(locations.data.value && !allLocations.length)"
-      class="flex h-[116px] items-start pt-[25px] lg:h-[94px] lg:items-center lg:pt-0"
-    >
+    <div class="my-5 flex min-h-[66px] items-center md:my-6 md:min-h-[46px]">
       <div v-if="refreshFailed" class="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
-        <UiButton variant="secondary" class="md:shrink-0" @click="retryRefresh">
-          Повторить обновление
-        </UiButton>
-        <div class="flex items-start gap-3" role="alert">
-          <UiGlyph name="circle-alert" class="mt-0.5 size-5 shrink-0 text-danger" />
-          <div>
-            <p class="text-sm leading-5 font-medium text-danger-ink">
-              Параметры компании не обновлены
-            </p>
-            <p class="text-xs leading-[18px] text-secondary">
-              Показаны последние загруженные данные. Несохранённый график сохранён в форме.
-            </p>
-          </div>
-        </div>
+        <UiButton variant="secondary" class="md:shrink-0" @click="retryRefresh"
+          >Повторить обновление</UiButton
+        >
+        <UiAlert tone="danger" title="Параметры компании не обновлены">
+          Показаны последние загруженные данные. Несохранённый график сохранён в форме.
+        </UiAlert>
       </div>
       <p
         v-else-if="initialLoading || refreshing"
@@ -198,333 +210,183 @@ function openEdit(location: Location): void {
             : 'Обновляем данные. Предыдущие значения остаются на экране.'
         }}
       </p>
-      <p v-else class="text-xs leading-[18px] text-secondary">
-        Изменения сохраняются отдельно в каждом блоке.
-      </p>
+      <UiAlert v-else tone="warning" class="w-full"
+        >Изменения сохраняются отдельно в каждом блоке.<template #icon
+          ><UiGlyph name="circle-alert" class="size-5" /></template
+      ></UiAlert>
     </div>
-    <div v-else class="h-6" />
+
+    <section
+      aria-labelledby="company-title"
+      class="min-w-0 rounded-[18px] border border-line bg-paper p-4 md:p-6"
+    >
+      <div class="flex min-h-7 items-center justify-between gap-3">
+        <h2 id="company-title" class="text-xl leading-7 font-semibold text-ink">Компания</h2>
+        <SettingsSaveStatus data-testid="settings-company-status" :status="companyStatus" />
+      </div>
+      <div class="mt-4">
+        <div
+          v-if="organization.isPending.value"
+          role="status"
+          aria-label="Загрузка компании"
+          class="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+        >
+          <UiSkeleton v-for="field in 3" :key="field" class="h-[74px]" />
+        </div>
+        <UiErrorState
+          v-else-if="!organization.data.value"
+          :error="organization.error.value"
+          title="Не удалось загрузить компанию"
+          @retry="organization.refetch()"
+        />
+        <OrganizationForm
+          v-else
+          :key="tenantId"
+          :tenant-id="tenantId"
+          :organization="organization.data.value"
+          @status="companyStatus = $event"
+        />
+      </div>
+    </section>
 
     <div
-      class="grid gap-6 md:grid-cols-2 md:items-start md:gap-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-stretch"
+      data-testid="settings-points-schedule"
+      class="mt-5 grid min-w-0 max-lg:rounded-[18px] max-lg:bg-paper max-lg:ring-1 max-lg:ring-inset max-lg:ring-line md:mt-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:gap-6"
     >
       <section
-        aria-labelledby="company-title"
-        :class="[
-          'min-w-0 rounded-[20px] border border-hairline bg-paper p-4 md:p-6 lg:rounded-[18px] lg:col-span-2',
-          organization.isPending.value ? 'lg:min-h-[230px]' : '',
-        ]"
-      >
-        <div class="flex items-center max-lg:min-h-[46px]">
-          <h2 id="company-title" class="text-xl leading-7 font-semibold text-ink">Компания</h2>
-        </div>
-        <div class="mt-4">
-          <div
-            v-if="organization.isPending.value"
-            role="status"
-            aria-label="Загрузка компании"
-            class="flex flex-col gap-4"
-          >
-            <div class="flex flex-col gap-4 lg:hidden">
-              <UiSkeleton class="bg-line! h-2.5 w-1/3" />
-              <UiSkeleton class="bg-line! h-input w-full" />
-              <UiSkeleton class="bg-line! h-2.5 w-2/3" />
-              <UiSkeleton class="bg-line! h-input w-full" />
-            </div>
-            <div
-              class="hidden gap-4 lg:grid lg:grid-cols-[minmax(0,1.875fr)_minmax(0,1fr)_minmax(0,1fr)]"
-            >
-              <div
-                v-for="label in ['Название компании', 'Основная валюта', 'Часовой пояс']"
-                :key="label"
-                class="min-w-0"
-              >
-                <p class="mb-2 text-sm font-medium text-ink">{{ label }}</p>
-                <UiSkeleton class="bg-line! h-input w-full" />
-              </div>
-            </div>
-            <div class="hidden flex-wrap items-center justify-between gap-4 lg:flex">
-              <UiSkeleton class="bg-line! h-2.5 w-2/3" />
-              <UiSkeleton class="bg-line! h-2.5 w-40" />
-            </div>
-          </div>
-          <UiErrorState
-            v-else-if="!organization.data.value"
-            :error="organization.error.value"
-            title="Не удалось загрузить компанию"
-            @retry="organization.refetch()"
-          />
-          <OrganizationForm
-            v-else
-            :key="tenantId"
-            :tenant-id="tenantId"
-            :organization="organization.data.value"
-          />
-        </div>
-      </section>
-
-      <section
-        v-if="locations.data.value && !allLocations.length"
         aria-labelledby="locations-title"
-        class="flex min-w-0 flex-col gap-3 rounded-[20px] border border-hairline bg-paper p-4 md:p-6 lg:rounded-[18px]"
+        class="min-w-0 p-4 md:p-6 lg:rounded-[18px] lg:bg-paper lg:ring-1 lg:ring-inset lg:ring-line"
       >
-        <h2 id="locations-title" class="text-xl leading-7 font-semibold text-ink">
-          Точек пока нет
-        </h2>
-        <p class="text-sm leading-5 text-secondary">
-          Добавьте точку, чтобы задать её часовой пояс и пороги ожидания.
-        </p>
-        <UiButton variant="secondary" class="md:w-[280px]" @click="openCreate">
-          Добавить точку
-        </UiButton>
-      </section>
-      <section
-        v-else
-        aria-labelledby="locations-title"
-        class="min-w-0 rounded-[20px] border border-hairline bg-paper p-4 md:p-6 lg:rounded-[18px] lg:col-start-1"
-      >
-        <div
-          class="flex min-h-[46px] flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-3"
-        >
-          <h2 id="locations-title" class="text-xl leading-7 font-semibold text-ink">Точки</h2>
-          <UiButton
-            v-if="!locations.isPending.value"
-            variant="primary"
-            class="w-full max-lg:border max-lg:border-line max-lg:bg-paper max-lg:text-ink lg:size-[46px] lg:shrink-0 lg:p-0"
-            :disabled="hoursBusy"
+        <div class="flex min-h-7 items-center justify-between gap-3">
+          <h2 id="locations-title" class="text-xl leading-7 font-semibold text-ink">
+            <span class="lg:hidden">Точки и график</span
+            ><span class="hidden lg:inline">{{
+              locations.data.value && !allLocations.length ? 'Точек пока нет' : 'Точки'
+            }}</span>
+          </h2>
+          <button
+            v-if="allLocations.length"
+            type="button"
+            class="hidden size-7 items-center justify-center rounded-field text-brand hover:bg-brand/10 disabled:opacity-50 lg:flex"
             aria-label="Добавить точку"
+            :disabled="hoursBusy"
+            data-settings-add
             @click="openCreate"
           >
-            <span class="lg:hidden">Добавить точку</span>
-            <span class="hidden lg:block"><UiGlyph name="plus" class="size-5" /></span>
-          </UiButton>
-          <UiSkeleton v-else class="h-3 w-28" />
+            <UiGlyph name="plus" class="size-5" />
+          </button>
         </div>
-        <div class="mt-4 border-t border-hairline lg:border-0">
-          <div
-            v-if="locations.isPending.value"
-            role="status"
-            aria-label="Загрузка точек"
-            class="flex flex-col gap-5 pt-5"
+        <div
+          v-if="locations.isPending.value"
+          role="status"
+          aria-label="Загрузка точек"
+          class="mt-4 flex flex-col gap-4"
+        >
+          <UiSkeleton v-for="card in 3" :key="card" class="h-[54px]" />
+        </div>
+        <UiErrorState
+          v-else-if="!locations.data.value"
+          class="mt-4"
+          :error="locations.error.value"
+          title="Не удалось загрузить точки"
+          @retry="locations.refetch()"
+        />
+        <template v-else-if="!allLocations.length">
+          <h3 class="mt-4 text-base font-medium lg:hidden">Точек пока нет</h3>
+          <p class="mt-3 text-sm leading-5 text-secondary">
+            Добавьте точку, чтобы задать её часовой пояс и пороги ожидания.
+          </p>
+          <UiButton variant="secondary" class="mt-4 w-full" data-settings-add @click="openCreate"
+            >Добавить точку</UiButton
           >
-            <UiSkeleton class="bg-line! h-3 w-4/5" />
-            <UiSkeleton class="bg-line! h-3 w-3/4" />
-            <UiSkeleton class="bg-line! h-3 w-3/4" />
-          </div>
-          <UiErrorState
-            v-else-if="!locations.data.value"
-            class="mt-4"
-            :error="locations.error.value"
-            title="Не удалось загрузить точки"
-            @retry="locations.refetch()"
-          />
-          <ul
-            v-else
-            class="divide-y divide-hairline lg:divide-y-0 lg:space-y-4"
-            aria-label="Список точек"
-          >
-            <li
-              v-for="location in allLocations"
-              :key="location.id"
-              class="flex min-w-0 flex-col py-4 lg:py-0"
+        </template>
+        <ul
+          v-else
+          aria-label="Список точек"
+          class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-1"
+        >
+          <li v-for="location in allLocations" :key="location.id" class="min-w-0">
+            <SettingsPointCard
+              :location="location"
+              :selected="selectedId === location.id"
+              :disabled="hoursBusy"
+              @select="selectLocation(location.id, $event)"
+              @edit="openEdit(location, $event)"
+            />
+          </li>
+          <li class="lg:hidden">
+            <button
+              type="button"
+              class="flex h-[54px] w-full items-center justify-between rounded-[12px] border border-[#b6cff2] pl-3 pr-4 text-base leading-[22px] font-medium text-link hover:border-brand disabled:opacity-50"
+              :disabled="hoursBusy"
+              data-settings-add
+              @click="openCreate"
             >
-              <div
-                :class="[
-                  'hidden min-w-0 items-start rounded-field border lg:flex',
-                  selectedId === location.id ? 'border-[#b4ceff] bg-[#eaf2ff]' : 'border-hairline',
-                ]"
-              >
-                <button
-                  type="button"
-                  class="min-h-[72px] min-w-0 flex-1 rounded-field px-3 py-3 text-left"
-                  :aria-pressed="selectedId === location.id"
-                  :disabled="hoursBusy"
-                  @click="selectLocation(location.id, $event.currentTarget as HTMLElement)"
-                >
-                  <span class="block break-words text-base leading-[22px] font-medium text-ink">{{
-                    location.name
-                  }}</span>
-                  <span class="mt-2 block text-xs text-secondary">{{
-                    location.businessHours.length ? 'График сохранён' : 'График не сохранён'
-                  }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="mr-3 flex size-11 shrink-0 items-center justify-center rounded-field text-brand"
-                  aria-label="Изменить точку"
-                  :disabled="hoursBusy"
-                  @click="openEdit(location)"
-                >
-                  <UiGlyph name="pencil" class="size-[18px]" />
-                </button>
-              </div>
-              <div class="flex items-center justify-between gap-3 lg:contents">
-                <p class="text-base leading-6 font-semibold text-ink lg:hidden">
-                  {{ location.name }}
-                </p>
-                <span
-                  :class="[
-                    'inline-flex h-[26px] items-center rounded-full px-3 text-xs lg:order-last lg:mt-4 lg:h-7 lg:w-fit lg:px-2.5',
-                    location.active ? 'bg-success-pale text-success' : 'bg-segment text-secondary',
-                  ]"
-                >
-                  {{ location.active ? 'Активна' : 'Неактивна' }}
-                </span>
-              </div>
-              <div
-                class="mt-4 break-words text-sm leading-5 text-secondary max-lg:mt-3 max-lg:text-base max-lg:leading-6"
-              >
-                <p>{{ timeZoneLabel(location.timezone) }}</p>
-                <p>Порог ответа: {{ location.responseThresholdMinutes }} рабочих минут</p>
-                <p>
-                  <span class="lg:hidden">Ожидание следующего шага:</span
-                  ><span class="hidden lg:inline">Следующий шаг:</span>
-                  {{ location.agreementThresholdMinutes }} рабочих минут
-                </p>
-              </div>
-              <p class="mt-2.5 text-xs leading-[18px] text-secondary lg:hidden">
-                <template v-if="location.businessHours.length">
-                  График: пн
-                  {{
-                    describeDay(
-                      location.businessHours.find((day) => day.weekday === 1) ?? {
-                        weekday: 1,
-                        closed: true,
-                      },
-                    )
-                  }}
-                </template>
-                <template v-else>График ещё не сохранён</template>
-              </p>
-              <UiButton
-                variant="plain"
-                class="mt-2.5 w-full text-field lg:hidden"
-                :disabled="hoursBusy"
-                @click="openEdit(location)"
-              >
-                Изменить точку
-              </UiButton>
-            </li>
-          </ul>
-        </div>
+              Добавить точку<UiGlyph name="plus" class="size-5" />
+            </button>
+          </li>
+        </ul>
       </section>
       <section
         v-if="selected"
         aria-labelledby="schedule-title"
-        class="min-w-0 rounded-[20px] border border-hairline bg-paper p-4 md:col-span-2 md:p-6 lg:col-span-1 lg:col-start-2 lg:row-start-2 lg:rounded-[18px]"
+        class="min-w-0 border-line p-4 max-lg:border-t md:p-6 lg:rounded-[18px] lg:border lg:bg-paper"
       >
-        <div class="flex items-center justify-between gap-3">
+        <div class="flex items-start justify-between gap-3">
           <h2
             id="schedule-title"
             class="min-w-0 break-words text-xl leading-7 font-semibold text-ink"
           >
-            <span class="lg:hidden">График работы</span
-            ><span class="hidden lg:inline">График · {{ selected.name }}</span>
+            <span class="md:hidden">График работы</span
+            ><span class="hidden md:inline">График · {{ selected.name }}</span>
           </h2>
-          <span
-            class="inline-flex h-[26px] items-center rounded-full bg-segment px-3 text-xs text-secondary"
-          >
-            {{ selected.businessHours.length && !hoursDirty ? 'Сохранён' : 'Не сохранён' }}
-          </span>
+          <SettingsSaveStatus
+            data-testid="settings-schedule-status"
+            :status="scheduleStatus"
+            schedule
+          />
         </div>
-        <p class="mt-1.5 text-sm leading-5 text-secondary lg:mt-2">
-          <span class="lg:hidden">{{ selected.name }} · </span
+        <p class="mt-2 text-sm leading-5 text-muted">
+          <span class="mb-1 block text-base leading-6 font-medium text-ink md:hidden">{{
+            selected.name
+          }}</span
           >{{ timeZoneLabel(selected.timezone) }}
         </p>
-        <label
-          v-if="locationOptions.length > 1"
-          class="mt-4 flex min-w-0 max-w-sm flex-col gap-2 text-sm font-medium text-ink lg:hidden"
-        >
-          Точка
-          <UiSelect
-            id="schedule-location"
-            :key="selectKey"
-            class="min-w-0 overflow-hidden text-ellipsis"
-            :disabled="hoursBusy"
-            :model-value="selectedId ?? ''"
-            :options="locationOptions"
-            @change="
-              selectLocation(
-                ($event.target as HTMLSelectElement).value,
-                $event.target as HTMLElement,
-              )
-            "
-          />
-        </label>
-        <div class="mt-3 lg:mt-4">
+        <div class="mt-4">
           <BusinessHoursEditor
             :key="`${tenantId}:${selected.id}`"
             :tenant-id="tenantId"
             :location="selected"
             appearance="settings"
-            :intro="
-              selected.businessHours.length
-                ? 'Вне рабочего графика счётчик ожидания не растёт.'
-                : 'Часы ниже — черновик для первой настройки.\nВне рабочего графика счётчик ожидания не растёт.'
-            "
+            :intro="scheduleIntro"
             @update:dirty="hoursDirty = $event"
             @busy="hoursBusy = $event"
+            @status="updateScheduleStatus"
           />
         </div>
       </section>
       <section
-        v-else-if="locations.data.value"
-        aria-labelledby="schedule-title"
-        class="md:col-span-2 lg:col-span-1 lg:col-start-2 flex min-h-[180px] min-w-0 flex-col gap-3 rounded-[20px] border border-hairline bg-paper p-4 md:p-6 lg:rounded-[18px]"
-      >
-        <h2
-          id="schedule-title"
-          class="min-w-0 break-words text-xl leading-7 font-semibold text-ink"
-        >
-          График появится после добавления точки
-        </h2>
-        <p class="text-sm leading-5 text-secondary">
-          Для каждой точки задаётся своя неделя и местное время.
-        </p>
-      </section>
-      <section
-        v-else-if="locations.isError.value"
-        aria-labelledby="schedule-title"
-        class="min-w-0 rounded-[20px] border border-hairline bg-paper p-4 md:col-span-2 md:p-6 lg:col-span-1 lg:col-start-2 lg:row-start-2 lg:rounded-[18px]"
-      >
-        <h2
-          id="schedule-title"
-          class="min-w-0 break-words text-xl leading-7 font-semibold text-ink"
-        >
-          График недоступен
-        </h2>
-        <p class="mt-3 text-sm text-secondary">
-          Сначала повторите загрузку точек. Сохранённые графики не изменены.
-        </p>
-      </section>
-      <section
         v-else
         aria-labelledby="schedule-title"
-        class="md:col-span-2 lg:col-span-1 lg:col-start-2 lg:row-start-2 min-h-[660px] min-w-0 rounded-[20px] border border-hairline bg-paper p-4 md:p-6 lg:rounded-[18px]"
+        class="min-w-0 border-line p-4 max-lg:border-t md:p-6 lg:rounded-[18px] lg:border lg:bg-paper"
       >
-        <h2
-          id="schedule-title"
-          class="min-w-0 break-words text-xl leading-7 font-semibold text-ink"
-        >
-          График работы
+        <h2 id="schedule-title" class="text-xl leading-7 font-semibold text-ink">
+          {{
+            locations.data.value
+              ? 'График появится после добавления точки'
+              : locations.isError.value
+                ? 'График недоступен'
+                : 'График работы'
+          }}
         </h2>
-        <div role="status" aria-label="Загрузка графика" class="mt-3 flex flex-col">
-          <UiSkeleton class="bg-line! h-3 w-3/4" />
-          <UiSkeleton class="bg-line! mt-5 h-3 w-2/3" />
-          <UiSkeleton class="bg-line! mt-8 h-3 w-1/4" />
-          <ul class="mt-10 flex flex-col">
-            <li
-              v-for="day in WEEKDAYS"
-              :key="day.weekday"
-              class="flex h-[54px] items-center justify-between border-t border-transparent pl-[46px]"
-            >
-              <span class="text-note font-semibold text-ink">{{ day.label }}</span>
-              <UiSkeleton class="bg-line! h-3 w-40" />
-            </li>
-          </ul>
-          <div class="mt-4 flex items-center justify-between">
-            <UiSkeleton class="bg-line! h-3 w-2/3" />
-            <UiSkeleton class="bg-line! h-3 w-40" />
-          </div>
+        <p v-if="locations.data.value" class="mt-3 text-sm leading-5 text-secondary">
+          Для каждой точки задаётся своя неделя и местное время.
+        </p>
+        <p v-else-if="locations.isError.value" class="mt-3 text-sm text-secondary">
+          Сначала повторите загрузку точек. Сохранённые графики не изменены.
+        </p>
+        <div v-else role="status" aria-label="Загрузка графика" class="mt-4 flex flex-col gap-4">
+          <UiSkeleton v-for="day in WEEKDAYS" :key="day.weekday" class="h-[54px]" />
         </div>
       </section>
     </div>
@@ -538,23 +400,21 @@ function openEdit(location: Location): void {
       size="sm"
       footer-fill
     >
-      <p
-        class="text-base leading-6 font-semibold text-ink lg:text-sm lg:leading-5 lg:font-normal lg:text-ink"
-      >
+      <p class="text-base leading-6 font-semibold text-ink lg:text-sm lg:leading-5 lg:font-normal">
         Вернитесь к редактированию и сохраните всю неделю или продолжите без сохранения. Ранее
         сохранённый график останется без изменений.
       </p>
       <template #footer>
         <UiButton variant="secondary" @click="decideLeave(false)">К редактированию</UiButton>
-        <UiButton variant="secondary" @click="decideLeave(true)">
-          Продолжить без сохранения
-        </UiButton>
+        <UiButton variant="secondary" @click="decideLeave(true)"
+          >Продолжить без сохранения</UiButton
+        >
       </template>
     </UiSheetDialog>
-
     <LocationFormDialog
       :key="tenantId"
       v-model:open="dialogOpen"
+      :return-focus="returnDialogFocus"
       :tenant-id="tenantId"
       :location="editing"
       :default-timezone="organization.data.value?.defaultTimezone ?? 'Europe/Moscow'"

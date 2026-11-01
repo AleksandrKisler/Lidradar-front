@@ -1,9 +1,11 @@
+import { defineAsyncComponent } from 'vue'
 /**
  * Общие визуальные примитивы. Не содержат бизнес-правил LidRadar и
  * принимают уже подготовленные подписи.
  */
 export { default as UiButton } from './UiButton.vue'
 export { default as UiSpinner } from './UiSpinner.vue'
+export { default as UiSavedResult } from './UiSavedResult.vue'
 export { default as UiIcon } from './UiIcon.vue'
 export { default as UiGlyph } from './UiGlyph.vue'
 export type { GlyphName } from './glyphs'
@@ -27,6 +29,10 @@ export { default as UiErrorState } from './UiErrorState.vue'
 export { default as UiPageHeader } from './UiPageHeader.vue'
 export { default as UiPageIntro } from './UiPageIntro.vue'
 export { default as UiDialog } from './UiDialog.vue'
-export { default as UiSheetDialog } from './UiSheetDialog.vue'
+export const UiSheetDialog = /* @__PURE__ */ defineAsyncComponent(
+  () => import('./UiSheetDialog.vue'),
+)
 export { default as UiChannelMark } from './UiChannelMark.vue'
 export { default as UiAccessDenied } from './UiAccessDenied.vue'
+export const UiTooltip = /* @__PURE__ */ defineAsyncComponent(() => import('./UiTooltip.vue'))
+export { GLYPHS } from './glyphs'

@@ -1,280 +1,475 @@
-/** Desktop design acceptance inputs only. Narrow layouts retain regression tests. */
-import { expect, test } from '@playwright/test'
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
+/** Current approved 21 × 3 matrix. Legacy S6 exports/baselines are never written. */
+import { expect, test, type Page } from '@playwright/test'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import {
   SETTINGS_NOW,
-  SETTINGS_SCENARIOS,
-  prepareSettingsScenario,
-  settingsFixture,
+  VISUAL_LONG_LOCATION,
+  settingsVisualFixture,
+  fillSettingsVisualWeek,
   openSettings,
+  type SettingsFixture,
 } from '../../tests/e2e/fixtures/settings-company'
-import { settleInPlace } from './shot'
 
-const OUT = resolve(
-  process.env.VISUAL_OUT ?? 'artifacts/frontend-v2/settings-company/Codex-R1/browser',
-)
+type Frame = { nodeId: string; name: string; width: number; height: number }
+type Matrix = { rows: { frames: Frame[] }[] }
+const selection = JSON.parse(readFileSync('docs/frontend-v2/design-index.json', 'utf8'))
+  .settingsCompanyAndScheduleSelection as Matrix & { tabletDraft: Matrix; mobileDraft: Matrix }
 const captureRun = `${process.pid}-${Date.now()}`
-type Source = {
-  scenario: string
-  adaptive: string
-  node: string
-  fixture: string
-  [key: string]: unknown
-}
-const sources = JSON.parse(
-  readFileSync(
-    resolve('artifacts/frontend-v2/settings-company/Codex-R1/source-matrix.json'),
-    'utf8',
-  ),
-) as Source[]
+const OUT = resolve('artifacts/frontend-v2/settings-company-adaptive/Codex-R1/browser')
+const adaptives = [
+  { name: 'desktop', width: 1440, height: 1000, matrix: selection },
+  { name: 'tablet', width: 834, height: 1194, matrix: selection.tabletDraft },
+  { name: 'mobile', width: 390, height: 844, matrix: selection.mobileDraft },
+]
 test.use({
-  viewport: { width: 1440, height: 1000 },
   locale: 'ru-RU',
   timezoneId: 'Europe/Moscow',
   deviceScaleFactor: 1,
   reducedMotion: 'reduce',
 })
-test.beforeAll(() => {
-  mkdirSync(`${OUT}/actual`, { recursive: true })
-  mkdirSync(`${OUT}/records`, { recursive: true })
-})
 
-for (const scenario of SETTINGS_SCENARIOS) {
-  test(`settings company desktop ${scenario}`, async ({ page, browserName }, info) => {
-    test.setTimeout(60_000)
-    const fixture = await prepareSettingsScenario(page, scenario)
-    try {
-      await settleInPlace(page)
-      await page.evaluate(() => scrollTo(0, 0))
-      const geometry = await page.evaluate(() => {
-        const rect = (element: Element) => {
-          const box = element.getBoundingClientRect()
-          return { x: box.x, y: box.y, width: box.width, height: box.height }
-        }
+async function ready(page: Page) {
+  return page.evaluate(async () => {
+    await document.fonts.ready
+    await Promise.all([...document.images].map((image) => image.decode()))
+    const masks = new Set(
+      [...document.querySelectorAll<HTMLElement>('span[style]')].flatMap((element) => {
+        const mask = getComputedStyle(element).maskImage
+        const url = mask.match(/url\(["']?([^"')]+)["']?\)/)?.[1]
+        return url ? [url] : []
+      }),
+    )
+    return Promise.all(
+      [...masks].map(async (url) => {
+        const asset = new Image()
+        asset.src = url
+        await asset.decode()
+        if (!asset.naturalWidth || !asset.naturalHeight) throw new Error('Empty SVG asset')
         return {
-          viewport: { width: innerWidth, height: innerHeight },
-          documentHeight: document.documentElement.scrollHeight,
-          scrollWidth: document.documentElement.scrollWidth,
-          dpr: devicePixelRatio,
-          sections: [...document.querySelectorAll('main section')].map((element) => ({
-            label: element.getAttribute('aria-labelledby'),
-            ...rect(element),
-          })),
-          dialogs: [...document.querySelectorAll('[role=dialog]')]
-            .filter((element) => element.getClientRects().length)
-            .map(rect),
-          footerButtons: [...document.querySelectorAll('[role=dialog] footer button')]
-            .filter((element) => element.getClientRects().length)
-            .map(rect),
-          controls: [...document.querySelectorAll('main select, main input, main button')]
-            .filter((element) => element.getClientRects().length)
-            .map((element) => ({
-              name: element.getAttribute('name'),
-              label: element.getAttribute('aria-label'),
-              ...rect(element),
-            })),
+          url: new URL(url).pathname,
+          width: asset.naturalWidth,
+          height: asset.naturalHeight,
+        }
+      }),
+    )
+  })
+}
+
+async function prepare(page: Page, fixture: SettingsFixture, row: number, state: number) {
+  const editing = row === 3
+  if (editing && state >= 2 && state < 5) {
+    fixture.locations[0]!.responseThresholdMinutes = 44
+  }
+  if (row !== 0 || state !== 3) {
+    // A real dirty edit is also required behind graph/dialog reference frames.
+    fixture.company.name = 'Студия «Блик» · прежнее название'
+    await page.reload()
+    await expect(page.locator('input[name=organizationName]')).toBeVisible()
+    await page.locator('input[name=organizationName]').fill('Студия «Блик»')
+  }
+  await fillSettingsVisualWeek(page)
+  if (row < 2) {
+    const company = row === 0
+    const endpoint = company ? 'company' : 'week'
+    const badge = page.getByTestId(company ? 'settings-company-status' : 'settings-schedule-status')
+    if (state === 3) {
+      if (!company) {
+        await page.getByRole('button', { name: 'Сохранить график', exact: true }).click()
+        await expect(badge).toHaveText('Сохранено')
+        await page.clock.runFor(2000)
+      }
+      await expect(badge).toHaveText('Изменений нет')
+    } else if (state > 0) {
+      fixture.hold(endpoint)
+      if (state === 4) fixture.failures.add(endpoint)
+      await page
+        .getByRole('button', {
+          name: company ? 'Сохранить компанию' : 'Сохранить график',
+          exact: true,
+        })
+        .click()
+      if (company) await page.clock.runFor(5)
+      await expect(badge).toHaveText('Сохраняем…')
+      if (state !== 1) {
+        fixture.release(endpoint)
+        await expect(badge).toHaveText(state === 4 ? 'Ошибка сохранения' : 'Сохранено')
+      }
+    }
+    return
+  }
+  const create = !editing || state === 5
+  if (create) await page.getByRole('button', { name: 'Добавить точку', exact: true }).click()
+  else
+    await page
+      .getByRole('list', { name: 'Список точек' })
+      .getByRole('button', { name: 'Изменить точку', exact: true })
+      .first()
+      .click()
+  let dialog = page.getByRole('dialog', {
+    name: create ? 'Добавить точку' : 'Изменить точку',
+    exact: true,
+  })
+  await expect(dialog).toBeVisible()
+  if (create && state >= 2)
+    await dialog.locator('input[name=locationName]').fill('Студия на Арбате')
+  if (state === 1) {
+    await dialog
+      .getByRole('button', {
+        name:
+          (await page.evaluate(() => innerWidth >= 768)) !== editing
+            ? 'О поле «Следующий шаг»'
+            : 'О поле «Нет ответа»',
+        exact: true,
+      })
+      .focus()
+    await expect(page.getByRole('tooltip')).toBeVisible()
+  }
+  if (state >= 2) {
+    const endpoint = create ? 'locations' : 'location'
+    if (!create) await dialog.locator('input[name=responseThresholdMinutes]').fill('45')
+    fixture.hold(endpoint)
+    if (state === 4) fixture.failures.add(endpoint)
+    await dialog
+      .getByRole('button', { name: create ? 'Добавить точку' : 'Сохранить точку', exact: true })
+      .click()
+    await page.clock.runFor(5)
+    await expect(dialog.getByRole('button', { name: 'Сохраняем…', exact: true })).toBeVisible()
+    if (state !== 2) {
+      fixture.release(endpoint)
+      if (state === 4) await expect(dialog.getByRole('alert')).toBeVisible()
+      else {
+        await expect(dialog.getByRole('button', { name: 'ОК', exact: true })).toBeVisible()
+        if (state === 5) {
+          await dialog.getByRole('button', { name: 'Изменить точку', exact: true }).click()
+          dialog = page.getByRole('dialog', { name: 'Изменить точку', exact: true })
+          await expect(dialog.locator('input[name=locationName]')).toHaveValue('Студия на Арбате')
+          expect(fixture.writes('locations')).toHaveLength(1)
+          await dialog.locator('input[name=locationName]').blur()
+        }
+      }
+    }
+  }
+}
+
+for (const adaptive of adaptives) {
+  expect(adaptive.matrix.rows.flatMap((row) => row.frames)).toHaveLength(21)
+  for (const [rowIndex, row] of adaptive.matrix.rows.entries()) {
+    for (const [stateIndex, frame] of row.frames.entries()) {
+      test(`settings ${adaptive.name} ${frame.nodeId} ${frame.name}`, async ({
+        page,
+        browserName,
+      }, info) => {
+        test.setTimeout(60_000)
+        await page.setViewportSize({ width: adaptive.width, height: adaptive.height })
+        const fixture = await settingsVisualFixture(page)
+        await page.clock.install({ time: new Date(SETTINGS_NOW) })
+        await page.clock.pauseAt(new Date(new Date(SETTINGS_NOW).getTime() + 1000))
+        try {
+          await openSettings(page)
+          await prepare(page, fixture, rowIndex, stateIndex)
+          // Approved frames show resting controls, except the explicitly requested tooltip.
+          await page.mouse.move(0, 0)
+          const assets = await ready(page)
+          if ((rowIndex < 2 && stateIndex === 1) || (rowIndex >= 2 && stateIndex === 2))
+            await expect(page.getByRole('button', { name: 'Сохраняем…', exact: true })).toHaveCSS(
+              'background-color',
+              'rgb(0, 113, 227)',
+            )
+          const name = `${adaptive.name}-${frame.nodeId.replace(':', '-')}`
+          mkdirSync(`${OUT}/actual`, { recursive: true })
+          mkdirSync(`${OUT}/records`, { recursive: true })
+          const files: Record<string, string> = { viewport: `actual/${name}-viewport.png` }
+          const dialog = page.getByRole('dialog').filter({ visible: true })
+          const hasDialog = (await dialog.count()) > 0
+          const isMain = rowIndex < 2 && stateIndex === 0
+          const host = rowIndex >= 2 && stateIndex === 0
+          if (isMain) {
+            await page.evaluate(() => scrollTo(0, 0))
+            const longName = page
+              .getByRole('list', { name: 'Список точек' })
+              .getByRole('button', { name: new RegExp(VISUAL_LONG_LOCATION) })
+            await page.getByRole('heading', { level: 1 }).focus()
+            await page.getByRole('heading', { level: 1 }).blur()
+            if (adaptive.name !== 'mobile') {
+              await longName.scrollIntoViewIfNeeded()
+              await page.clock.runFor(16)
+              await longName.hover()
+              await expect(page.getByRole('tooltip')).toBeVisible()
+            }
+            files.fullPage = `actual/${name}-full.png`
+            await page.screenshot({
+              path: `${OUT}/${files.fullPage}`,
+              fullPage: true,
+              animations: 'disabled',
+            })
+          }
+          if (hasDialog) {
+            files.popup = `actual/${name}-popup.png`
+            await dialog.screenshot({ path: `${OUT}/${files.popup}`, animations: 'disabled' })
+          } else if (!isMain) {
+            files.fragment = `actual/${name}-fragment.png`
+            const section = page.locator(
+              `section[aria-labelledby=${rowIndex === 0 ? 'company-title' : 'schedule-title'}]`,
+            )
+            // Schedule state references include the common locations/schedule group.
+            const crop = rowIndex === 1 ? page.getByTestId('settings-points-schedule') : section
+            await crop.screenshot({ path: `${OUT}/${files.fragment}`, animations: 'disabled' })
+          }
+          if (host || isMain) await page.evaluate(() => scrollTo(0, 0))
+          await page.screenshot({ path: `${OUT}/${files.viewport}`, animations: 'disabled' })
+          const geometry = await page.evaluate(() => ({
+            viewport: { width: innerWidth, height: innerHeight },
+            dpr: devicePixelRatio,
+            document: {
+              width: document.documentElement.scrollWidth,
+              height: document.documentElement.scrollHeight,
+            },
+            sections: [
+              ...document.querySelectorAll('main section, [data-testid=settings-points-schedule]'),
+            ].map((element) => {
+              const box = element.getBoundingClientRect()
+              return {
+                label:
+                  element.getAttribute('aria-labelledby') ?? element.getAttribute('data-testid'),
+                x: box.x,
+                y: box.y,
+                width: box.width,
+                height: box.height,
+              }
+            }),
+            dialogs: [...document.querySelectorAll('[role=dialog]')].map((element) => {
+              const box = element.getBoundingClientRect()
+              return { x: box.x, y: box.y, width: box.width, height: box.height }
+            }),
+          }))
+          expect(geometry.document.width).toBeLessThanOrEqual(adaptive.width)
+          if (hasDialog && !host) {
+            expect(geometry.dialogs[0]!.height).toBe(
+              adaptive.width < 768 ? adaptive.height : Math.min(frame.height, adaptive.height - 48),
+            )
+          }
+          writeFileSync(
+            `${OUT}/records/${name}.json`,
+            JSON.stringify(
+              {
+                captureRun,
+                source: {
+                  node: frame.nodeId,
+                  name: frame.name,
+                  size: { width: frame.width, height: frame.height },
+                },
+                adaptive: adaptive.name,
+                rowIndex,
+                stateIndex,
+                files,
+                comparisonFile: host
+                  ? files.viewport
+                  : (files.fragment ?? files.popup ?? files.fullPage),
+                fixture: 'settingsVisualFixture: five points, API empty week + real input draft',
+                assets,
+                browser: browserName,
+                version: page.context().browser()!.version(),
+                project: info.project.name,
+                locale: 'ru-RU',
+                timezone: 'Europe/Moscow',
+                clock: SETTINGS_NOW,
+                geometry,
+                requests: fixture.calls,
+                writes: fixture.writes(),
+                result: 'UNVERIFIED',
+              },
+              null,
+              2,
+            ),
+          )
+          await info.attach(name, { path: `${OUT}/${files.viewport}`, contentType: 'image/png' })
+        } finally {
+          fixture.dispose()
         }
       })
-      expect(geometry.scrollWidth).toBeLessThanOrEqual(1440)
-      if (geometry.dialogs.length) {
-        // Figma desktop cards640: both outer button widths280 and gap16, including borders.
-        expect(geometry.footerButtons).toHaveLength(2)
-        for (const button of geometry.footerButtons) expect(button.width).toBeCloseTo(280, 1)
-        const [first, second] = geometry.footerButtons
-        expect(second!.x - first!.x - first!.width).toBeCloseTo(16, 1)
+    }
+  }
+}
+
+const narrowWidths = [320, 344, 375, 768, 1023, 1024]
+const shortViewports = [
+  { width: 320, height: 480 },
+  { width: 390, height: 480 },
+  { width: 834, height: 500 },
+  { width: 1440, height: 600 },
+]
+const responsiveIds = [
+  ...narrowWidths.map((width) => `main-${width}`),
+  ...shortViewports.flatMap(({ width, height }) =>
+    ['create', 'edit'].map((kind) => `${kind}-${width}-${height}`),
+  ),
+]
+
+async function openVisualDraft(page: Page) {
+  const fixture = await settingsVisualFixture(page)
+  try {
+    await page.clock.install({ time: new Date(SETTINGS_NOW) })
+    await page.clock.pauseAt(new Date(new Date(SETTINGS_NOW).getTime() + 1000))
+    await openSettings(page)
+    await prepare(page, fixture, 0, 0)
+    return fixture
+  } catch (error) {
+    fixture.dispose()
+    throw error
+  }
+}
+
+async function responsiveRecord(
+  page: Page,
+  id: string,
+  files: Record<string, string>,
+  row: number,
+  assets: Awaited<ReturnType<typeof ready>>,
+  state: string,
+) {
+  const width = await page.evaluate(() => innerWidth)
+  const adaptive = adaptives[width >= 1024 ? 0 : width >= 768 ? 1 : 2]!
+  const geometry = await page.evaluate(() => ({
+    viewport: { width: innerWidth, height: innerHeight },
+    documentWidth: document.documentElement.scrollWidth,
+    dpr: devicePixelRatio,
+  }))
+  expect(geometry.documentWidth).toBeLessThanOrEqual(width)
+  writeFileSync(
+    `${OUT}/responsive/${id}.json`,
+    JSON.stringify(
+      {
+        captureRun,
+        id,
+        referenceKind: 'approved-pattern',
+        referenceNode: adaptive.matrix.rows[row]!.frames[0]!.nodeId,
+        state,
+        files,
+        geometry,
+        assets,
+        clock: SETTINGS_NOW,
+        locale: 'ru-RU',
+        timezone: 'Europe/Moscow',
+        browser: 'chromium',
+        version: page.context().browser()!.version(),
+        result: 'UNVERIFIED',
+      },
+      null,
+      2,
+    ),
+  )
+}
+
+for (const width of narrowWidths) {
+  test(`settings responsive main ${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width < 768 ? 844 : width < 1024 ? 1194 : 1000 })
+    const fixture = await openVisualDraft(page)
+    try {
+      await page.getByRole('heading', { level: 1 }).focus()
+      await page.getByRole('heading', { level: 1 }).blur()
+      await page.mouse.move(0, 0)
+      await page.evaluate(() => scrollTo(0, 0))
+      const assets = await ready(page)
+      mkdirSync(`${OUT}/responsive`, { recursive: true })
+      const id = `main-${width}`
+      const files = {
+        fullPage: `responsive/${id}-full.png`,
+        viewport: `responsive/${id}-viewport.png`,
       }
-      const prefix = `actual/${scenario}-desktop`
-      const files: Record<string, string> = {
-        viewport: `${prefix}.png`,
-        fullPage: `${prefix}-full.png`,
-      }
-      await page.screenshot({
-        path: `${OUT}/${files.viewport}`,
-        fullPage: false,
-        animations: 'disabled',
-      })
-      // Capture raw browser geometry; never stretch sticky shell or resize the image.
       await page.screenshot({
         path: `${OUT}/${files.fullPage}`,
         fullPage: true,
         animations: 'disabled',
       })
-      const dialog = page.getByRole('dialog').filter({ visible: true })
-      if (await dialog.count()) {
-        files.dialog = `${prefix}-dialog.png`
-        await dialog.screenshot({ path: `${OUT}/${files.dialog}`, animations: 'disabled' })
-      } else {
-        await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight))
-        await settleInPlace(page)
-        files.bottom = `${prefix}-bottom.png`
-        await page.screenshot({
-          path: `${OUT}/${files.bottom}`,
-          fullPage: false,
-          animations: 'disabled',
-        })
-      }
-      const source = sources.find(
-        (item) => item.scenario === scenario && item.adaptive === 'desktop',
-      )
-      expect(source, `Exact source node for ${scenario}`).toBeTruthy()
-      const record = {
-        captureRun,
-        scenario,
-        adaptive: 'desktop',
-        node: source!.node,
-        fixture: `mockOwner + settingsFixture:${scenario}`,
-        file: files.dialog ?? files.fullPage,
-        files,
-        browser: browserName,
-        version: page.context().browser()!.version(),
-        geometry,
-        clock: SETTINGS_NOW,
-        locale: 'ru-RU',
-        timezone: 'Europe/Moscow',
-        dpr: 1,
-        project: info.project.name,
-        result: 'UNVERIFIED',
-        requests: fixture.calls,
-        mutations: fixture.writes(),
-      }
-      writeFileSync(`${OUT}/records/${scenario}-desktop.json`, JSON.stringify(record, null, 2))
-      await info.attach(`${scenario}-desktop`, {
-        path: `${OUT}/${files.viewport}`,
-        contentType: 'image/png',
-      })
+      await page.screenshot({ path: `${OUT}/${files.viewport}`, animations: 'disabled' })
+      await responsiveRecord(page, id, files, 0, assets, 'resting main; real dirty company/week')
+      expect(fixture.writes()).toHaveLength(0)
     } finally {
       fixture.dispose()
     }
   })
 }
 
+for (const viewport of shortViewports) {
+  test(`settings responsive point dialogs ${viewport.width}×${viewport.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport)
+    const fixture = await openVisualDraft(page)
+    try {
+      mkdirSync(`${OUT}/responsive`, { recursive: true })
+      for (const editing of [false, true]) {
+        if (editing)
+          await page.getByRole('button', { name: 'Изменить точку', exact: true }).first().click()
+        else await page.getByRole('button', { name: 'Добавить точку', exact: true }).click()
+        const dialog = page.getByRole('dialog', {
+          name: editing ? 'Изменить точку' : 'Добавить точку',
+          exact: true,
+        })
+        const field = editing
+          ? dialog.getByLabel('Состояние точки', { exact: true })
+          : dialog.locator('input[name=agreementThresholdMinutes]')
+        await field.focus()
+        await field.scrollIntoViewIfNeeded()
+        await expect(field).toBeInViewport({ ratio: 1 })
+        for (const name of ['Закрыть', 'Отмена', editing ? 'Сохранить точку' : 'Добавить точку'])
+          await expect(dialog.getByRole('button', { name, exact: true })).toBeInViewport({
+            ratio: 1,
+          })
+        await page.mouse.move(0, 0)
+        const assets = await ready(page)
+        const id = `${editing ? 'edit' : 'create'}-${viewport.width}-${viewport.height}`
+        const files = { viewport: `responsive/${id}-viewport.png` }
+        await page.screenshot({ path: `${OUT}/${files.viewport}`, animations: 'disabled' })
+        await responsiveRecord(
+          page,
+          id,
+          files,
+          editing ? 3 : 2,
+          assets,
+          'last field focused/scrolled; actions visible',
+        )
+        await dialog.getByRole('button', { name: 'Отмена', exact: true }).click()
+      }
+      expect(fixture.writes()).toHaveLength(0)
+    } finally {
+      fixture.dispose()
+    }
+  })
+}
+
+// Failed/interrupted states remain UNVERIFIED; stale records from earlier runs cannot imply success.
 test.afterAll(() => {
   mkdirSync(OUT, { recursive: true })
-  const records = sources.map((source) => {
-    if (source.adaptive !== 'desktop')
-      return {
-        ...source,
-        file: null,
-        browser: null,
-        version: null,
-        geometry: null,
-        result: 'DEFERRED_UNAPPROVED_DESIGN',
-      }
-    const path = `${OUT}/records/${source.scenario}-desktop.json`
-    const record = existsSync(path)
-      ? (JSON.parse(readFileSync(path, 'utf8')) as { captureRun?: string })
-      : null
-    return record?.captureRun === captureRun
-      ? record
-      : {
-          ...source,
-          file: null,
-          browser: null,
-          version: null,
-          geometry: null,
-          result: 'UNVERIFIED',
-          reason: 'Capture did not complete',
-        }
-  })
+  const records = adaptives.flatMap((adaptive) =>
+    adaptive.matrix.rows.flatMap((row) =>
+      row.frames.map((frame) => {
+        const path = `${OUT}/records/${adaptive.name}-${frame.nodeId.replace(':', '-')}.json`
+        const record = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null
+        return record?.captureRun === captureRun
+          ? record
+          : {
+              source: { node: frame.nodeId, name: frame.name },
+              adaptive: adaptive.name,
+              result: 'UNVERIFIED',
+              reason: 'Capture did not complete in this run',
+            }
+      }),
+    ),
+  )
   writeFileSync(`${OUT}/source-map.json`, JSON.stringify(records, null, 2))
+  mkdirSync(`${OUT}/responsive`, { recursive: true })
+  writeFileSync(
+    `${OUT}/responsive/source-map.json`,
+    JSON.stringify(
+      responsiveIds.map((id) => {
+        const file = `${OUT}/responsive/${id}.json`
+        const record = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null
+        return record?.captureRun === captureRun ? record : { id, result: 'UNVERIFIED' }
+      }),
+      null,
+      2,
+    ),
+  )
 })
-
-// States without an exact approved frame use the established desktop form/alert pattern.
-for (const state of [
-  'company-save-error',
-  'location-save-error',
-  'week-save-error',
-  'short-dialog',
-  'long-values',
-  'keyboard-focus',
-] as const) {
-  test(`settings desktop supplemental ${state}`, async ({ page, browserName }) => {
-    const fixture = await settingsFixture(page, { longNames: state === 'long-values' })
-    try {
-      if (state === 'short-dialog') await page.setViewportSize({ width: 1440, height: 600 })
-      await openSettings(page)
-      if (state === 'company-save-error') {
-        fixture.failures.add('company')
-        await page.locator('input[name=organizationName]').fill('Компания QA')
-        await page.getByRole('button', { name: 'Сохранить компанию', exact: true }).click()
-        await expect(
-          page.locator('section[aria-labelledby=company-title]').getByRole('alert'),
-        ).toBeVisible()
-      } else if (state === 'location-save-error' || state === 'short-dialog') {
-        await page.getByRole('button', { name: 'Добавить точку', exact: true }).click()
-        const dialog = page.getByRole('dialog', { name: 'Добавить точку', exact: true })
-        await dialog.locator('input[name=locationName]').fill('Новая студия QA')
-        if (state === 'location-save-error') {
-          fixture.failures.add('locations')
-          await dialog.getByRole('button', { name: 'Добавить точку', exact: true }).click()
-          await expect(dialog.getByRole('alert')).toBeVisible()
-        } else {
-          await dialog.locator('select[name=locationTimezone]').scrollIntoViewIfNeeded()
-          await expect(
-            dialog.getByRole('button', { name: 'Добавить точку', exact: true }),
-          ).toBeVisible()
-        }
-      } else if (state === 'week-save-error') {
-        fixture.failures.add('week')
-        await page.locator('input[name=opens-1]').fill('10:00')
-        await page.getByRole('button', { name: 'Сохранить график', exact: true }).click()
-        await expect(
-          page.locator('section[aria-labelledby=schedule-title]').getByRole('alert'),
-        ).toBeVisible()
-      } else if (state === 'keyboard-focus') {
-        await page.locator('input[name=opens-1]').focus()
-      }
-      await settleInPlace(page)
-      if (state !== 'keyboard-focus')
-        await page.evaluate(() => {
-          if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
-        })
-      const geometry = await page.evaluate(() => ({
-        width: innerWidth,
-        height: innerHeight,
-        scrollWidth: document.documentElement.scrollWidth,
-        scrollHeight: document.documentElement.scrollHeight,
-      }))
-      expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.width)
-      const files = [`actual/supplemental-${state}.png`, `actual/supplemental-${state}-full.png`]
-      await page.screenshot({ path: `${OUT}/${files[0]}`, animations: 'disabled' })
-      await page.screenshot({ path: `${OUT}/${files[1]}`, fullPage: true, animations: 'disabled' })
-      if (await page.getByRole('dialog').count()) {
-        files.push(`actual/supplemental-${state}-dialog.png`)
-        await page
-          .getByRole('dialog')
-          .screenshot({ path: `${OUT}/${files[2]}`, animations: 'disabled' })
-      } else {
-        await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight))
-        files.push(`actual/supplemental-${state}-bottom.png`)
-        await page.screenshot({ path: `${OUT}/${files[2]}`, animations: 'disabled' })
-      }
-      writeFileSync(
-        `${OUT}/records/supplemental-${state}.json`,
-        JSON.stringify(
-          {
-            captureRun,
-            state,
-            adaptive: 'desktop',
-            fixture: 'settingsFixture',
-            files,
-            geometry,
-            browser: browserName,
-            version: page.context().browser()!.version(),
-            locale: 'ru-RU',
-            timezone: 'Europe/Moscow',
-            dpr: 1,
-            clock: SETTINGS_NOW,
-            referenceKind: 'approved-state-pattern',
-            result: 'UNVERIFIED',
-          },
-          null,
-          2,
-        ),
-      )
-    } finally {
-      fixture.dispose()
-    }
-  })
-}

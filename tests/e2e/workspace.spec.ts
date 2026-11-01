@@ -941,32 +941,37 @@ test.describe('владелец организации', () => {
         ).toBe(true)
       }
     await locationDialog.getByLabel('Название точки').fill('Студия на Пресне')
-    await locationDialog.getByLabel('Нет ответа, мин').fill('45')
+    await locationDialog.getByLabel('Нет ответа', { exact: true }).fill('45')
     await locationDialog.getByRole('button', { name: 'Добавить точку' }).click()
+    await expect(locationDialog.getByRole('button', { name: 'ОК', exact: true })).toBeVisible()
+    await locationDialog.getByRole('button', { name: 'ОК', exact: true }).click()
     await expect(page.getByRole('list', { name: 'Список точек' })).toContainText('Студия на Пресне')
-    // Порог 45 и «Активна» в списке; неактивность — через «Изменить точку».
+    // Пороги доступны в диалоге; в карточке — график и статус точки.
     const created = page
       .getByRole('list', { name: 'Список точек' })
       .getByRole('listitem')
       .filter({ hasText: 'Студия на Пресне' })
-    await expect(created).toContainText('Порог ответа: 45 рабочих минут')
+    await expect(created).not.toContainText('Порог ответа')
+    await expect(page.locator('input[name=opens-1]')).toBeVisible()
     await expect(created).toContainText('Активна')
     await created.getByRole('button', { name: 'Изменить точку' }).click()
     const editDialog = page.getByRole('dialog', { name: 'Изменить точку' })
     await editDialog.getByLabel('Состояние точки').selectOption('inactive')
     await editDialog.getByRole('button', { name: 'Сохранить точку' }).click()
+    await expect(editDialog.getByRole('button', { name: 'ОК', exact: true })).toBeVisible()
+    await editDialog.getByRole('button', { name: 'ОК', exact: true }).click()
     await expect(created).toContainText('Неактивна')
 
     // Смена точки при несохранённом графике: «К редактированию» возвращает прежнюю точку и ввод.
     await page.locator('input[name="opens-1"]').fill('07:00')
-    const scheduleLocation = page.locator('#schedule-location')
-    const firstLocation = await scheduleLocation.inputValue()
-    const switchPoint = page.getByRole('button', { name: /Студия на Пресне График/ })
-    if (await switchPoint.isVisible()) await switchPoint.click()
-    else await scheduleLocation.selectOption({ label: 'Студия на Пресне (неактивна)' })
+    const selectedPoint = page
+      .getByRole('list', { name: 'Список точек' })
+      .getByRole('button', { pressed: true })
+    const firstLocationName = (await selectedPoint.innerText()).replace(/\s+/g, ' ').trim()
+    await page.getByRole('button', { name: 'Студия на Пресне Неактивна', exact: true }).click()
     const switchDialog = page.getByRole('dialog', { name: 'Сохранить изменения графика?' })
     await switchDialog.getByRole('button', { name: 'К редактированию' }).click()
-    await expect(scheduleLocation).toHaveValue(firstLocation)
+    await expect(selectedPoint).toHaveAccessibleName(firstLocationName)
     await expect(page.locator('input[name="opens-1"]')).toHaveValue('07:00')
 
     // График: воскресенье становится рабочим, неделя уходит одним запросом.
@@ -984,6 +989,14 @@ test.describe('владелец организации', () => {
     await openSettingsSection(page, 'Услуги')
     const leaveDialog = page.getByRole('dialog', { name: 'Сохранить изменения графика?' })
     await expect(leaveDialog).toContainText('несохранённые изменения недельного расписания')
+    // После dirty-правки кнопка переходит из disabled в brand за 150 мс.
+    // Axe проверяет всю страницу; дождёмся реального CSS-перехода в фоне окна.
+    await page
+      .getByTestId('settings-points-schedule')
+      .locator('button[type="submit"]')
+      .evaluate(async (button) => {
+        await Promise.all(button.getAnimations().map((animation) => animation.finished))
+      })
     await expectNoAxeViolations(page)
     await leaveDialog.getByRole('button', { name: 'К редактированию' }).click()
     await expect(leaveDialog).toHaveCount(0)
@@ -1002,28 +1015,30 @@ test.describe('владелец организации', () => {
 
     // Услуги: добавить, отключить с подтверждением, включить снова.
     await expect(page).toHaveURL(/\/settings\/services$/)
-    await expect(page.getByRole('table', { name: 'Услуги организации' })).toContainText(
-      'Полировка кузова',
-    )
+    const catalog = page.getByRole('region', { name: 'Каталог услуг', exact: true })
+    await expect(catalog).toContainText('Полировка кузова')
     await page.getByRole('button', { name: 'Добавить услугу' }).click()
-    const serviceDialog = page.getByRole('dialog', { name: 'Новая услуга' })
+    const serviceDialog = page.getByRole('dialog', { name: 'Добавить услугу', exact: true })
     await serviceDialog.getByLabel('Название услуги').fill('Защитная плёнка')
     await serviceDialog.getByLabel('Цена от').fill('50 000')
     await serviceDialog.getByLabel('Цена до').fill('90 000')
     await serviceDialog.getByRole('button', { name: 'Добавить услугу' }).click()
-    await expect(page.getByRole('table', { name: 'Услуги организации' })).toContainText(
-      '50 000–90 000 ₽',
-    )
+    await expect(serviceDialog.getByText('Услуга добавлена', { exact: true })).toBeVisible()
+    await serviceDialog.getByRole('button', { name: 'ОК', exact: true }).click()
+    await expect(catalog).toContainText('50 000–90 000 ₽')
     await expectNoAxeViolations(page)
 
-    const row = page.getByRole('row', { name: /Защитная плёнка/ })
-    await row.getByRole('button', { name: 'Отключить' }).click()
+    const row =
+      page.viewportSize()!.width < 768
+        ? page.getByRole('article', { name: 'Защитная плёнка', exact: true })
+        : page.getByRole('row', { name: /Защитная плёнка/ })
+    await row.getByRole('switch').click()
     await page
       .getByRole('dialog', { name: 'Отключить услугу?' })
       .getByRole('button', { name: 'Отключить' })
       .click()
     await expect(row).toContainText('Отключена')
-    await row.getByRole('button', { name: 'Включить' }).click()
+    await row.getByRole('switch').click()
     await expect(row).toContainText('Активна')
     await page.getByRole('button', { name: /Отключённые/ }).click()
     await expect(page.getByText('В этом фильтре услуг нет.')).toBeVisible()
@@ -1387,7 +1402,13 @@ test.describe('владелец организации', () => {
     // Сброс возвращает серверное значение по умолчанию.
     await row.getByRole('button', { name: 'Вернуть по умолчанию' }).click()
     const confirm = page.getByRole('dialog', { name: 'Вернуть настройку по умолчанию?' })
-    await confirm.getByRole('button', { name: 'Вернуть' }).click()
+    const reset = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'DELETE' &&
+        response.url().includes('/notifications/preferences/PROMISE_NOT_FULFILLED'),
+    )
+    await confirm.getByRole('button', { name: 'Вернуть', exact: true }).click()
+    expect((await reset).status()).toBe(204)
     await expect(row).toContainText('По умолчанию')
     await expect(row.getByRole('button', { name: 'Вернуть по умолчанию' })).toHaveCount(0)
 

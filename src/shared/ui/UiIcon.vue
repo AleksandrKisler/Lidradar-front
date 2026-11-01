@@ -4,12 +4,10 @@
  * скринридеров; смысл всегда несёт соседний текст или `aria-label` кнопки.
  * Размер задаётся классом `size-*`, цвет — `currentColor`.
  */
-import { computed } from 'vue'
-import { ICON_PATHS, type IconName } from './icons'
+import type { IconName } from './icons'
+import sprite from './assets/material-icons.svg?no-inline'
 
 const props = defineProps<{ name: IconName }>()
-
-const path = computed(() => ICON_PATHS[props.name])
 </script>
 
 <template>
@@ -22,6 +20,6 @@ const path = computed(() => ICON_PATHS[props.name])
     aria-hidden="true"
     focusable="false"
   >
-    <path :d="path" />
+    <use :href="`${sprite}#${props.name}`" />
   </svg>
 </template>

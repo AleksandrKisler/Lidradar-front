@@ -7,7 +7,7 @@
  *
  * Ограничение закрытия, начальный фокус и обход Tab по кругу (`keepTabInside`) — как у `UiDialog`.
  */
-import { computed } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import {
   DialogClose,
   DialogContent,
@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from 'reka-ui'
 import UiIcon from './UiIcon.vue'
+import { useDialogReturnFocus } from './dialog-return-focus'
 import { keepTabInside } from './UiDialog.vue'
 
 const props = withDefaults(
@@ -42,6 +43,13 @@ const props = withDefaults(
     tabletAsDesktop?: boolean | undefined
     /** Только desktop формы настроек: gap24 после описания, pb24 с сохранением footer. */
     settingsForm?: boolean | undefined
+    /** Только полный набор диалогов точки в настройках; остальные consumers сохраняют layout. */
+    locationForm?: boolean | undefined
+    /** Тот же responsive каркас для форм каталога; остальные consumers прежние. */
+    entityForm?: boolean | undefined
+    returnFocus?: (() => HTMLElement | null) | undefined
+    success?: boolean | undefined
+    successHeight?: number | undefined
   }>(),
   {
     description: '',
@@ -55,11 +63,21 @@ const props = withDefaults(
     concealed: false,
     tabletAsDesktop: false,
     settingsForm: false,
+    locationForm: false,
+    entityForm: false,
+    returnFocus: undefined,
+    success: false,
+    successHeight: 575,
   },
 )
 
 const open = defineModel<boolean>('open', { default: false })
-/** Боковые поля: диалоги настроек уже (17/24/32 px), диалоги подключения — 24/32 px. */
+const emit = defineEmits<{ closeAutoFocus: [event: Event] }>()
+const restoreFocus = useDialogReturnFocus(open, props.returnFocus)
+function closeAutoFocus(event: Event) {
+  emit('closeAutoFocus', event)
+  restoreFocus(event)
+}
 const pad = computed(() =>
   props.footerFill
     ? props.tabletAsDesktop
@@ -67,13 +85,20 @@ const pad = computed(() =>
       : 'px-4 md:px-6 lg:px-8'
     : 'px-6 md:px-8',
 )
-
-const widths = {
-  sm: 'md:max-w-[640px]',
-  md: 'md:max-w-[760px]',
-  lg: 'md:max-w-[960px]',
-  xl: 'md:max-w-[1120px]',
-} as const
+const widths = { sm: 640, md: 760, lg: 960, xl: 1120 } as const
+const formLayout = computed(() => props.locationForm || props.entityForm)
+const viewport = ref<[height: string, top: string]>(['100dvh', '0px'])
+onMounted(() => {
+  const view = formLayout.value && window.visualViewport
+  if (!view) return
+  const update = () => {
+    viewport.value = [`${view.height}px`, `${view.offsetTop}px`]
+  }
+  const events = ['resize', 'scroll']
+  update()
+  events.forEach((event) => view.addEventListener(event, update))
+  onBeforeUnmount(() => events.forEach((event) => view.removeEventListener(event, update)))
+})
 
 function focusInitial(event: Event): void {
   if (!props.initialFocus) return
@@ -92,30 +117,45 @@ function guard(event: Event): void {
 <template>
   <DialogRoot v-model:open="open">
     <DialogPortal>
-      <DialogOverlay v-if="overlay" class="fixed inset-0 z-40 bg-black/[.17]" />
+      <DialogOverlay
+        v-if="overlay"
+        class="fixed inset-0 z-40 bg-black/[.17]"
+        :style="entityForm ? { backgroundColor: 'rgb(29 29 31 / 18%)' } : undefined"
+        @click="entityForm && dismissible && (open = false)"
+      />
       <DialogContent
         :class="[
           'fixed inset-0 z-50 flex h-dvh w-full flex-col bg-paper',
-          'md:inset-auto md:left-1/2 md:max-h-[calc(100dvh-8rem)] md:w-[calc(100%-4rem)] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-3xl md:shadow-xl',
-          widths[size],
-          // Окна шага «Точки и графики» — точно по центру окна браузера (Figma 02/06/07).
-          size === 'xl'
-            ? 'md:top-[calc(50%+52px)] md:h-[800px]'
-            : tabletAsDesktop
-              ? 'md:top-1/2 md:h-auto'
-              : 'md:top-[calc(50%+2.5rem)] md:h-auto',
+          entityForm ? '' : 'shadow-xl',
+          'lr-sc',
           concealed ? 'invisible' : '',
+          formLayout ? 'lr-sl md:border md:border-line' : '',
+          success ? 'lr-ss' : '',
         ]"
+        :style="{
+          '--sw': `${widths[size]}px`,
+          '--st':
+            size === 'xl' ? 'calc(50% + 52px)' : tabletAsDesktop ? '50%' : 'calc(50% + 2.5rem)',
+          '--sh': size === 'xl' ? '800px' : 'auto',
+          '--ss-h': `${successHeight}px`,
+          '--vh': viewport[0],
+          '--vt': viewport[1],
+        }"
         @escape-key-down="guard"
         @interact-outside="guard"
         @open-auto-focus="focusInitial"
+        @close-auto-focus="closeAutoFocus"
         @keydown.capture="keepTabInside"
       >
         <header
           :class="[
-            'grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-3 pt-6 md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-y-1',
-            pad,
-            footerFill ? 'md:pt-10' : 'md:pt-8',
+            formLayout
+              ? 'flex h-16 shrink-0 items-center justify-between gap-4 pl-4 pr-[7px] md:h-auto md:px-8 md:pt-8'
+              : [
+                  'grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-3 pt-6 md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-y-1',
+                  pad,
+                  footerFill ? 'md:pt-10' : 'md:pt-8',
+                ],
           ]"
         >
           <span v-if="$slots.mark" class="row-span-2 hidden md:block"><slot name="mark" /></span>
@@ -123,15 +163,27 @@ function guard(event: Event): void {
             :class="[
               'min-w-0 font-semibold text-ink',
               footerFill ? 'text-xl leading-7' : 'text-2xl',
+              success ? 'sr-only' : '',
             ]"
             >{{ title }}</DialogTitle
           >
           <DialogClose
-            v-if="dismissible"
-            class="col-start-2 flex size-8 shrink-0 items-center justify-center rounded-full bg-segment text-muted hover:text-ink md:col-start-3 mr-1.5 md:mr-[7px]"
+            v-if="dismissible || formLayout"
+            :disabled="!dismissible"
+            :class="[
+              'flex shrink-0 items-center justify-center rounded-full text-muted hover:text-ink',
+              formLayout
+                ? 'h-input w-input'
+                : 'col-start-2 size-8 bg-segment md:col-start-3 mr-1.5 md:mr-[7px]',
+              success ? 'ml-auto' : '',
+              formLayout && !dismissible ? 'opacity-45' : '',
+            ]"
             aria-label="Закрыть"
           >
-            <UiIcon name="close" class="size-5" />
+            <UiIcon
+              name="close"
+              :class="formLayout ? 'size-7 rounded-full bg-segment p-1' : 'size-5'"
+            />
           </DialogClose>
           <DialogDescription
             v-if="description && !descriptionInBody"
@@ -143,26 +195,39 @@ function guard(event: Event): void {
           <slot name="toolbar" />
         </div>
         <div
+          class="sheet-body"
           :class="[
-            'min-h-0 flex-1 overflow-y-auto pb-6',
-            pad,
-            footerFill ? (tabletAsDesktop ? 'md:pb-6' : 'md:pb-8') : 'md:pb-7',
-            settingsForm ? 'lg:pb-6' : '',
-            $slots.toolbar ? 'pt-4' : 'pt-[22px] md:pt-[30px]',
+            'min-h-0 flex-1 overflow-y-auto',
+            formLayout
+              ? success
+                ? 'flex px-4 text-sm leading-5 font-normal md:px-8 md:pb-3'
+                : 'px-4 py-4 md:px-8 md:py-6'
+              : [
+                  'pb-6',
+                  pad,
+                  footerFill ? (tabletAsDesktop ? 'md:pb-6' : 'md:pb-8') : 'md:pb-7',
+                  settingsForm ? 'lg:pb-6' : '',
+                  $slots.toolbar ? 'pt-4' : 'pt-[22px] md:pt-[30px]',
+                ],
           ]"
         >
           <DialogDescription
             v-if="description && descriptionInBody"
             :class="[
-              tabletAsDesktop
-                ? 'mb-4 text-field leading-6 text-muted md:mb-6 md:text-sm md:leading-5'
-                : 'mb-4 text-base leading-6 text-muted lg:text-sm lg:leading-5',
-              settingsForm ? 'lg:mb-6' : '',
-              descriptionStrong
-                ? tabletAsDesktop
-                  ? 'font-semibold md:font-normal'
-                  : 'font-semibold lg:font-normal'
-                : '',
+              entityForm && settingsForm ? 'md:pr-4' : '',
+              formLayout
+                ? 'mb-4 text-sm leading-5 font-normal text-muted md:mb-6'
+                : [
+                    tabletAsDesktop
+                      ? 'mb-4 text-field leading-6 text-muted md:mb-6 md:text-sm md:leading-5'
+                      : 'mb-4 text-base leading-6 text-muted lg:text-sm lg:leading-5',
+                    settingsForm ? 'lg:mb-6' : '',
+                    descriptionStrong
+                      ? tabletAsDesktop
+                        ? 'font-semibold md:font-normal'
+                        : 'font-semibold lg:font-normal'
+                      : '',
+                  ],
             ]"
             >{{ description }}</DialogDescription
           >
@@ -171,17 +236,29 @@ function guard(event: Event): void {
         <footer
           v-if="$slots.footer"
           :class="[
-            'flex shrink-0 flex-col gap-3 border-t border-hairline py-4 md:flex-row md:items-center md:justify-between',
-            footerFill ? (tabletAsDesktop ? 'mx-4 md:mx-8' : 'mx-4 md:mx-6 lg:mx-8') : pad,
-            size === 'xl' ? 'md:py-[13px]' : footerFill ? 'md:pt-6 md:pb-8' : 'md:py-5',
+            'flex shrink-0 flex-col gap-3 border-t md:flex-row md:items-center md:justify-between',
+            formLayout ? 'border-line' : 'border-hairline',
+            formLayout
+              ? 'p-4 md:mx-8 md:px-0 md:pt-6 md:pb-8'
+              : [
+                  'py-4',
+                  footerFill ? (tabletAsDesktop ? 'mx-4 md:mx-8' : 'mx-4 md:mx-6 lg:mx-8') : pad,
+                  size === 'xl' ? 'md:py-[13px]' : footerFill ? 'md:pt-6 md:pb-8' : 'md:py-5',
+                ],
           ]"
         >
           <p v-if="$slots.note" class="text-xs text-secondary"><slot name="note" /></p>
           <div
             :class="[
-              'flex gap-3 md:flex-row',
-              settingsForm ? 'lg:grid lg:grid-cols-2 lg:gap-4' : '',
-              footerFill ? 'flex-col md:w-full md:[&>*]:flex-1' : 'flex-col-reverse md:ml-auto',
+              formLayout
+                ? 'flex w-full flex-col-reverse gap-3 md:flex-row md:gap-4 md:[&>*]:flex-1'
+                : [
+                    'flex gap-3 md:flex-row',
+                    settingsForm ? 'lg:grid lg:grid-cols-2 lg:gap-4' : '',
+                    footerFill
+                      ? 'flex-col md:w-full md:[&>*]:flex-1'
+                      : 'flex-col-reverse md:ml-auto',
+                  ],
             ]"
           >
             <slot name="footer" />
@@ -191,3 +268,36 @@ function guard(event: Event): void {
     </DialogPortal>
   </DialogRoot>
 </template>
+
+<style>
+.lr-sl {
+  top: var(--vt);
+  height: var(--vh);
+}
+@media (min-width: 768px) {
+  .lr-sc {
+    inset: auto;
+    left: 50%;
+    top: var(--st);
+    width: min(100% - 4rem, var(--sw));
+    height: var(--sh);
+    max-height: calc(100dvh - 8rem);
+    translate: -50% -50%;
+    border-radius: var(--radius-3xl);
+  }
+  .lr-sl {
+    top: calc(var(--vt) + var(--vh) / 2);
+    border-radius: 18px;
+    max-height: calc(var(--vh) - 48px);
+  }
+  .lr-sl.lr-ss {
+    height: var(--ss-h);
+  }
+  /* Keep the 20px help glyph in place while its transparent hit area is 44px. */
+  .lr-sl button:has(img) {
+    box-sizing: content-box;
+    padding: 12px;
+    margin: -12px;
+  }
+}
+</style>

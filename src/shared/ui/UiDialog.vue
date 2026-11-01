@@ -89,6 +89,7 @@ import {
   DialogTitle,
 } from 'reka-ui'
 import UiIcon from './UiIcon.vue'
+import { useDialogReturnFocus } from './dialog-return-focus'
 
 const props = withDefaults(
   defineProps<{
@@ -152,6 +153,7 @@ function guard(event: Event): void {
 }
 
 const open = defineModel<boolean>('open', { default: false })
+const restoreFocus = useDialogReturnFocus(open)
 </script>
 
 <template>
@@ -168,6 +170,7 @@ const open = defineModel<boolean>('open', { default: false })
         @escape-key-down="guard"
         @interact-outside="guard"
         @open-auto-focus="focusInitial"
+        @close-auto-focus="restoreFocus"
         @keydown.capture="keepTabInside"
       >
         <template v-if="size === 'drawer'">

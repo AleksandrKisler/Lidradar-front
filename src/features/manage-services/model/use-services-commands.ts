@@ -14,30 +14,42 @@ import {
   type UpdateServiceCatalogItemRequest,
 } from '@/entities/service'
 
-export type ServiceCommand =
+export type ServiceCommand = { tenantId?: string } & (
   | { kind: 'create'; body: CreateServiceCatalogItemRequest }
   | { kind: 'update'; serviceId: string; body: UpdateServiceCatalogItemRequest }
   | { kind: 'deactivate'; serviceId: string }
+)
 
 export function useServiceCommands(tenantId: () => string) {
   const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (command: ServiceCommand): Promise<ServiceCatalogItem | null> => {
+  const mutation = useMutation({
+    mutationFn: async (
+      command: ServiceCommand & { tenantId: string },
+    ): Promise<ServiceCatalogItem | null> => {
       switch (command.kind) {
         case 'create':
-          return createService(tenantId(), command.body)
+          return createService(command.tenantId, command.body)
         case 'update':
-          return updateService(tenantId(), command.serviceId, command.body)
+          return updateService(command.tenantId, command.serviceId, command.body)
         case 'deactivate':
-          await deactivateService(tenantId(), command.serviceId)
+          await deactivateService(command.tenantId, command.serviceId)
           return null
       }
     },
-    onSuccess: async () => {
+    onSuccess: async (_, command) => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: serviceKeys.list(tenantId()) }),
-        queryClient.invalidateQueries({ queryKey: organizationKeys.onboarding(tenantId()) }),
+        queryClient.invalidateQueries({ queryKey: serviceKeys.list(command.tenantId) }),
+        queryClient.invalidateQueries({ queryKey: organizationKeys.onboarding(command.tenantId) }),
       ])
     },
   })
+  const capture = (command: ServiceCommand) => ({
+    ...command,
+    tenantId: command.tenantId ?? tenantId(),
+  })
+  return {
+    ...mutation,
+    mutateAsync: (command: ServiceCommand) => mutation.mutateAsync(capture(command)),
+    mutate: (command: ServiceCommand) => mutation.mutate(capture(command)),
+  }
 }

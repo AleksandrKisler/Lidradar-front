@@ -7,8 +7,8 @@
 import { computed, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
-import { describeError, isApiError } from '@/shared/api'
-import { UiAlert, UiButton, UiField, UiInput, UiSelect } from '@/shared/ui'
+import { describeError, isApiError, isUnknownResult } from '@/shared/api'
+import { UiAlert, UiGlyph, UiButton, UiField, UiInput, UiSelect } from '@/shared/ui'
 import { timeZoneOptions } from '@/entities/organization'
 import {
   AGREEMENT_THRESHOLD_DEFAULT,
@@ -41,6 +41,19 @@ const emit = defineEmits<{
   failed: [error: unknown]
 }>()
 
+const settingsDialog = computed(() => props.variant === 'dialog' && props.context !== 'onboarding')
+const fieldLabelClass = computed(() =>
+  props.context === 'onboarding'
+    ? 'max-md:text-base max-md:leading-6'
+    : settingsDialog.value
+      ? ''
+      : 'max-lg:text-base max-lg:leading-6',
+)
+const fieldDescriptionClass = computed(() =>
+  props.variant === 'dialog' && props.context === 'onboarding'
+    ? 'max-md:text-base max-md:leading-6'
+    : '',
+)
 const zones = timeZoneOptions()
 const save = useSaveLocation()
 
@@ -65,9 +78,23 @@ const [agreementThresholdMinutes] = defineField('agreementThresholdMinutes')
 const [active] = defineField('active')
 
 const errorView = computed(() => (save.error.value ? describeError(save.error.value) : null))
+const uncertainCreate = computed(
+  () =>
+    settingsDialog.value &&
+    !props.location &&
+    Boolean(save.error.value) &&
+    isUnknownResult(save.error.value),
+)
 const traceId = computed(() => (isApiError(save.error.value) ? save.error.value.traceId : ''))
 
 const isSubmitting = ref(false)
+const suffixClass = computed(() =>
+  settingsDialog.value
+    ? isSubmitting.value
+      ? 'text-ink opacity-50'
+      : 'text-ink'
+    : 'right-3.5 text-secondary',
+)
 watch(isSubmitting, (busy) => emit('busy', busy))
 const activeValue = computed({
   get: () => (active.value ? 'active' : 'inactive'),
@@ -127,7 +154,7 @@ const submit = handleSubmit(async (values) => {
 })
 
 async function onSubmit(event: Event) {
-  if (isSubmitting.value) return
+  if (isSubmitting.value || uncertainCreate.value) return
   isSubmitting.value = true
   commandTenant = props.tenantId
   try {
@@ -140,21 +167,21 @@ async function onSubmit(event: Event) {
 
 <template>
   <form
-    v-if="variant === 'dialog'"
     :id="formId"
     :class="[
-      'flex flex-col gap-4 max-md:[&_p]:text-base max-md:[&_p]:leading-6',
-      context === 'onboarding'
-        ? 'max-md:[&_label]:text-base max-md:[&_label]:leading-6'
-        : 'max-lg:[&_label]:text-base max-lg:[&_label]:leading-6',
+      settingsDialog ? 'lr-lf' : '',
+      variant === 'dialog' ? 'flex flex-col gap-4' : 'flex flex-col gap-5',
     ]"
     novalidate
     @submit.prevent="onSubmit"
   >
     <UiField
       v-slot="{ id, describedBy, invalid }"
+      :label-class="fieldLabelClass"
+      :description-class="fieldDescriptionClass"
+      :muted-description="settingsDialog"
       label="Название точки"
-      label-style="compact"
+      :label-style="variant === 'dialog' ? 'compact' : 'default'"
       :error="errors.name"
     >
       <UiInput
@@ -169,8 +196,11 @@ async function onSubmit(event: Event) {
     </UiField>
     <UiField
       v-slot="{ id, describedBy, invalid }"
-      label="Часовой пояс"
-      label-style="compact"
+      :label-class="fieldLabelClass"
+      :description-class="fieldDescriptionClass"
+      :muted-description="settingsDialog"
+      :label="variant === 'dialog' ? 'Часовой пояс' : 'Часовой пояс точки'"
+      :label-style="variant === 'dialog' ? 'compact' : 'default'"
       :error="errors.timezone"
     >
       <UiSelect
@@ -183,49 +213,103 @@ async function onSubmit(event: Event) {
         :disabled="isSubmitting"
       />
     </UiField>
-    <div class="grid grid-cols-2 gap-4">
+    <div :class="variant === 'dialog' ? 'grid grid-cols-2 gap-4' : 'grid gap-5 sm:grid-cols-2'">
       <UiField
         v-slot="{ id, describedBy, invalid }"
-        label="Нет ответа, мин"
-        label-style="compact"
+        :label-class="fieldLabelClass"
+        :description-class="fieldDescriptionClass"
+        :muted-description="settingsDialog"
+        :label="variant === 'dialog' ? 'Нет ответа' : 'Порог ответа, минут'"
+        :touch-help="settingsDialog"
+        :help="
+          variant === 'dialog'
+            ? settingsDialog
+              ? 'Через сколько рабочих минут ожидания ответа клиенту появляется риск «Нет ответа». Вне графика точки время не считается.'
+              : 'Дольше — появится риск «нет ответа клиенту». Считается только в рабочее время точки.'
+            : undefined
+        "
+        :label-style="variant === 'dialog' ? 'compact' : 'default'"
         description="От 1 до 1 440 рабочих минут"
         :error="errors.responseThresholdMinutes"
       >
-        <UiInput
-          :id="id"
-          v-model="responseThresholdMinutes"
-          name="responseThresholdMinutes"
-          inputmode="numeric"
-          :maxlength="4"
-          :described-by="describedBy"
-          :invalid="invalid"
-          :disabled="isSubmitting"
-        />
+        <div class="relative">
+          <UiInput
+            :id="id"
+            v-model="responseThresholdMinutes"
+            class="pr-12"
+            name="responseThresholdMinutes"
+            inputmode="numeric"
+            :maxlength="4"
+            :described-by="describedBy"
+            :invalid="invalid"
+            :disabled="isSubmitting"
+          />
+          <span
+            class="pointer-events-none absolute top-1/2 -translate-y-1/2 text-field"
+            :class="suffixClass"
+            :style="{
+              left: settingsDialog
+                ? `calc(14px + ${String(responseThresholdMinutes ?? '').length}ch + 4px)`
+                : undefined,
+            }"
+            aria-hidden="true"
+            >мин</span
+          >
+        </div>
       </UiField>
       <UiField
         v-slot="{ id, describedBy, invalid }"
-        label="Следующий шаг, мин"
-        label-style="compact"
+        :label-class="fieldLabelClass"
+        :description-class="fieldDescriptionClass"
+        :muted-description="settingsDialog"
+        :label="variant === 'dialog' ? 'Следующий шаг' : 'Ожидание следующего шага, рабочих минут'"
+        :touch-help="settingsDialog"
+        :help="
+          variant === 'dialog'
+            ? settingsDialog
+              ? 'Через сколько рабочих минут без следующего действия появляется риск «Следующий шаг». Вне графика точки время не считается.'
+              : 'Через сколько рабочего времени напомнить о договорённости, если следующий шаг ещё не сделан. Например, клиент не подтвердил время или точка не ответила на просьбу о переносе.'
+            : undefined
+        "
+        :label-style="variant === 'dialog' ? 'compact' : 'default'"
         description="От 1 до 1 440 рабочих минут"
+        :help-align-end="true"
         :error="errors.agreementThresholdMinutes"
       >
-        <UiInput
-          :id="id"
-          v-model="agreementThresholdMinutes"
-          name="agreementThresholdMinutes"
-          inputmode="numeric"
-          :maxlength="4"
-          :described-by="describedBy"
-          :invalid="invalid"
-          :disabled="isSubmitting"
-        />
+        <div class="relative">
+          <UiInput
+            :id="id"
+            v-model="agreementThresholdMinutes"
+            class="pr-12"
+            name="agreementThresholdMinutes"
+            inputmode="numeric"
+            :maxlength="4"
+            :described-by="describedBy"
+            :invalid="invalid"
+            :disabled="isSubmitting"
+          />
+          <span
+            class="pointer-events-none absolute top-1/2 -translate-y-1/2 text-field"
+            :class="suffixClass"
+            :style="{
+              left: settingsDialog
+                ? `calc(14px + ${String(agreementThresholdMinutes ?? '').length}ch + 4px)`
+                : undefined,
+            }"
+            aria-hidden="true"
+            >мин</span
+          >
+        </div>
       </UiField>
     </div>
     <UiField
-      v-if="location"
+      v-if="location && variant === 'dialog'"
       v-slot="{ id, describedBy }"
+      :label-class="fieldLabelClass"
+      :description-class="fieldDescriptionClass"
+      :muted-description="settingsDialog"
       label="Состояние точки"
-      label-style="compact"
+      :label-style="variant === 'dialog' ? 'compact' : 'default'"
     >
       <UiSelect
         :id="id"
@@ -237,11 +321,11 @@ async function onSubmit(event: Event) {
       />
     </UiField>
     <p
-      v-if="location"
+      v-if="location && variant === 'dialog'"
       :class="
         context === 'onboarding'
           ? 'text-sm leading-5 text-muted max-md:text-base max-md:leading-6 max-md:font-semibold'
-          : 'text-sm leading-5 text-muted max-lg:text-base max-lg:leading-6 max-lg:font-semibold max-lg:text-ink'
+          : 'text-sm leading-5 text-muted'
       "
     >
       {{
@@ -250,75 +334,7 @@ async function onSubmit(event: Event) {
           : 'График этой точки настраивается отдельно, на странице «Компания и график».'
       }}
     </p>
-    <UiAlert v-if="errorView" tone="danger" :title="errorView.title" :trace-id="traceId">
-      {{ errorView.description }}
-    </UiAlert>
-  </form>
-
-  <form v-else class="flex flex-col gap-5" novalidate @submit.prevent="onSubmit">
-    <UiField v-slot="{ id, describedBy, invalid }" label="Название точки" :error="errors.name">
-      <UiInput
-        :id="id"
-        v-model="name"
-        name="locationName"
-        placeholder="Студия на Пресне"
-        :described-by="describedBy"
-        :invalid="invalid"
-        :disabled="isSubmitting"
-      />
-    </UiField>
-    <div class="grid gap-5 sm:grid-cols-2">
-      <UiField
-        v-slot="{ id, describedBy, invalid }"
-        label="Часовой пояс точки"
-        :error="errors.timezone"
-      >
-        <UiSelect
-          :id="id"
-          v-model="timezone"
-          name="locationTimezone"
-          :options="zones"
-          :described-by="describedBy"
-          :invalid="invalid"
-          :disabled="isSubmitting"
-        />
-      </UiField>
-      <UiField
-        v-slot="{ id, describedBy, invalid }"
-        label="Порог ответа, минут"
-        description="Дольше — появится риск «нет ответа клиенту». Считается только в рабочее время точки."
-        :error="errors.responseThresholdMinutes"
-      >
-        <UiInput
-          :id="id"
-          v-model="responseThresholdMinutes"
-          name="responseThresholdMinutes"
-          inputmode="numeric"
-          :maxlength="4"
-          :described-by="describedBy"
-          :invalid="invalid"
-          :disabled="isSubmitting"
-        />
-      </UiField>
-    </div>
-    <UiField
-      v-slot="{ id, describedBy, invalid }"
-      label="Ожидание следующего шага, рабочих минут"
-      description="Через сколько рабочего времени напомнить о договорённости, если следующий шаг ещё не сделан. Например, клиент не подтвердил время или точка не ответила на просьбу о переносе."
-      :error="errors.agreementThresholdMinutes"
-    >
-      <UiInput
-        :id="id"
-        v-model="agreementThresholdMinutes"
-        name="agreementThresholdMinutes"
-        inputmode="numeric"
-        :maxlength="4"
-        :described-by="describedBy"
-        :invalid="invalid"
-        :disabled="isSubmitting"
-      />
-    </UiField>
-    <label v-if="location" class="flex items-center gap-2 text-sm text-ink">
+    <label v-if="location && variant !== 'dialog'" class="flex items-center gap-2 text-sm text-ink">
       <input
         v-model="active"
         type="checkbox"
@@ -328,12 +344,32 @@ async function onSubmit(event: Event) {
       />
       Точка активна
     </label>
-
-    <UiAlert v-if="errorView" tone="danger" :title="errorView.title" :trace-id="traceId">
-      {{ errorView.description }}
+    <UiAlert
+      v-if="errorView"
+      :class="settingsDialog ? 'max-md:border-danger/35 md:mt-2' : ''"
+      :text-class="fieldDescriptionClass"
+      tone="danger"
+      :title="
+        uncertainCreate
+          ? 'Результат создания неизвестен'
+          : settingsDialog
+            ? 'Не удалось сохранить точку'
+            : errorView.title
+      "
+      :trace-id="traceId"
+    >
+      {{
+        uncertainCreate
+          ? 'Проверьте список точек перед новой попыткой: точка могла быть создана. Повторная отправка заблокирована.'
+          : settingsDialog
+            ? 'Введённые данные остались в форме. Повторите сохранение.'
+            : errorView.description
+      }}
+      <template v-if="settingsDialog" #icon
+        ><UiGlyph name="circle-alert" class="size-5"
+      /></template>
     </UiAlert>
-
-    <div class="flex flex-wrap justify-end gap-3">
+    <div v-if="variant !== 'dialog'" class="flex flex-wrap justify-end gap-3">
       <UiButton variant="secondary" :disabled="isSubmitting" @click="emit('cancel')">
         Отмена
       </UiButton>
@@ -343,3 +379,13 @@ async function onSubmit(event: Event) {
     </div>
   </form>
 </template>
+
+<style>
+.lr-lf input::placeholder {
+  color: var(--color-muted);
+}
+.lr-lf :is(input, select):disabled {
+  background-color: var(--color-canvas);
+  opacity: 0.5;
+}
+</style>

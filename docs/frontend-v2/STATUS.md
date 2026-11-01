@@ -1,5 +1,705 @@
 # Статус frontend v2
 
+## Codex · Stage RC5 · 01.11.2026 · публикация разрешена
+
+Владелец поручил отправить на stage весь актуальный frontend с новыми разделами.
+Готовится полный Git-visible снимок Company S7 + интегрированный Services S4
+со всеми исходниками, тестами и документацией. Все 1006 принятых S4 inputs
+повторно сверены без drift. Независимые TEST/FUNCTIONAL/UI трёх адаптивов PASS
+сохраняются; runtime после приёмки не меняется. Секреты и ignored artifacts
+в Git не включаются, исходный dirty снимок сохранён отдельно.
+
+Stage-autodeploy включён и запускается только после quality, build×3/audit,
+обоих strict browser shards и container smoke. Backend stage зафиксирован
+к текущему deployed `ed577f84e992afb5b0564c685736976c0c3255d9`, API hash
+совпадает, миграция `000032_registration_invitation_check`, readiness ready.
+Новый RC5 отправляется обычным fast-forward push; production/main исключены.
+Фактические CI/deploy/live результаты будут зафиксированы после выполнения.
+Подробности: `evidence/stage-release/Codex-R1/settings-rc5.md`;
+локальные evidence: `artifacts/frontend-v2/stage-settings-release-2026-11-01/RC5/`.
+
+## Codex · N-SS-ADAPTIVE-01 · 01.11.2026 · S4 принят
+
+«Услуги и цены» выполнены для desktop, tablet и mobile по всем 48 утверждённым
+кадрам (16×3). Независимые TEST PASS, FUNCTIONAL PASS и UI всех трёх адаптивов
+PASS на одном неизменном снимке. Приняты frontend AC US-M03-01 #1–5 и negative,
+US-M03-02 #1–3, US-M03-03 #1–3/6; регрессия US-M02-03/shared выполнена.
+Production/backend/Figma не менялись; push/deploy/merge не было. Все исходные
+незакоммиченные изменения, тесты и evidence компании сохранены; Company S7
+остаётся immutable и принят.
+
+Снимок S4: HEAD b4b19f025039570037d176cf5f05a21abb51624e, ветка
+frontend/v2-implementation + dirty, 1006 inputs, normalization 0. Manifest SHA:
+`6b15cd89a934e186f59b6475d95b7c4b9a7cd7805b4a8789daa9212425016635`.
+Checkout `/private/tmp/lidradar-services-adaptive-s4`; archive/manifest/briefs,
+изолированный services-only.patch и handoff находятся в
+`artifacts/frontend-v2/settings-services-adaptive/Codex-R1/S4/`.
+Начальное dirty дерево 755 inputs сохранено в родительском initial archive.
+
+Реализованы адаптивные таблица и карточки, шесть смыслов цены/null/cents,
+фильтры и счётчики, loading/empty/error/stale состояния. Формы add/edit имеют
+normal/saving/error/подтверждённый success, ОК/edit того же response ID,
+сохранение ввода после определённого отказа и блокировку слепого unknown POST.
+Команды захватывают tenant до await; поздние ответы из прежнего контекста
+изолированы. Disable: cancel/loading/error/retry/autoclose/reactivate и возврат
+фокуса при исчезновении строки текущего фильтра. Общие UiSheet/UiTooltip
+расширены opt-in, UiSavedResult переиспользуется компанией и услугами.
+Onboarding/wizard и default consumers сохранены; API/деньги/lifecycle не менялись.
+
+Действующие источники: source-map с 48 current native PNG, шестью usable context
+и четырьмя явными tool timeout, тремя metadata XML, approved selection и SHA.
+Все первичные PNG доступны и включены в snapshot; 58 native/context refs
+проверены. Figma read-only. Точные SVG переиспользованы; 20 прежних M3 paths и
+два знака каналов перенесены в SVG без перерисовки (zero-pixel proof в трёх
+browser projects). На build объединяются повторяющиеся immutable class строки;
+семантические тесты защищают keys/imports/directives, dev source maps прежние.
+Зависимости, lockfile, generated API, budgets, coverage, baselines и retries
+не менялись.
+
+Независимый qa_s1: все девять финальных gates exit 0. Check: 1184 unit в 103
+файлах, 13 architecture cases, format/lint/FSD/API/types PASS. Три build и audit
+PASS: JS 903809/905600, CSS 71932/72000, max chunk 84897/110100, critical
+241836/304800. Локальная stock CI матрица: 805 cases/805 attempts = 801 PASS +
+4 ожидаемых skip, 0 failed/flaky/retry. Два skip прежние Safari logout, два —
+Services width matrix с владельцем Chromium. Services capture 67/67 (48+19),
+Company shared capture 73/73, controlled Company 4/4 PASS. Порт 4173 свободен,
+QA процессы остановлены. TEST/FUNCTIONAL отчёт и команды — S4/qa/.
+
+Независимый services_ui_s4 реально просмотрел 135 изображений: все 48 пары
+Figma/browser, 26 PNG из 19 responsive records, 36 shared crops, 10 controlled
+pairs и 15 resting/viewport/host-popup. UI-01 placeholder, UI-02 disabled fill
+и UI-03 mobile error gap закрыты; новых findings нет. Все 48 exact-frame и
+19 approved-pattern cases PASS, отдельно desktop/tablet/mobile PASS.
+Два прежних shared UNVERIFIED закрыты новым сравнением одинаковых состояний
+S7/S4 (help и hover): четыре state JSON идентичны, 7/10 PNG побайтно одинаковы,
+три отличаются на 8/9/57 пикселей. Вердикт основан на просмотре, не на пороге
+pixel diff. Старые несопоставимые polish PNG оставлены историческими.
+Матрицы, attribution, viewed paths/SHA — S4/ui/; исходные PNG/records не менялись.
+
+Post-review: 1006 snapshot/main inputs, два external AC и 691 UI files имеют
+нулевой drift/missing/unlisted. Root и проверенная копия preprod dist побайтно
+совпадают. История S1–S3 сохранена. QA-SS-S2-01 late focus закрыт scoped callback
+исходной страницы/tenant: RED 3/3 до fix, GREEN 6/6 после, финальные stock cases
+PASS. Shared inputs и прежний Company S7 не перезаписывались.
+
+Stage/server persistence/auth/delivery, исторические диалоги/сделки M03-03 #4–5,
+M03-04 AI, физическая OS keyboard и нативный browser zoom — UNVERIFIED.
+Frontend/mock приёмка их не закрывает. DESIGN/SOURCES/design-index изменялись
+внешним автором и сохранены; root нормализовал лишь whitespace JSON без изменения
+parsed contents, исходные bytes сохранены. Следующий шаг — локальный review
+готового diff владельцем; публикация не выполнялась.
+
+## Codex · N-SC-ADAPTIVE-01 · 01.11.2026 · S7 принят
+
+Задача «Компания и график» для desktop/tablet/mobile выполнена.
+US-M02-05 #1–7, US-M02-06 #1–5 и negative; регрессия M02-02/04/shared.
+Независимые TEST PASS, FUNCTIONAL PASS, UI desktop/tablet/mobile PASS.
+Root пишет код; qa_s1 и ui_s5 независимо принимают неизменную копию.
+Production/backend/Figma не менялись, push/deploy/merge не выполнялись.
+Исходные tracked/untracked и чужая работа SERVICES сохранены.
+
+Конечный снимок S7: HEAD b4b19f025039570037d176cf5f05a21abb51624e,
+ветка frontend/v2-implementation + dirty,859 inputs. Manifest SHA-256:
+`c9a33eb8b7ee21c25101d99fb51a07064dc0d79bc5d26e322026d3d1c1c3b6d2`.
+Checkout `/private/tmp/lidradar-company-adaptive-s7`; archive/diff/manifest и
+handoff в `artifacts/frontend-v2/settings-company-adaptive/Codex-R1/S7/`.
+
+Реализованы три fluid layout, вкладки с отдельным скроллом, карточки точек,
+все21×3 состояния, подтверждённый success→ОК/edit того же ID, drafts/retry,
+2000ms feedback, unknown POST lock, guards/tenant/late-response protections.
+«Не сохранено» закреплено в одну строку:9 ширин ×3 browser projects PASS.
+Help targets44×44 при glyph20; low-height/VV/scroll/reconnect покрыты18 cases.
+На1024 timezone теперь читается полностью; source1440 композиция сохранена.
+
+Независимый qa_s1: check1167unit/100files, builddev/preprod/prod и auditrelease
+exit0; stock CI766cases/766attempts =764pass+2oldskip,0fail/flaky/retry.
+Все27 selected-label width cases и18 viewport cases PASS. Touch20/20 безCI,
+retries0,traceon. Capture73/73:63canonical/126PNG+14responsive/20PNG;
+вместе с27polish всего173PNG/253files. Бюджеты не менялись:JS905568/905600,
+CSS71980/72000,maxchunk81140/110100,critical241797/304800.
+FUNCTIONAL AC→test/code/evidence PASS, openQAfindings0, QA-S4-01 CLOSED.
+
+Независимый ui_s5 реально просмотрел101image:63 exact-frame pairs (21/adaptive),
+6mainviewport,6hostviewport+6popup и20responsive PNG (approved-pattern).
+Все63 canonical и supplementary PASS; UI-S5-01…07 и UI-S6-01 CLOSED,
+новых findings нет. Read-only reviewer вернул verdict сообщением; root записал
+ui/report/verdict/matrices/reviewed-images с attribution. Исходные browser
+capture records с UNVERIFIED не менялись; UI verdict хранится отдельно в ui/.
+Post-review:859snapshot/603main runtime/config+companySelection/externalAC0drift;
+253browserfiles0drift/unlisted. Root/snapshot129preprod files byte-identical.
+Два main документа приведены к уже проверенному Prettier-виду S7, содержимое
+сохранено; оригинальные bytes в S7/docs-before-final-format/.
+
+Sources: `artifacts/frontend-v2/settings-company-adaptive/Codex-R1/source-map.json`
+содержит63 current native PNG с SHA/размерами,
+24 usable context, остальные39 недоступны и помечены. Старые legacy/S6 не эталоны.
+S1–S6 archives/reports и tooltip-diagnostics D1/D2/D3 сохранены как история.
+S7 отличается от S6 только OrganizationForm grid и meaningful width assertion:
+red3/3 на старой сетке (105px<134px), green27/27 после min192 timezone.
+
+Stage/server persistence/auth/delivery и физическая OS keyboard UNVERIFIED.
+Low-height и mock VisualViewport отдельно PASS, не выдаются за native OS.
+Следующий шаг: review локального diff владельцем; публикация не выполнялась.
+
+## Figma · Правки настроек по поручению владельца · 31.10.2026
+
+Команда R49 · 01.11.2026 · НА СОГЛАСОВАНИЕ: мобильные карточки участников
+в области `1426:18281` перестроены по поручению к `1428:22914`: роль слева
+и статус справа сверху, затем имя/email; «Отозвать доступ» справа внизу,
+«Изменить роль» слева. Последний владелец и отозванные участники без отзыва.
+Изменены только три локальных Phone-варианта;106 instances унаследовали
+компоновку, native layout issues0. Широкие варианты/shared masters не менялись.
+Отзыв открывает имеющееся подтверждение в ключевых сценариях прототипа.
+Превью телефона390×2125 просмотрено, сохранено с SHA в
+`artifacts/frontend-v2/settings-polish/figma-2026-10-31/team-redesign-r49/manifest.json`.
+R48 остаётся историческим снимком. Code/test/config не менялись; runtime
+TEST/FUNCTIONAL/UI не запускались. Ожидается решение владельца.
+
+Команда и доступ R48 · 01.11.2026 · НА СОГЛАСОВАНИЕ: отдельная область
+`1426:18281`, desktop1440 `1427:18286`, tablet834 `1428:19529`, phone390
+`1428:21909`. Только дизайн по приложенному запросу владельца; US-M11-01,
+04/05/06/07/08, API/ADR и HIG прочитаны. Две роли, member.manage только OWNER,
+одноразовый код7 дней без email, soft revoke и LAST_OWNER сохранены.
+141 составной кадр /47 на адаптив; выбор ролей, коды/копирование, изменения,
+отзывы, ошибки/повтор, защитные и длинные состояния. Phone dialogs390×844.
+11251 native nodes с корнем, Inter4636,15 local variants/3 sets, raster0,
+width overflow0, out-of-bounds0, broken prototype targets0. Отпечаток `3c32303c`.
+18 конечных PNG реально просмотрены; активные текстовые пары4,66…16,83:1.
+Светлый контур1,34:1 записан как ограничение; browser a11y/Present/runtime
+TEST/FUNCTIONAL/UI — UNVERIFIED/NOT_RUN. Ревью изображений выполнено ведущим.
+Утверждённые Уведомления R47 `d0522675` MATCH; shared masters/variables и
+экраны Доступа не менялись. Scope-проверка после устаревшего auto-review
+подтвердила новые Team nodes; разрешённый повтор выполнен.
+Артефакты: `artifacts/frontend-v2/settings-polish/figma-2026-10-31/team-redesign-r48/`
+содержит manifest.json, review.md и18 PNG. Code/test/config/API/production и
+approved design-index в R48 не редактировались. Ждать решения владельца;
+разработку не начинать без утверждения макета и отдельного поручения.
+
+Уведомления R47 · 01.11.2026 · УТВЕРЖДЕНО ВЛАДЕЛЬЦЕМ: область `1392:15150`,
+desktop1440 `1393:15150`, tablet834 `1393:15932`, mobile390 `1393:16559`.
+Утверждён полный комплект R44–R46: по29 кадров, всего87, включая последние
+правки Telegram, тултипа, кнопок, отступов и бордеров полей. Точные состояния
+записаны в `settingsNotificationsSelection`; все15 прежних корней design-index
+сохранены. Native read:7275 nodes с корнем, отпечаток `d0522675`; геометрия
+в manifest R47 актуальна. Figma при фиксации решения не редактировалась.
+DESIGN/SOURCES и карта обновлены; manifests R44–R46 остаются историческими.
+Решение: `artifacts/frontend-v2/settings-polish/figma-2026-10-31/notifications-redesign-r47/manifest.json`.
+Runtime/test/config/API/production не менялись, новый TEST/FUNCTIONAL/UI PASS
+не присваивался. Дизайн-этап завершён; ждать отдельного поручения на реализацию.
+
+Уведомления R46 · 01.11.2026 · НА СОГЛАСОВАНИЕ: обычные бордеры 99 полей
+в области `1392:15150` приведены к эталону услуг `1320:13388` / `1316:13406`:
+светлый #DEDEE3, 1px INSIDE, существующее скругление10. Все адаптивы,
+standalone и host формы; шесть focus и три validation бордера сохранены.
+Проверки геометрии/стиля без отклонений, просмотрены desktop/tablet/phone.
+Manifest: `artifacts/frontend-v2/settings-polish/figma-2026-10-31/notifications-redesign-r46/manifest.json`.
+Общие masters/tokens, runtime/test/config не менялись; разработку не начинать.
+
+Уведомления R45 · 01.11.2026 · НА СОГЛАСОВАНИЕ: в области `1392:15150`
+добавлен исходный векторный логотип Telegram, статус подключения оформлен
+плашкой 28px по образцам `1234:12271` / `1203:11325`; подключён — зелёный
+с векторной галочкой, неподключён — нейтральный. Кнопки однострочные и по
+центру. Пояснение перенесено в локальный тултип у заголовка, hit44×44,
+36 карточек имеют единый gap16. Применено ко всем трём адаптивам и host.
+Просмотрены шесть конечных PNG из Figma, исправлено наложение тултипа.
+R44 PNG — исторические; текущая карта изменений и проверки сохранены в
+`artifacts/frontend-v2/settings-polish/figma-2026-10-31/notifications-redesign-r45/manifest.json`.
+Общие masters/tokens и runtime/test/config не менялись. Present и runtime
+доступность не проверялись. Ожидается решение владельца; разработку не начинать.
+
+Уведомления R44 · 01.11.2026 · НА СОГЛАСОВАНИЕ: отдельная область
+`1392:15150` «Настройки / Уведомления — Redesign / На согласование».
+Главные frames1440 `1393:15150`,834 `1393:15932`,390 `1393:16559`.
+Изучены US-M10-01…07, API, текущий код, исходник и12 apple-design references.
+Подключение Telegram отделено от доставки по типам; отдельное сохранение,
+quiet/digest/disabled/defaults, ошибки/загрузка и личная привязка сохранены.
+87 composed frames,10 локальных components/2 sets,6794 editable nodes,
+Inter/raster0/overflow0;18 конечных PNG реально просмотрены. Измеренные
+активные текстовые пары4,66…16,83:1. Native прототип первого типа настроен,
+тайминги лишь демонстрируют ответ; Present/живой API и browser accessibility
+не проверялись. Все8 контрольных исходников MATCH; общие masters/tokens
+не менялись. Approved design-index не переключался на этот draft.
+Артефакты `artifacts/frontend-v2/settings-polish/figma-2026-10-31/notifications-redesign-r44/`:
+manifest.json, review.md и18 PNG. В этой задаче код/тесты/конфигурация
+не редактировались, параллельные runtime inputs сохранены. Следующий шаг:
+решение владельца по макету; реализацию не начинать без отдельного поручения.
+
+Услуги R43 · 01.11.2026: владелец утвердил все normal/loading/error состояния
+«Отключить услугу?» на desktop/tablet/phone, включая открытые host и правило
+автозакрытия после успешного ответа без окна успеха. `dialogs.disable.status`
+и `confirmationAdditionStatus` всех адаптивов — approved. Полный комплект
+услуг по16 кадров на адаптив согласован; прежние approvals сохранены.
+Приняты снимки R42: desktop1302/`8ce1956e`, tablet1198/`7a8362d3`,
+mobile1374/`89650d42`. Нового чтения/правок Figma не было: это запись решения
+по только что показанным макетам. Карта, DESIGN, SOURCES, evidence и manifest
+`r43.json` обновлены; ledger R43 complete. Runtime/tests/API/production
+не менялись. Новый runtime TEST/FUNCTIONAL/UI PASS не присваивался.
+
+Услуги R42 · 01.11.2026: добавлена ошибка отключения во всех адаптивах:
+desktop `1373:15125`, tablet `1373:15152`640×407, phone `1373:15179`390×844.
+Critical feedback574×68/358×88, единый фон/контур, inner paints0. Сообщение
+«Не удалось отключить услугу», без неподтверждённого утверждения о backend active.
+«Повторить отключение» ведёт в loading своего адаптива; Cancel/X доступны и
+ведут в main. Успешный ответ по-прежнему закрывает окно без success сцены.
+Теперь16 composed frames/адаптив, размеры/позиции секций прежние.
+
+Просмотрены3 PNG, native74 уникальных editable IDs, Inter/raster0/overflow0.
+Все28 контрольных узлов/строк/masters/notes MATCH. Снимки1302/`8ce1956e`,
+1198/`7a8362d3`,1374/`89650d42`. R42 manifest/PNG, карта/ledger обновлены;
+комплект отключения normal/loading/error готов к просмотру владельцем.
+Runtime/tests/API/production не менялись, параллельные inputs сохранены.
+TEST/FUNCTIONAL/browser UI/Present/live request NOT RUN.
+
+Услуги R41 · 01.11.2026: добавлены loading окна «Отключить услугу?»
+desktop `1370:15071`, tablet `1370:15094`640×315, phone `1370:15117`390×844.
+Обе кнопки и X недоступны; Cancel — State Disabled, X opacity45%, все native
+actions включая descendants0. Деструктивная outline кнопка со спиннером16
+и «Отключаем…»279/358×46. Размеры совпадают с normal, source normal/hosts сохранены.
+Правило успеха указано отдельными canvas notes и в `dialogs.disable.afterSuccess`:
+после успешного ответа автозакрытие, отдельного success окна и timeout симуляции нет.
+
+Теперь15 composed frames на адаптив, геометрия секций прежняя. Новых62 editable
+nodes, raster0/Inter/overflow0;3 PNG просмотрены, desktop/tablet SHA совпадают.
+Все13 источников/строк,6 normal/host и3 использованных shared masters MATCH.
+Снимки1278/`3c019059`,1174/`994505e6`,1348/`fb8f0cc7`. R41 manifest/PNG,
+карта и ledger обновлены; normal/loading отключения на просмотре владельца.
+Runtime/tests/API/production не менялись; TEST/FUNCTIONAL/browser UI/Present
+и живой успешный запрос NOT RUN. Автозакрытие — спецификация поведения в Figma.
+
+Услуги R40 · 01.11.2026: владелец утвердил mobile R39,12 кадров,
+`1352:14063`/1082/`3ce837b9`; approval отдельно от нового дополнения.
+Во всех адаптивах добавлена четвёртая строка «Отключение услуги»:
+desktop `1366:14734`, tablet `1366:15007`, phone `1366:15254`.
+Каждая содержит normal confirmation и экран с открытым окном, теперь14 кадров.
+Диалоги `1366:14735`/`1366:15008`640×315, phone `1366:15255`390×844;
+на телефоне header64/viewport643/footer136, X справа16 и кнопки358×46.
+Источник `534:4412` и его текст сохранены. В новых desktop/tablet копиях
+ширина кнопок279 FILL устраняет прежний выход2px за контейнер574.
+Старый submit destination536:4519 очищен; Cancel/X ведут в свой adaptive main.
+Результат отключения не прототипировался: поручение только на normal prompt.
+
+Секции расширены; tablet y5280, phone y11336, gap256 между адаптивами.
+Все9 прежних строк и4 исходных области/диалога совпали с pre-R40 hash.
+Новые680 editable nodes, raster0, Inter, overflow0;6 реальных PNG просмотрены,
+phone host SHA совпадает с normal popup. Текущие area snapshots:
+desktop1258/`75537885`, tablet1154/`bdd2cfc7`, mobile1326/`831f10fd`.
+R40 журнал/PNG и карта обновлены. Новые подтверждения на просмотре;
+исходный mobile статус approved. Runtime/tests/production этой сессией
+не менялись; TEST/FUNCTIONAL/browser UI/Present/live tap/scroll NOT RUN.
+Следующий шаг — просмотр владельцем трёх добавленных подтверждений.
+
+Услуги R39 · 01.11.2026: владелец утвердил планшет `1338:13676`; status approved
+записан отдельно от нового mobile. После прерывания мобильных узлов не было.
+Создан комплект `1352:14063`, x6808/y8630,2916×4084,12 экранов в трёх строках.
+Main `1352:14067`,390×1628: шесть карточек358×190 вместо таблицы, прежние цены,
+одна отключена, info открыт. Название/точка/цена/статус/edit/switch/help;
+действия44, название до2строк с ellipsis. Вкладки358/1120 прокручиваются.
+Scoped cards `1350:4154` и help `1350:4156`,93 bound nodes, существующие стили.
+Все11 popup occurrences390×844:9 standalone и2 host, в том числе новая услуга.
+Шапка64, кнопки136, viewport643 VERTICAL; fields358/171×46; X справа16.
+Saving inputs50%/spinner16/actions0; success без заголовка формы, ОК/edit;
+error с сохранёнными данными, feedback358×88 и retry в mobile saving.
+Исправлены унаследованный minHeight1194 у host и stretch overlay494; оба
+host и все состояния реально просмотрены после исправления. PNG host совпадают
+с normal popup. Native1082 nodes/218 instances/308 text/Inter/raster0/overflow0,
+table headers0, stale tablet nav0,45 полей; fingerprint `3ce837b9`.
+14 PNG/SHA, операции и IDs — `r39-images/` / `r39.json`; карта/ledger обновлены.
+Все5 текущих source hash до/после совпали. Company desktop a393da88 отличался
+от старой истории уже до R39, в этой задаче не правился. Runtime/tests другой
+работы сохранены; эта сессия меняла Figma и документацию/evidence.
+TEST/FUNCTIONAL/browser UI/Present/live tap/scroll NOT RUN. Mobile на согласовании.
+Следующий шаг — просмотр владельцем мобильного комплекта услуг.
+
+Услуги R38 · 01.11.2026: владелец утвердил desktop `1307:13282` целиком.
+Подложка «Отключена» в трёх desktop появлениях стала HUG87×28 вместо68×28:
+текст67 и padding10 с обеих сторон помещаются. Desktop1027/`1d869c32` после
+этой адресной правки сохранён при создании адаптива.
+
+Под desktop создан планшетный комплект `1338:13676`, x6808/y4024,4610×4350:
+12 экранов/состояний в трёх строках. Main `1338:14703`,834×1194; каталог786,
+шесть строк736, пять колонок208/104/124/104/148; все действия44×44, плюс28
+в hit44. Вкладки786/1120 с native HORIZONTAL overflow. Сохранены6/5/1,
+цены, отключённая услуга и открытая подсказка. Локальный Tap44 helper
+`1337:4159` открывается нажатием; popup358×126 над вопросом. При просмотре
+исправлено перекрытие popup предыдущими строками через reverseZ=false.
+Окна640×673 по центру viewport x97/y260.5, error640×765; все состояния
+normal/saving/success/error и новая услуга перенесены. Открытие, ОК/X/Cancel,
+редактирование после успеха и retry явно ведут в tablet; stale desktop nav0,
+saving actions0. Main, оба host и весь canvas реально просмотрены.
+949 editable nodes/200 instances/285 text/Inter/raster0/overflow0,
+финальный fingerprint `7474c842`. Tablet пока на согласовании. PNG/SHA и
+журнал — `r38-images/` / `r38.json`, карта/ledger обновлены.
+
+Тем же сообщением владелец уточнил область заморозки: **только экраны Доступа**.
+Настройки, Аналитика и остальные разделы вне заморозки; прежние ограничения
+Онбординга/Radar заменены этим решением. DESIGN-FREEZE/CODE-FREEZE,
+AGENTS/CLAUDE, DESIGN, WORKFLOW, SOURCES, RELEASE-SCOPE и карта синхронизированы.
+Релизные gates/API/production-процедуры сохранены. Исходные desktop/tablet/mobile
+компании совпали с текущими pre-R38 hash; исторический finding R33 не переписан.
+В этой сессии runtime/API/production не правились; параллельные изменения
+runtime/тестов сохранены. TEST/FUNCTIONAL/browser UI/Present NOT RUN.
+Следующий шаг — просмотр владельцем планшета услуг; мобильный комплект не начат.
+
+Услуги R37 · 01.11.2026: добавлены success/error обоих диалогов. Add
+`1331:13637` / `1331:13658`, edit `1331:13710` / `1331:13731`. Success640×673
+без формы/её заголовка, галочка и ссылки ОК/«Изменить услугу», центр совпадает.
+Error640×765: введённые значения сохранены, поля доступны, единый critical-блок
+574×68 и повтор в соответствующий saving. После add success отдельная edit-форма
+новой услуги `1331:13595` с теми же1500–2500 RUB. Canvas5216×3768, прежние
+normal/saving/hosts сохранены. Четыре результата и общий render просмотрены;
+Inter/raster0/overflow0/stale company navigation0. PNG/SHA в `r37-images/`
+и `r37.json`, карта/ledger обновлены. Все семь текущих baseline совпали;
+историческое finding tablet R33 сохранено. Runtime/API/production не менялись;
+TEST/FUNCTIONAL/browser UI/Present NOT RUN. Следующий шаг — просмотр владельцем
+результатов услуг; автоматический runtime исход saving не моделировался.
+
+Услуги/бордеры R36 · 01.11.2026: по приложенному скриншоту geometry-fix
+mobile ошибок завершён первым. Два wrapper `1324:13557` / `1324:13558`,358×88,
+рисуют общий фон/контур; прежние instances прозрачные FILL358 внутри, x0/y0.
+Оба popup390×844 реально просмотрены через server screenshots. R35 менял
+opacity, но не устранил дефект со скриншота; нативная причина не установлена.
+Затем добавлены saving-диалоги услуг `1325:13557` / `1325:13603` справа от
+normal, оба640×673: пять disabled полей/селектов, spinner16/«Сохраняем…»,
+Cancel/X disabled, всех actions0. Add — введённый пример «Озонирование салона»
+1500–2500 RUB; edit сохраняет31 000/31 000. Main и обычные формы сохранены.
+Оба saving render просмотрены:44 editable nodes/10 instances/Inter/raster0/
+overflow0. Область3104×3768. PNG и SHA в `r36-images/`/`r36.json`; карты
+и ledger обновлены. Desktop и текущий tablet совпали по hash, mobile
+2352/`df2f4b10` отражает два wrapper. Старый R33 finding сохранён.
+Runtime/API/production не менялись; TEST/FUNCTIONAL/browser UI/Present NOT RUN.
+Следующий шаг — просмотр владельцем saving и дальнейшие состояния услуг.
+
+Услуги/бордеры R35 · 01.11.2026: `1307:13332` теперь синий плюс28×28 без
+текста и заливки, тот же master, что у `1189:10954`. Область услуг2400×3768:
+главный экран и две строки друг под другом — add `1316:13356`, edit
+`1320:13388`. Полные экраны с открытым диалогом `1320:13389` / `1320:13639`
+слева, отдельные формы640×673 справа. Фон затемнён18%, окна центрированы.
+В mobile error `1288:12955` / `1288:13111` равная обводка INSIDE1 усилена
+20%→35%,358×88 и тексты сохранены; оба popup390×844 реально просмотрены.
+Финальная область услуг также просмотрена: main201 nodes, оба host240,
+Inter/raster0/overflow0. Desktop компании и source-диалоги совпали по hash,
+текущий tablet также неизменен; старое finding R33 остаётся UNVERIFIED.
+Mobile hash `ef978bfb` отражает две разрешённые правки. Журнал `r35.json`,
+evidence `figma-services-2026-11-01.md`, карты обновлены. Runtime/API/production
+не менялись; TEST/FUNCTIONAL/browser UI/Present NOT RUN. Следующий шаг —
+просмотр владельцем новой раскладки и дальнейшее поручение по состояниям услуг.
+
+Услуги R34 · 01.11.2026: в области `1307:13282` под основным экраном создана
+строка `1316:13356` с обычными desktop-диалогами «Добавить услугу»
+`1316:13357` и «Изменить услугу» `1316:13397`, оба640×673. Создание — пустые
+поля, редактирование — первая услуга/31 000 ₽. Поля574, ценовые колонки279:
+унаследованный срез правого бордера устранён. Обе формы реально просмотрены;
+по40 editable nodes/9 instances/15 text/Inter, raster0, overflow0.
+Кнопка добавления и первый pencil связаны с новыми overlays; Present NOT RUN.
+Внешний вид главного экрана совпал по visual hash `9aef4f4a`; исходные диалоги
+совпали по полным hash. Saving/success/error/adaptives не добавлялись.
+Журнал `r34.json`, карта `settingsServicesSelection.dialogs`, evidence
+`figma-services-2026-11-01.md`. Диалоги на согласовании; runtime/API/production
+не менялись, TEST/FUNCTIONAL/browser UI/Present NOT RUN. Следующий шаг —
+просмотр владельцем обычного состояния; прежнее finding tablet R33 сохранено.
+
+Услуги R33 · 01.11.2026: отдельная область `1307:13282` справа от desktop
+компании, первый экран `1307:13284`, 1440×1000. Невалидный warning удалён
+в новой копии; блочного сохранения нет. Шесть услуг: точная цена, диапазон,
+«от», «до», неизвестная и с копейками; одна отключена, фильтры6/5/1.
+Открыт информационный tooltip у отключённой строки; reverse Z исправляет
+перекрытие соседними свитчами. По уточнению владельца кнопка `1307:13332`
+теперь165×36, плюс16 перед подписью14/20; ID сохранён. Финальный render
+просмотрен;202 editable nodes/40 instances/0 raster, width overflow0.
+Новый экран на согласовании: `settingsServicesSelection`, журнал `r33.json`,
+evidence `figma-services-2026-11-01.md`. Исходный Services, desktop/mobile
+компании совпали по hash. Tablet hash изменился25dc049c→a6203ac8 при отсутствии
+мутаций в этой области; точная сохранность UNVERIFIED, baseline не переписан.
+Runtime/API/production не менялись; TEST/FUNCTIONAL/browser UI/Present NOT RUN.
+
+Утверждение адаптивов R32 · 01.11.2026: владелец принял и утвердил полный
+комплект новых планшетных `1246:10269` и мобильных `1277:11797` макетов
+«Компания и график», по 21 экрану/состоянию в каждом. Планшет — итог R26,
+мобильный комплект — R30 с исправлениями R31 и полноэкранными попапами390×844.
+Оба набора теперь approved в `design-index.json`; desktop `1189:10891`
+остаётся утверждённым. Журнал решения `r32.json`. Макеты и runtime этой
+задачей не менялись; новых TEST/FUNCTIONAL/browser UI/Present не было.
+Утверждение дизайна не снимает CODE-FREEZE и не запускает реализацию.
+
+Микроправка R31 · 01.11.2026: исправлены лейблы порогов, отступ крестика
+и правая обводка error-feedback во всех применимых mobile popup состояниях.
+18 лейблов — HUG20/y12 в строке44, центр совпадает с вопросом; во всех11
+шапках видимый круг крестика отстоит справа16px при сохранённой hit-area46.
+Два error-баннера358×88: внутренняя обводка1px по всем сторонам, ширина FIXED,
+лишний clip контента снят. Normal/error popup и border3× реально просмотрены.
+Журнал `r31.json`, карта `mobileDraft.popupPolish`. Размер390×844 и данные
+сохранены; runtime/API/production не менялись. TEST/FUNCTIONAL/browser UI/
+Present не запускались.
+
+Мобильные состояния R30 · 01.11.2026: владелец утвердил первый экран R29
+и поручил добавить остальные. В области `1277:11797` теперь 21 экран/состояние
+в четырёх строках: компания, график, создание и изменение точки. Сохранение,
+успех/idle, ошибки и повторы перенесены; введённые данные сохранены.
+По уточнению владельца все диалоги — полноэкранные попапы 390×844:
+шапка 64 и действия 136 закреплены, тело 643 имеет native VERTICAL overflow.
+Success того же размера, без заголовка формы, с X и ссылками OK/«Изменить точку».
+В формах синие вопросы44px, открыта левая подсказка add / правая edit.
+Все четыре финальные строки реально просмотрены. Read-back: 2350 editable
+nodes/649 instances/669 text/0 raster, text width overflow0;96 полей132×46.
+Статусы успеха/ошибки имеют таймер2000ms, retry ведёт в mobile saving;
+stale tablet navigation0. Desktop `fae67cc4`, tablet `25dc049c` и оформление
+первого mobile `f119377c` сохранены. Журнал `r30.json`, карта `mobileDraft`.
+Первый экран approved; новый комплект готов к просмотру владельцем.
+Runtime/API/production не менялись; TEST/FUNCTIONAL/browser UI/Present и
+живой scroll не запускались. Реализация frontend этим поручением не начата.
+
+Микроправка R29 · 01.11.2026: строка времени мобильного рабочего дня
+`1277:11870` теперь занимает все326px. Через scoped master `1276:4226`
+обновлены все шесть рабочих дней: два равных input132×46 (FILL), подписи
+«с»/«до» и отступы сохранены. Все12 значений прежние, render недели просмотрен.
+Журнал `r29.json`, карта `mobileDraft`. По-прежнему один экран на согласовании;
+остальные состояния не создавались. Runtime/API/production не менялись;
+TEST/FUNCTIONAL/browser UI/Present не запускались.
+
+Мобильный первый экран R28 · 01.11.2026: по новому поручению создан только
+`1277:11798`, 390×2485, в области `1277:11797` под планшетом (gap256).
+Статус — на согласовании; остальные мобильные состояния ждут утверждения.
+Одна колонка полей и пяти точек, шестое действие добавления, общий блок
+точек/графика с разделителем; дни с checkbox46 и отдельной строкой времени96×46.
+Длинное имя200 символов обрезается; полное имя доступно по нажатию264×44.
+Appbar Phone64, горизонтальные вкладки358/1120. Финальный render просмотрен;
+242 editable nodes/71 instances/0 raster, Inter, text width overflow0.
+Desktop2306/`fae67cc4` и tablet2302/`25dc049c` до/после совпадают.
+Журнал `r28.json`, карта `mobileDraft`. Runtime/API/production не менялись;
+TEST/FUNCTIONAL/browser UI/Present не запускались. Следующий шаг — отзыв
+владельца о первом мобильном экране, без автоматического создания остальных.
+
+Утверждение планшета R27 · 01.11.2026: владелец утвердил область `1246:10269`
+целиком — 21 экран/состояние «Компания и график» в четырёх строках после R26.
+Это текущий планшетный эталон; desktop `1189:10891` также остаётся утверждённым.
+Решение записано в `design-index.json` → `settingsCompanyAndScheduleSelection`
+→ `tabletDraft` (status approved; имя ключа сохранено для совместимости).
+Журнал `r27.json`, последнее изменение Figma — R26. Макеты и runtime в этой
+задаче не менялись; новые проверки TEST/FUNCTIONAL/browser UI не запускались.
+Следующий этап workflow — синхронизация US/решения о реализации; approval
+макетов не снимает CODE-FREEZE и не включает новый пакет runtime в релиз.
+
+Микроправка R26 · 01.11.2026: «Добавить точку» с заглавной буквы, синяя
+подпись/плюс и мягкая голубая рамка; голубая подложка убрана по уточнению
+владельца, фон белый. Scoped set `1265:11891`, включая Hover/Disabled;
+восемь текущих карточек361×54 и все21 планшетное состояние проверены.
+Финальный render блока `1249:10724` просмотрен. Comparison/preview R25
+уже отсутствовали при чтении R26; не восстанавливались. Журнал `r26.json`,
+текущая карта `tabletDraft`; исходники/тесты сохранены. Runtime
+TEST/FUNCTIONAL/browser UI/Present не запускались; production не затрагивался.
+
+Выбор и правки R25 · 01.11.2026: владелец выбрал A. Общая карточка с линией
+применена ко всем восьми группам планшетной области и preview `1260:11743`;
+21 исходный кадр/IDs сохранены. Верхний плюс заменён шестой карточкой361×54
+«добавить точку», с плюсом справа, без индикатора. Scoped set `1265:11891`
+Default/Hover/Disabled; при saving добавление заблокировано. В четырёх полных
+экранах и preview — desktop-вкладки: viewport786×46, strip1120, native
+HORIZONTAL overflow334px. Основные экраны теперь834×1815; modal viewport1194h
+и размеры форм не менялись. Read-back: 5 точек + действие, одна неактивная,
+200-char name, прежние 12 значений на группу, поля46h, overflow0, Inter.
+Desktop2306/`fae67cc4` сохранён. 2301 editable descendants/649 instances/0 raster.
+Через Plugin API просмотрены preview, saving и modal host после timeout обычного
+экспорта. B/C уже отсутствовали до R25, не восстанавливались. Журнал `r25.json`;
+текущий источник обновлён в `tabletDraft`. Runtime/API/production не менялись;
+TEST/FUNCTIONAL/browser UI/Present и живой scroll-жест не запускались.
+
+Варианты R24 · 01.11.2026: справа от планшета создано сравнение `1260:11738`,
+три полных экрана834: A `1260:11743` — общая карточка/разделитель; B
+`1260:11820` — выбор точки в шапке + список `1260:11864`; C `1260:11897` —
+график внутри раскрытой точки. Это предложения, выбор владельцем не сделан;
+текущие 21 планшетное состояние и approved desktop не менялись — fingerprints
+до/после совпали. Полный comparison render просмотрен; 12 значений времени
+совпадают во всех трёх, поля46h, Inter, overflow0, 701 editable descendants,
+201 instances/0 raster. Рекомендация A для пяти точек — дизайн-суждение.
+Карта: `tabletDraft.layoutAlternatives`; журнал `r24.json`.
+Runtime/API/production не менялись; TEST/FUNCTIONAL/browser UI/Present не запускались.
+
+Планшет R23 · 01.11.2026: под утверждённым desktop создана область `1246:10269`
+на согласование, 21 экран/состояние в тех же четырёх строках. Ширина834,
+основной экран1872h, modal viewport1194h. Appbar/компактный выбор раздела;
+название компании отдельной строкой, валюта/пояс в две колонки; пять точек в две
+колонки, график ниже. Локальные Tablet-компоненты: поля времени46h и edit-hit44,
+full-name tooltip по нажатию. Desktop digest `99f3ae90` /2306 узлов не изменён.
+CANVAS: все строки и финальные modal-host/main render просмотрены; overflow0,
+96 time fields46h, 40 edit targets44×44, success modal sizes сохранены,
+фоновые подсказки под модалками закрыты. Native: 2221 узел/625 instances/0 raster.
+Карта: `settingsCompanyAndScheduleSelection.tabletDraft`; журнал `r23.json`.
+Утверждение планшета ещё не дано. Runtime/API/production не менялись;
+TEST/FUNCTIONAL/browser UI/Present не запускались.
+
+Утверждение и очистка R22 · 01.11.2026: владелец утвердил `1189:10891`.
+Это текущий эталон настроек «Компания и график»; выбор зарегистрирован в
+`design-index.json` → `settingsCompanyAndScheduleSelection`. Сохранены все
+21 экран/состояние в четырёх строках, 2306 узлов. Вне области удалены 33 старых
+макета раздела (по 11 desktop/tablet/mobile, вместе с их диалогами/состояниями).
+114 переходов перенаправлены на новые основной экран/форму изменения точки,
+старые flow starts очищены; stale roots/links0. Внешних ссылок на удаляемые
+кадры на остальных девяти страницах нет. Проверка 241 сохранённого корня
+совпала по слоям/визуальным свойствам; reactions сверены отдельно.
+Утверждённая область реально просмотрена; журналы `r22-before.json` / `r22.json`.
+Старые адаптивы больше не эталоны; новые tablet/mobile этим решением не приняты.
+Runtime/API/production не менялись, TEST/FUNCTIONAL/browser UI/Present не запускались.
+
+Состояния R21: в компанию `1189:10934` и три её копии рабочих экранов добавлен
+верхний правый статус. В первой строке `1227:11767` справа: сохранение
+`1234:12279`, успех `1234:12305`, отсутствие изменений `1234:12331`, ошибка
+`1234:12357`. Saving блокирует три поля и показывает spinner; успех через
+2000 ms сменяется на «Изменений нет», ошибка — на «Не сохранено». При ошибке
+баннер и все три значения остаются, активный повтор ведёт в saving.
+Размеры 1120×230, error 1120×314; overflow0, Inter, editable layers, 0 raster.
+Вся строка реально просмотрена; журнал `r21.json`. Runtime/API не менялись,
+TEST/FUNCTIONAL/browser UI/Present не запускались.
+
+Уточнение R20: footer sidebar возвращён к нижнему краю на всех четырёх
+полных экранах рабочей области. FILL по высоте / SPACE_BETWEEN; bottom gap24
+подтверждён для каждого. Меню сверху и размеры экранов прежние. Основной render
+просмотрен; журнал `r20.json`. Runtime/API/тесты не менялись/не запускались.
+
+Организация R19: область `1189:10891` разбита на четыре строки/section:
+Компания `1227:11767` (только исходный экран, справа пусто); График
+`1227:11768` (основа + saving/saved/idle/error); Создание `1227:11769`
+и Изменение `1227:11770` (основа с открытой модалкой + её состояния справа).
+Вспомогательная форма после добавления сохранена в строке изменения.
+Все 14 исходных кадров сохранили размеры и IDs; удалена только пустая обёртка
+сравнения `1203:11309`. Ссылки ведут на существующие кадры внутри SECTION.
+Обзор и обе новые композиции просмотрены; фоновые hover-подсказки под модалками
+закрыты. Журнал `r19.json`. Runtime/API/тесты/Present не запускались и не менялись.
+
+Уточнение R18: `1198:11093` приведён к самостоятельной области «Точки и график»,
+как error-reference `1205:11721`: оболочка страницы/Компания убраны, размер
+1120×698. ID корня и вложенной области `1198:11151` сохранены, retry-ссылка
+актуальна. 12 значений, disabled-контролы и loading/spinner сохранены;
+пояснение графика совпадает с эталоном. Убрана прежняя minHeight1000.
+Итоговый render просмотрен; журнал `r18.json`. Runtime/API/тесты не менялись.
+
+Состояния R17: ошибки изменения `1218:11737` и добавления `1218:11806`
+точки. Баннер под формой, все 9 полей и введённые значения сохранены,
+поля доступны; «Повторить сохранение» активно и ведёт к соответствующему
+saving-диалогу. Отмена/крестик доступны. Оба render просмотрены, overflow0,
+Inter; ошибка команды не окрашивает поля как ошибочные. Журнал `r17.json`.
+Runtime/API/тесты/Present не запускались и не менялись.
+
+Уточнение R16: верхние заголовки убраны из обоих success-диалогов, в шапках
+остались только крестики справа. Размеры 640×681 / 640×575, центрированный
+feedback и ссылки сохранены; CLOSE reactions на месте. Оба render просмотрены.
+Журнал `r16.json`. Runtime/тесты/Present не запускались и не менялись.
+
+Уточнение R15: центровка ссылок исправлена в обоих success-диалогах. Вместо
+фиксированных 56/160 px с LEFT-текстом — scoped Link `1213:4113`, HUG 44/134 px
+с одинаковым padding12. Центр текста совпадает с центром ряда (delta0).
+Размеры окон и CLOSE/NAVIGATE сохранены; оба render реально просмотрены.
+Второй экспорт сначала timeout, адресный повтор получен. Журнал `r15.json`.
+Runtime/тесты/Present не запускались и не менялись.
+
+Состояния R14: успешное изменение `1211:11746` (640×681) и добавление
+`1211:11795` (640×575) в рабочей области. Размеры точно равны формам;
+input/footer удалены, по центру подтверждение и ссылки «ОК» / «Изменить точку»
+в обоих случаях. Настроены CLOSE и переходы к форме с соответствующими данными;
+для только что добавленной точки подготовлена форма `1211:11692` (Арбат).
+Оба render просмотрены, Inter, inputCount=0, sameDimensions=true.
+Журнал `r14.json`. Runtime/тесты/Present не запускались и не менялись.
+
+Уточнение R13: бейдж `1205:11736` тоже сообщает об ошибке — красный индикатор
+и «Ошибка сохранения», AFTER_TIMEOUT 2000 ms → нейтральное «Не сохранено».
+Баннер ошибки, черновик и активный повтор остаются. Новый scoped-компонент
+`1207:4121`, обе фазы 160×28. Просмотрены область ошибки и варианты бейджа;
+журнал `r13.json`. Runtime/тесты/Present не запускались и не менялись.
+
+Состояние R12: `1205:11721` «09 · График · Ошибка сохранения · Повторить»
+добавлено ниже пары Saved/Idle. Сообщение ошибки под расписанием, все 12
+значений времени сохранены, поля доступны. Кнопка «Повторить сохранение»
+активна; prototype click ведёт на экран сохранения `1198:11093`.
+Полный render просмотрен, draft сверён с исходным, Inter сохранён.
+Журнал `r12.json`. Runtime/тесты/Present не запускались и не менялись.
+
+Состояния R11: ниже прежних экранов добавлена пара областей `1203:11309`:
+`1203:11310` — зелёная галочка/«Сохранено»; `1203:11469` — «Изменений нет».
+Для бейджа `1203:4119` настроен AFTER_TIMEOUT 2000 ms → Idle. Оба состояния
+реально просмотрены: 12 полей снова доступны, значения прежние, повторное
+сохранение без правок недоступно. Статус 132×28, без сдвига заголовка.
+Журнал `r11.json`. Это Figma-only: runtime пока имеет прежний saved/alert,
+новый таймер не реализовывался. TEST/FUNCTIONAL/Present не запускались.
+
+Состояния R10 добавлены в рабочую область справа от saving-экрана графика:
+`1200:11250` «05 · Изменить точку · Сохранение», `1200:11316` «06 · Добавить
+точку · Сохранение». Все 9 input/select заблокированы, значения видны,
+кнопки со spinner/«Сохраняем…». Отмена и закрытие недоступны согласно текущему
+busy-контракту диалогов. Оба render реально просмотрены, overflow=0, Inter.
+Журнал `r10.json`. Runtime и тесты не менялись/не запускались.
+
+Состояние R9 добавлено в рабочую область: `1198:11093` «04 · Компания и график ·
+Сохранение графика». Disabled: 12 полей времени, 7 чекбоксов, 6 вкладок, выбор/
+редактирование 5 точек, добавление и копирование часов. Все значения сохранены;
+кнопка 220×46 использует существующий Busy action со spinner и «Сохраняем…».
+Полный экран реально просмотрен; Inter, native editable layers, 0 raster.
+Блок компании остаётся отдельным. Журнал `r9.json`; runtime и тесты не менялись/
+не запускались. Другие состояния пока не добавлялись.
+
+Уточнение R8: создана отдельная область `1189:10891` «Компания и график ·
+Рабочие экраны и состояния». Основной экран `1189:10892`: пять карточек,
+ровно одна неактивная, длинное название 200 символов с открытой подсказкой,
+счётчик в sidebar — 5 точек. Справа два диалога: `1189:11028` с левой открытой
+подсказкой, `1189:11088` с правой. В общем Help вопросы перекрашены в синий;
+для двух previews добавлен scoped Above-вариант, чтобы input не закрывал текст.
+Итоговая композиция реально просмотрена; Inter, editable nodes, no raster.
+Журнал `r8.json`. Runtime/тесты не менялись и не запускались. Следующий шаг —
+разбор состояний компании в этой новой области по поручению владельца.
+
+Уточнение R7: кнопка добавления точки уменьшена 46→28 px, плюс синий,
+Default без заливки, Hover с лёгкой подложкой. Шапка списка теперь 28 px,
+заголовок и кнопка выровнены. Просмотрены список и состояния кнопки;
+новый scoped-компонент `1186:4115` не меняет онбординг. Журнал `r7.json`.
+Runtime/тесты не менялись и не запускались.
+
+Уточнение R6: у обрезанного названия добавлена hover-подсказка с полным текстом
+200 символов; короткие названия без подсказки. Реальный Hover render просмотрен,
+текст совпадает с названием; затем восстановлен Default (скрыто). Компонент
+`1184:4125`, журнал `r6.json` рядом с R5. Runtime и тесты не менялись/не запускались.
+
+Уточнение R5: в список добавлены ещё две точки — «Арбат» (5 символов) и
+название ровно 200 символов; вместе с исходной карточкой их три. Лимит взят
+из `manage-locations/model/schema.ts` (trim + Array.from ≤200). Полный текст
+сохранён в Figma, визуально обрезается троеточием в фиксированной строке 22 px.
+Просмотрен render списка: карточки 272×54, карандаши и индикаторы на месте.
+Снимок и IDs: `r5.json` рядом с R4. Runtime и тесты не менялись/не запускались.
+
+Уточнение R4: индикатор перенесён с прямого участка border на середину дуги
+правого верхнего скругления (45°). Центр (268.1317, 3.8683) лежит точно на
+центральной линии stroke радиуса 11.5 px. Active/Hover/Inactive просмотрены;
+журнал `r4.json` рядом с R3. Runtime не менялся.
+
+Уточнение R3: в карточке точки удалена подпись графика, название и карандаш
+выровнены в одной строке; карточка 272×54. Центр зелёного/красного индикатора
+совпадает с линией верхнего border (0.5 px). Просмотрены фактическая карточка
+и Active/Hover/Inactive; IDs/evidence сохранены в `r3.json` рядом с R2.
+Runtime и тесты не менялись и не запускались.
+
+Уточнение R2 владельца выполнено в Figma: текстовый статус карточки заменён
+индикатором 8 px справа сверху (зелёный/красный, Active=true/false); карандаш
+уменьшен до 28×28, включая hover, с отступом от border. В обоих диалогах
+настроек устранено переполнение 2 px: поля 574/279 px по контейнеру, overflow=0.
+Карточка, Active/Inactive/Hover и оба диалога реально просмотрены.
+Журнал/IDs: `artifacts/frontend-v2/settings-polish/figma-2026-10-31/r2.json`.
+Это Figma-only R2; runtime и тесты не менялись и не запускались.
+
+В Figma внесён точечный пакет: warning вместо обычного текста в 19 desktop
+Layout настроек; статус внутри выбранной карточки точки; подсказки у порогов
+и единица «мин» внутри полей двух диалогов настроек. В семи desktop состояниях
+услуг уменьшены фильтры, добавлены карандаш/switch/hover-подсказка; прежний текст
+под таблицей перенесён полностью. По прямому разрешению владельца аналогичные
+поля обновлены в девяти актуальных диалогах онбординга (US-M02-04,
+desktop/tablet/mobile, добавление/изменение/ошибка). Значения 30/60 сохранены;
+настройки сохраняют 45/120. Исторические варианты онбординга не менялись.
+
+Основная сессия просмотрела реальные Figma изображения основных страниц,
+диалогов и состояний подсказок; Inter, warning tokens и prototype wiring
+проверены. Это **не** независимая runtime UI-приёмка. TEST/FUNCTIONAL runtime
+не запускались. Существующие dirty/untracked исходники и тесты сохранены;
+backend/API/production не менялись. Старые tablet/mobile макеты настроек
+остаются отложенными. Следующий шаг — согласование макетов владельцем,
+затем отдельная синхронизация требований/реализации и QA по WORKFLOW.
+[Пакет, точные nodes и ограничения](evidence/settings-polish/figma-2026-10-31.md).
+
 ## Аудит незакоммиченных изменений · 31.10.2026
 
 Проверены frontend, backend и лендинг: изменены только документы, AI manifest

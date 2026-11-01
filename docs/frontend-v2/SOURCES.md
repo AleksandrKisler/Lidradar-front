@@ -1,11 +1,25 @@
 # Источники и приоритеты
 
-Решение владельца 30.10.2026: до релиза 01.11.2026 соблюдать
+Уточнение владельца 01.11.2026: до фактического релиза соблюдать
 [DESIGN-FREEZE.md](DESIGN-FREEZE.md) и `releaseDesignFreeze` в design-index.
-Макеты Доступа/Онбординга не менять, Radar не подвергать крупным изменениям;
-реализация и QA используют текущие зафиксированные источники.
+Заморожены только макеты Доступа. Настройки, Аналитика и остальные разделы
+вне заморозки; реализация и QA используют текущие утверждённые источники.
 
 ## Локальные корни
+
+Актуальные настройки: «Компания и график» утверждена на трёх адаптивах;
+«Услуги и цены» desktop `1307:13282`, планшет `1338:13676` и mobile `1352:14063`
+утверждены01.11.2026. Mobile approval R40 относится к12 кадрам R39:
+карточки услуг и полноэкранные попапы390×844. В R40 добавлены ещё два кадра
+подтверждения отключения на каждый адаптив (четвёртая строка).
+R41 добавляет по одному loading-состоянию отключения; успешный ответ закрывает
+окно без экрана успеха. Новые loading IDs и правило — в `dialogs.disable`.
+R42 завершает комплект error-состоянием с повтором в loading того же адаптива.
+Решением R43 от01.11.2026 владелец утвердил все normal/loading/error окна
+отключения на трёх адаптивах. Полный комплект услуг — по16 кадров — approved.
+Точные указатели и решения — `settingsCompanyAndScheduleSelection` и
+`settingsServicesSelection.tabletDraft` / `mobileDraft` в design-index. Утверждение источника
+настроек не вводит для него заморозку.
 
 - Frontend (единственная область правок): `/Users/aleksandrkisler/Develop/LidradarWorksapce/Lidradar-front`.
 - Backend documentation (чтение): `/Users/aleksandrkisler/Develop/LidradarWorksapce/Lidradar/docs` (по умолчанию `../Lidradar/docs` от корня frontend; переопределяется через `LIDRADAR_BACKEND_DOCS`).
@@ -62,6 +76,31 @@ Stories про email, Telegram, фоновые задачи и AI дели на 
 ## Карта дизайна
 
 `design-index.json` — компактный указатель, а не экспорт всех свойств Figma.
+Для настроек «Компания и график» 01.11.2026 утверждены desktop `1189:10891`,
+планшет `1246:10269` и полный мобильный комплект `1277:11797`, по 21 экрану/
+состоянию на адаптив. Точные узлы: `settingsCompanyAndScheduleSelection`,
+`tabletDraft` и `mobileDraft`, оба адаптивных ключа со status approved
+(имена ключей исторические). Мобильный эталон включает fullscreen попапы390×844
+и исправления R31. Решение — `r32.json`; удалённые макеты не использовать.
+Утверждение дизайна не присваивает реализации новый runtime PASS.
+Для «Услуг и цен» утверждены desktop `1307:13282`, планшет `1338:13676`
+и mobile `1352:14063`: `settingsServicesSelection`, `tabletDraft` и `mobileDraft`
+со status approved. Все `dialogs.disable` утверждены решением R43: desktop
+`1366:14735`, tablet `1366:15008`, phone `1366:15255` с открытыми host рядом.
+Loading R41: desktop `1370:15071`, tablet `1370:15094`, phone `1370:15117`.
+Error R42: desktop `1373:15125`, tablet `1373:15152`, phone `1373:15179`.
+Construction manifest `artifacts/frontend-v2/settings-polish/figma-2026-10-31/r42.json`,
+approval `artifacts/frontend-v2/settings-polish/figma-2026-10-31/r43.json`.
+«Уведомления» утверждены владельцем01.11.2026, R47: область `1392:15150`,
+desktop `1393:15150`, tablet `1393:15932`, mobile `1393:16559`, по29 кадров
+на адаптив. Точные состояния — `settingsNotificationsSelection`; эта запись
+заменяет старые визуальные эталоны только уведомлений. Утверждён итог R44–R46:
+редактор правил, личный Telegram, подтверждения и обратная связь, включая
+последние бордеры и оформление подключения. Состав и текущая геометрия —
+`artifacts/frontend-v2/settings-polish/figma-2026-10-31/notifications-redesign-r47/manifest.json`.
+Исторические manifests R44/R45/R46 сохранены; R44 PNG предшествуют финальным
+правкам. Выбор макетов не разрешает реализацию без отдельного поручения и не
+означает runtime TEST/FUNCTIONAL/UI PASS.
 Access/Onboarding: approved `id` из ledger, не legacy `sourceId` из plan.
 Для согласованных 30.10.2026 US-M01-03–08 используй также
 `access.userStoryFlows`: шесть точных путей, 47 desktop-сцен и версия

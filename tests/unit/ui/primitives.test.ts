@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import { ApiError } from '@/shared/api'
@@ -295,17 +295,27 @@ describe('UiSheetDialog: фокус не покидает окно (F-04)', () =
 
   /** Tab, Option+Tab и Shift-варианты: окно само ведёт обход, не полагаясь на порядок браузера. */
   it('Tab и Option+Tab обходят поля и кнопки по кругу, Shift — в обратную сторону', async () => {
-    const wrapper = mount(UiSheetDialog, {
-      props: { open: true, title: 'Окно' },
-      slots: {
-        default:
-          '<input name="first" aria-label="Первое" /><input name="off" aria-label="Скрытое" disabled /><select name="second" aria-label="Второе"><option>1</option></select>',
-        footer: '<button type="button">Отмена</button><button type="button">Сохранить</button>',
-      },
-      attachTo: document.body,
-    })
+    const host = {
+      render: () =>
+        h(
+          UiSheetDialog,
+          { open: true, title: 'Окно' },
+          {
+            default: () => [
+              h('input', { name: 'first', 'aria-label': 'Первое' }),
+              h('input', { name: 'off', 'aria-label': 'Скрытое', disabled: true }),
+              h('select', { name: 'second', 'aria-label': 'Второе' }, [h('option', '1')]),
+            ],
+            footer: () => [
+              h('button', { type: 'button' }, 'Отмена'),
+              h('button', { type: 'button' }, 'Сохранить'),
+            ],
+          },
+        ),
+    }
+    const wrapper = mount(host, { attachTo: document.body })
+    await vi.waitFor(() => expect(document.querySelector('[role=dialog]')).not.toBeNull())
     await flushPromises()
-    await new Promise((resolve) => setTimeout(resolve, 30))
     const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
     const name = () => {
       const element = document.activeElement as HTMLElement

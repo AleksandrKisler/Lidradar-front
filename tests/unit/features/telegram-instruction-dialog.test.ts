@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import TelegramInstructionDialog from '@/features/connect-channel/ui/TelegramInstructionDialog.vue'
 import { GUIDE_JUMPS, GUIDE_STEPS } from '@/features/connect-channel/model/guide-steps'
@@ -16,6 +16,7 @@ describe('окно «Подробная инструкция»', () => {
       attachTo: document.body,
     })
     await flushPromises()
+    await vi.waitFor(() => expect(document.querySelector('[role=dialog]')).not.toBeNull())
     expect(GUIDE_STEPS).toHaveLength(16)
     expect(dialog().findAll('ol > li')).toHaveLength(16)
     expect(dialog().text()).toContain('Подключение бота')
@@ -35,6 +36,7 @@ describe('окно «Подробная инструкция»', () => {
       attachTo: document.body,
     })
     await flushPromises()
+    await vi.waitFor(() => expect(document.querySelector('[role=dialog]')).not.toBeNull())
     await dialog().get('#guide-step-2 button').trigger('click')
     await flushPromises()
     const titles = [...document.querySelectorAll('[role="dialog"] h2')].map(
@@ -58,6 +60,7 @@ describe('окно «Подробная инструкция»', () => {
       attachTo: document.body,
     })
     await flushPromises()
+    await vi.waitFor(() => expect(document.querySelector('[role=dialog]')).not.toBeNull())
     const back = dialog()
       .findAll('button')
       .find((button) => button.text() === 'Вернуться к подключению')!

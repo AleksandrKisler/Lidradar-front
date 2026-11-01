@@ -32,7 +32,13 @@ export function deferred() {
 /** Every settings request stays in this local mock; held requests have explicit teardown. */
 export async function settingsFixture(
   page: Page,
-  options: { empty?: boolean; longNames?: boolean; role?: 'OWNER' | 'MANAGER' } = {},
+  options: {
+    empty?: boolean
+    longNames?: boolean
+    role?: 'OWNER' | 'MANAGER'
+    sessionName?: string
+    traceId?: string
+  } = {},
 ) {
   await page.clock.setFixedTime(new Date(SETTINGS_NOW))
   await mockOwner(page, { events: 'unavailable', role: options.role })
@@ -68,7 +74,7 @@ export async function settingsFixture(
         createdAt: stamp,
         updatedAt: stamp,
       }))
-  const calls: { endpoint: Endpoint; method: string; body: unknown }[] = []
+  const calls: { endpoint: Endpoint; method: string; body: unknown; path: string }[] = []
   const failures = new Set<Endpoint>()
   const holds = new Map<Endpoint, ReturnType<typeof deferred>>()
   const json = (route: Route, body: unknown, status = 200) => route.fulfill({ status, json: body })
@@ -82,7 +88,10 @@ export async function settingsFixture(
     if (!auth) return route.fallback()
     return json(route, {
       ...auth,
-      memberships: auth.memberships.map((item) => ({ ...item, organizationName: company.name })),
+      memberships: auth.memberships.map((item) => ({
+        ...item,
+        organizationName: options.sessionName ?? company.name,
+      })),
     })
   })
   await page.route(
@@ -98,14 +107,24 @@ export async function settingsFixture(
             ? 'locations'
             : 'location'
       const body: unknown = method === 'GET' ? null : route.request().postDataJSON()
-      calls.push({ endpoint, method, body })
+      calls.push({ endpoint, method, body, path })
       const hold = holds.get(endpoint)
       if (hold) await hold.promise
       if (failures.has(endpoint))
         return json(
           route,
-          { error: { code: 'INTERNAL_ERROR', message: '', traceId: 'settings-fixture' } },
-          500,
+          {
+            error: {
+              code:
+                endpoint === 'locations' && method === 'POST'
+                  ? 'VALIDATION_ERROR'
+                  : 'INTERNAL_ERROR',
+              message: '',
+              traceId: options.traceId ?? 'settings-fixture',
+            },
+          },
+          // A definite rejection is retryable; an unknown create outcome is covered separately.
+          endpoint === 'locations' && method === 'POST' ? 400 : 500,
         )
       if (endpoint === 'company') {
         if (method === 'PATCH') Object.assign(company, body)
@@ -183,14 +202,12 @@ export async function refreshSettings(page: Page) {
 }
 
 export async function selectSettingsLocation(page: Page, id: string) {
-  const select = page.locator('#schedule-location')
-  if (await select.isVisible()) await select.selectOption(id)
-  else
-    await page
-      .getByRole('button', {
-        name: id === FIRST_LOCATION ? /Студия на Тверской.*График/ : /Студия на Арбате.*График/,
-      })
-      .click()
+  await page
+    .getByRole('list', { name: 'Список точек' })
+    .getByRole('button', {
+      name: id === FIRST_LOCATION ? 'Студия на Тверской Активна' : 'Студия на Арбате Активна',
+    })
+    .click()
 }
 
 export async function prepareSettingsScenario(
@@ -300,4 +317,67 @@ export async function prepareSettingsScenario(
     ).toBeVisible()
   }
   return fixture
+}
+
+/** Approved adaptive visual dataset; functional defaults above deliberately remain unchanged. */
+export const VISUAL_LONG_LOCATION =
+  'Студия профессионального детейлинга и комплексного ухода за автомобилями на Ленинградском проспекте — полировка кузова, защита керамикой, химчистка салона и восстановление лакокрасочного покрытия авто'
+
+export async function settingsVisualFixture(page: Page) {
+  const fixture = await settingsFixture(page, { sessionName: 'Студия «Блик»', traceId: '' })
+  const first = fixture.locations[0]!
+  first.businessHours = []
+  fixture.locations[1]!.name = 'Арбат'
+  for (const [index, name] of [
+    'Студия в Хамовниках',
+    'Студия в Сокольниках',
+    VISUAL_LONG_LOCATION,
+  ].entries()) {
+    fixture.locations.push({
+      ...structuredClone(first),
+      id: `01990000-0000-7000-8000-00000000020${index + 4}`,
+      name,
+      active: index !== 1,
+    })
+  }
+  await page.addInitScript(() => {
+    const fetchNetwork = window.fetch.bind(window)
+    window.fetch = async (input, init) => {
+      const request = input instanceof Request ? input : null
+      const url = new URL(request?.url ?? String(input), location.origin)
+      if (url.pathname !== '/api/v1/events') return fetchNetwork(input, init)
+      const signal = init?.signal ?? request?.signal
+      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(': connected\n\n'))
+            signal?.addEventListener(
+              'abort',
+              () => {
+                try {
+                  controller.close()
+                } catch {
+                  /* closed */
+                }
+              },
+              { once: true },
+            )
+          },
+        }),
+        { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } },
+      )
+    }
+  })
+  return fixture
+}
+
+/** Build the visual draft through real inputs, without changing runtime/API time defaults. */
+export async function fillSettingsVisualWeek(page: Page) {
+  for (let weekday = 1; weekday <= 6; weekday++) {
+    await page.locator(`input[name=day-${weekday}]`).check()
+    await page.locator(`input[name=opens-${weekday}]`).fill(weekday === 6 ? '10:00' : '09:00')
+    await page.locator(`input[name=closes-${weekday}]`).fill(weekday === 6 ? '18:00' : '20:00')
+  }
+  await page.locator('input[name=day-7]').uncheck()
 }

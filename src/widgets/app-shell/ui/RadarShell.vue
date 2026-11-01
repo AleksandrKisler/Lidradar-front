@@ -66,8 +66,11 @@ const contextSuffix = computed(() =>
 const realtime = useRealtimeState()
 // Preserve the former header's visible loss-of-updates warning on the newly moved modules.
 // Radar already exposes the same state through its refresh control.
-const transportWarning = computed(
-  () => realtime.value === 'offline' || realtime.value === 'backoff',
+const transportWarning = computed<boolean>(
+  (previous) =>
+    realtime.value === 'offline' ||
+    realtime.value === 'backoff' ||
+    (realtime.value === 'connecting' && previous === true),
 )
 
 const now = ref(new Date())
@@ -158,10 +161,20 @@ function onSwitched(tenantId: string): void {
       <AccountDeletionBanner />
       <main
         id="main"
-        class="flex flex-1 flex-col gap-4 px-4 pt-4 pb-6 md:gap-6 md:px-8 md:py-6 lg:px-10 lg:py-8"
+        :class="
+          ['settings-company', 'settings-services'].includes(String(route.name))
+            ? 'gap-5 pt-6'
+            : 'gap-4 pt-4'
+        "
+        class="flex flex-1 flex-col px-4 pb-6 md:gap-6 md:px-8 md:py-6 lg:px-10 lg:py-8"
       >
         <div
-          class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs leading-[18px] text-muted md:gap-x-4 lg:min-h-11 lg:gap-x-5 lg:gap-y-2"
+          :class="
+            ['settings-company', 'settings-services'].includes(String(route.name))
+              ? 'leading-5 md:max-lg:-mx-2 lg:leading-[18px]'
+              : 'leading-[18px]'
+          "
+          class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted md:gap-x-4 lg:min-h-11 lg:gap-x-5 lg:gap-y-2"
         >
           <p class="min-w-0 break-words">
             <!-- Один разделитель в тексте; шире на desktop (двойные пробелы в Figma 27:2810). -->
@@ -173,7 +186,7 @@ function onSwitched(tenantId: string): void {
           <div class="ml-auto flex flex-wrap items-center justify-end gap-x-5 gap-y-1">
             <p v-if="dateLabel">{{ dateLabel }}</p>
             <div class="hidden items-center gap-5 lg:flex">
-              <span class="h-7 w-px bg-line" aria-hidden="true" />
+              <span v-if="dateLabel" class="h-7 w-px bg-line" aria-hidden="true" />
               <p
                 class="max-w-64 truncate text-sm leading-5 font-medium text-ink"
                 :title="displayName"
@@ -205,7 +218,7 @@ function onSwitched(tenantId: string): void {
           </div>
         </div>
         <div v-if="!radarContext && transportWarning">
-          <RealtimeBadge />
+          <RealtimeBadge :warning="transportWarning" />
         </div>
         <slot />
       </main>

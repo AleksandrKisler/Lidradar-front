@@ -13,7 +13,7 @@ import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { describeError, isApiError, tenantScope } from '@/shared/api'
-import { UiAlert, UiButton, UiField, UiInput, UiSelect, UiSheetDialog } from '@/shared/ui'
+import { UiAlert, UiGlyph, UiButton, UiField, UiInput, UiSelect, UiSheetDialog } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
 import {
   CURRENCY_OPTIONS,
@@ -26,7 +26,10 @@ import {
 import { organizationSchema } from '../model/schema'
 
 const props = defineProps<{ tenantId: string; organization: Organization }>()
-const emit = defineEmits<{ saved: [organization: Organization] }>()
+const emit = defineEmits<{
+  saved: [organization: Organization]
+  status: [value: 'saving' | 'saved' | 'error' | 'dirty' | 'idle']
+}>()
 
 const session = useSessionStore()
 const queryClient = useQueryClient()
@@ -53,11 +56,25 @@ type Command = { tenantId: string; generation: number; body: UpdateOrganizationR
 let generation = 0
 onBeforeUnmount(() => {
   generation += 1
+  clearFeedback()
 })
 const isSubmitting = ref(false)
 const confirmOpen = ref(false)
 const pendingCommand = ref<Command | null>(null)
 const saved = ref(false)
+const feedback = ref<'saved' | 'error' | null>(null)
+let feedbackTimer: ReturnType<typeof setTimeout> | undefined
+function clearFeedback(): void {
+  clearTimeout(feedbackTimer)
+  feedback.value = null
+}
+function showFeedback(value: 'saved' | 'error'): void {
+  clearFeedback()
+  feedback.value = value
+  feedbackTimer = setTimeout(() => {
+    feedback.value = null
+  }, 2000)
+}
 const requestError = ref<unknown>(null)
 const sameContext = (command: Command) =>
   command.tenantId === props.tenantId && command.generation === generation
@@ -102,6 +119,7 @@ watch(
       pendingCommand.value = null
       requestError.value = null
       saved.value = false
+      clearFeedback()
       mutation.reset()
       resetOrganization(organization)
     } else if (!meta.value.dirty) {
@@ -169,18 +187,24 @@ async function confirmChanges(): Promise<void> {
 
 async function send(command: Command): Promise<void> {
   requestError.value = null
+  clearFeedback()
   try {
     await mutation.mutateAsync(command)
     if (!sameContext(command)) return
     saved.value = true
+    showFeedback('saved')
     confirmOpen.value = false
     pendingCommand.value = null
   } catch (error) {
-    if (sameContext(command)) requestError.value = error
+    if (sameContext(command)) {
+      requestError.value = error
+      showFeedback('error')
+    }
   }
 }
 
 const hasChanges = computed(() => {
+  if (!meta.value.dirty) return false
   const current = values
   return (
     current.name?.trim() !== props.organization.name ||
@@ -188,19 +212,26 @@ const hasChanges = computed(() => {
     (current.defaultCurrency ?? '').toUpperCase() !== props.organization.defaultCurrency
   )
 })
+const status = computed(() =>
+  isSubmitting.value ? 'saving' : (feedback.value ?? (hasChanges.value ? 'dirty' : 'idle')),
+)
+watch(status, (value) => emit('status', value), { immediate: true })
+watch(
+  () => JSON.stringify(values),
+  () => {
+    if (meta.value.dirty && feedback.value === 'saved') clearFeedback()
+  },
+)
 </script>
 
 <template>
-  <form
-    class="flex flex-col gap-4 max-lg:[&_label]:text-base max-lg:[&_label]:leading-6"
-    novalidate
-    @submit.prevent="onSubmit"
-  >
+  <form class="lr-of flex flex-col gap-4" novalidate @submit.prevent="onSubmit">
     <div
-      class="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1.875fr)_minmax(0,1fr)_minmax(0,1fr)] [&>div]:min-w-0"
+      class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-[1.875fr_minmax(0,1fr)_minmax(192px,1fr)] [&>div]:min-w-0"
     >
       <UiField
         v-slot="{ id, describedBy, invalid }"
+        class="md:col-span-2 lg:col-span-1"
         label="Название компании"
         label-style="compact"
         :error="errors.name"
@@ -250,26 +281,34 @@ const hasChanges = computed(() => {
         />
       </UiField>
     </div>
-    <div class="flex flex-col gap-4 lg:flex-row lg:items-center">
-      <p
-        class="min-w-0 flex-1 text-sm leading-5 text-secondary md:max-lg:text-[13px] lg:text-xs lg:leading-[18px]"
-      >
-        Валюта не пересчитывает прежние суммы. Часовой пояс используется в отчётах и уведомлениях.
+    <UiAlert
+      v-if="errorView"
+      tone="danger"
+      title="Не удалось сохранить компанию"
+      :trace-id="traceId"
+    >
+      Введённые данные остались в форме. Повторите сохранение.
+      <template #icon><UiGlyph name="circle-alert" class="size-5" /></template>
+    </UiAlert>
+    <div class="flex flex-col gap-4 md:flex-row md:items-center">
+      <p class="min-w-0 flex-1 text-xs leading-[18px] text-muted max-md:leading-4">
+        Валюта не пересчитывает прежние суммы. Часовой<br class="hidden md:block lg:hidden" />
+        пояс используется в отчётах и уведомлениях.
       </p>
       <UiButton
         type="submit"
-        class="w-full lg:w-[220px] lg:shrink-0"
+        class="w-full md:w-[220px] md:shrink-0"
+        :class="!isSubmitting ? 'disabled:bg-line disabled:text-muted disabled:opacity-100' : ''"
         :disabled="!hasChanges || confirmOpen"
         :loading="isSubmitting"
       >
-        Сохранить компанию
+        {{
+          isSubmitting ? 'Сохраняем…' : errorView ? 'Повторить сохранение' : 'Сохранить компанию'
+        }}
       </UiButton>
     </div>
 
-    <UiAlert v-if="saved" tone="success">Настройки компании сохранены.</UiAlert>
-    <UiAlert v-if="errorView" tone="danger" :title="errorView.title" :trace-id="traceId">
-      {{ errorView.description }}
-    </UiAlert>
+    <p v-if="saved" class="sr-only" role="status">Настройки компании сохранены.</p>
 
     <UiSheetDialog
       v-model:open="confirmOpen"
@@ -306,3 +345,9 @@ const hasChanges = computed(() => {
     </UiSheetDialog>
   </form>
 </template>
+
+<style>
+.lr-of :is(input, select):disabled {
+  opacity: 0.5;
+}
+</style>

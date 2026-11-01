@@ -8,9 +8,10 @@ import { computed } from 'vue'
 import { useRealtimeState } from '@/shared/api'
 
 const state = useRealtimeState()
+const props = defineProps<{ warning?: boolean }>()
 
 const view = computed(() => {
-  switch (state.value) {
+  switch (props.warning && state.value === 'connecting' ? 'backoff' : state.value) {
     case 'connecting':
       return { text: 'Подключаем обновления…', tone: 'muted' as const }
     case 'open':

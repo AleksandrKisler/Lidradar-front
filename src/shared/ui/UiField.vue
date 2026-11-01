@@ -4,11 +4,19 @@
  * управления через `id` и `aria-describedby`. Элемент управления передаётся
  * в слот и получает готовые атрибуты доступности.
  */
-import { computed, useId } from 'vue'
+import { computed, defineAsyncComponent, useId } from 'vue'
+import settingsHelp from './assets/settings-help.svg?no-inline'
+const UiTooltip = defineAsyncComponent(() => import('./UiTooltip.vue'))
 
 const props = withDefaults(
   defineProps<{
     label: string
+    labelClass?: string | undefined
+    descriptionClass?: string | undefined
+    mutedDescription?: boolean | undefined
+    help?: string | undefined
+    touchHelp?: boolean | undefined
+    helpAlignEnd?: boolean | undefined
     description?: string | undefined
     error?: string | undefined
     required?: boolean | undefined
@@ -26,6 +34,12 @@ const props = withDefaults(
   }>(),
   {
     description: '',
+    labelClass: '',
+    descriptionClass: '',
+    mutedDescription: false,
+    help: undefined,
+    touchHelp: false,
+    helpAlignEnd: false,
     error: '',
     required: false,
     labelStyle: 'default',
@@ -61,25 +75,58 @@ const describedBy = computed(() => {
       row ? 'md:grid md:grid-cols-[200px_minmax(0,1fr)] md:gap-0' : '',
     ]"
   >
-    <label
-      :for="id"
-      :class="[
-        roomy ? 'leading-[22px]' : 'leading-5',
-        row ? 'md:flex md:h-[46px] md:items-center' : '',
-        labelStyle === 'default' ? 'text-base font-medium text-ink' : 'text-sm',
-        labelStyle === 'compact' ? 'font-medium text-ink' : '',
-        labelStyle === 'muted' ? 'text-muted' : '',
-      ]"
+    <div
+      :class="help ? ['flex items-center gap-1.5', touchHelp ? 'max-md:min-h-11' : ''] : 'contents'"
     >
-      {{ label }}
-      <span v-if="required" class="text-danger" aria-hidden="true">*</span>
-    </label>
+      <label
+        :for="id"
+        :class="[
+          roomy ? 'leading-[22px]' : 'leading-5',
+          labelClass,
+          row ? 'md:flex md:h-[46px] md:items-center' : '',
+          labelStyle === 'default' ? 'text-base font-medium text-ink' : 'text-sm',
+          labelStyle === 'compact' ? 'font-medium text-ink' : '',
+          touchHelp ? 'flex-1 md:flex-initial' : '',
+          labelStyle === 'muted' ? 'text-muted' : '',
+        ]"
+      >
+        {{ label }}
+        <span v-if="required" class="text-danger" aria-hidden="true">*</span>
+      </label>
+      <UiTooltip
+        v-if="help"
+        v-slot="{ describedBy: helpId }"
+        :text="help"
+        :above="touchHelp"
+        :mobile-full="touchHelp"
+        :align-end="helpAlignEnd"
+        :width="touchHelp ? 320 : undefined"
+      >
+        <button
+          type="button"
+          :class="[
+            'inline-flex shrink-0 items-center justify-center text-xs leading-none',
+            touchHelp ? 'size-11 text-link md:size-5' : 'size-5 text-secondary',
+          ]"
+          :aria-label="`О поле «${label}»`"
+          :aria-describedby="helpId"
+        >
+          <img v-if="touchHelp" :src="settingsHelp" width="20" height="20" alt="" />
+          <span
+            v-else
+            class="inline-flex size-5 items-center justify-center rounded-full border border-current"
+            >?</span
+          >
+        </button>
+      </UiTooltip>
+    </div>
     <slot :id="id" :described-by="describedBy" :invalid="Boolean(error)" />
     <p
       v-if="showDescription"
       :id="descriptionId"
       :class="[
-        'text-secondary',
+        mutedDescription ? 'text-muted' : 'text-secondary',
+        descriptionClass,
         roomy || row ? 'text-sm leading-5' : 'text-xs',
         row ? 'md:col-start-2 md:mt-2.5' : '',
         // Макет «Принять приглашение · Ошибка»: на десктопе ошибка заменяет подсказку, на планшете и телефоне обе строки.
@@ -92,6 +139,7 @@ const describedBy = computed(() => {
       :id="errorId"
       :class="[
         'min-h-0 text-sm leading-5 text-danger',
+        descriptionClass,
         roomy ? 'empty:-mt-2.5' : 'empty:-mt-2',
         row ? 'md:col-start-2 md:mt-2.5 md:empty:mt-0' : '',
       ]"

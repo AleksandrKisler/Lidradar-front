@@ -13,7 +13,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { describeError, isApiError } from '@/shared/api'
-import { UiAlert, UiButton } from '@/shared/ui'
+import { UiAlert, UiButton, UiGlyph } from '@/shared/ui'
 import {
   WEEKDAYS,
   defaultWeek,
@@ -45,6 +45,7 @@ const emit = defineEmits<{
   saved: [location: Location]
   'update:dirty': [dirty: boolean]
   busy: [busy: boolean]
+  status: [value: 'saving' | 'saved' | 'error' | 'dirty' | 'idle']
 }>()
 
 const queryClient = useQueryClient()
@@ -58,6 +59,20 @@ const confirmed = ref<DayDraft[]>(baseline(props.location))
 const days = ref<DayDraft[]>(baseline(props.location))
 const errors = ref<Record<number, string>>({})
 const saved = ref(false)
+const feedback = ref<'saved' | 'error' | null>(null)
+let feedbackTimer: ReturnType<typeof setTimeout> | undefined
+function clearFeedback(): void {
+  clearTimeout(feedbackTimer)
+  feedback.value = null
+}
+function showFeedback(value: 'saved' | 'error'): void {
+  if (!settings.value) return
+  clearFeedback()
+  feedback.value = value
+  feedbackTimer = setTimeout(() => {
+    feedback.value = null
+  }, 2000)
+}
 
 const dirty = computed(() => !sameWeek(days.value, confirmed.value))
 watch(dirty, (value) => emit('update:dirty', value), { immediate: true })
@@ -67,11 +82,26 @@ let generation = 0
 let mounted = true
 const submitting = ref(false)
 watch(submitting, (busy) => emit('busy', busy), { flush: 'sync' })
+const status = computed(() =>
+  submitting.value
+    ? 'saving'
+    : (feedback.value ??
+      (dirty.value || (!props.location.businessHours.length && !saved.value) ? 'dirty' : 'idle')),
+)
+watch(status, (value) => emit('status', value), { immediate: true })
+watch(
+  days,
+  () => {
+    if (dirty.value && feedback.value === 'saved') clearFeedback()
+  },
+  { deep: true },
+)
 function resetDraft(): void {
   confirmed.value = baseline(props.location)
   days.value = baseline(props.location)
   errors.value = {}
   saved.value = false
+  clearFeedback()
 }
 watch(
   () => `${props.tenantId}|${props.location.id}`,
@@ -84,11 +114,18 @@ watch(
 watch(
   () => JSON.stringify(props.location.businessHours),
   () => {
-    if (!dirty.value && !submitting.value) resetDraft()
+    if (
+      !dirty.value &&
+      !submitting.value &&
+      JSON.stringify(toBusinessHoursRequest(props.location.timezone, confirmed.value)) !==
+        JSON.stringify(toBusinessHoursRequest(props.location.timezone, baseline(props.location)))
+    )
+      resetDraft()
   },
 )
 onBeforeUnmount(() => {
   mounted = false
+  clearFeedback()
   generation += 1
   emit('update:dirty', false)
   emit('busy', false)
@@ -111,6 +148,7 @@ const mutation = useMutation({
     if (!mounted || generation !== command.generation) return
     confirmed.value = command.days.map((day) => ({ ...day }))
     saved.value = true
+    showFeedback('saved')
     emit('saved', location)
   },
 })
@@ -160,6 +198,7 @@ function applyToAll(): void {
 async function submit(): Promise<void> {
   if (submitting.value) return
   saved.value = false
+  clearFeedback()
   mutation.reset()
   errors.value = validateWeek(days.value)
   if (Object.keys(errors.value).length > 0) {
@@ -177,7 +216,9 @@ async function submit(): Promise<void> {
   }
   submitting.value = true
   try {
-    await mutation.mutateAsync(command).catch(() => null)
+    await mutation.mutateAsync(command).catch(() => {
+      if (mounted && generation === command.generation) showFeedback('error')
+    })
   } finally {
     submitting.value = false
   }
@@ -201,8 +242,10 @@ defineExpose({ save })
 /** Поле времени: на телефоне и планшете крупное, на десктопе компактное (Figma «Точка и график»). */
 const timeClass = computed(
   () =>
-    'h-[46px] min-w-0 flex-1 rounded-field border border-line bg-paper px-3 text-center text-field text-ink md:flex-none lg:h-[34px] aria-invalid:border-danger disabled:text-muted [&::-webkit-calendar-picker-indicator]:hidden ' +
-    (settings.value ? 'md:w-32 lg:w-24 lg:px-3.5 lg:text-left' : 'md:w-24 lg:w-20'),
+    'h-[46px] min-w-0 flex-1 rounded-field border border-line bg-paper px-3 text-field text-ink md:flex-none lg:h-[34px] aria-invalid:border-danger [&::-webkit-calendar-picker-indicator]:hidden ' +
+    (settings.value
+      ? 'px-3.5 text-left disabled:opacity-50 lg:disabled:bg-canvas md:w-24'
+      : 'text-center disabled:text-muted md:w-24 lg:w-20'),
 )
 
 /** Ошибка порядка границ: в виде `settings` красным отмечено только поле закрытия (Figma «График · Ошибка времени»). */
@@ -234,66 +277,66 @@ const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === week
 <template>
   <form
     ref="formEl"
-    :class="['@container flex flex-col', settings ? 'settings-hours' : '']"
+    :class="['@container flex flex-col', settings ? 'lr-wh' : '']"
     novalidate
     @submit.prevent="submit"
   >
-    <p
-      v-if="settings && intro"
-      class="text-sm leading-5 text-secondary max-lg:text-base max-lg:leading-6 lg:whitespace-pre-line"
-    >
+    <p v-if="settings && intro" class="text-sm leading-5 whitespace-pre-line text-muted">
       {{ intro }}
     </p>
-    <p v-if="settings && intro" class="mt-3 text-xs leading-[18px] text-secondary md:hidden">
-      Источник — первый рабочий день.
-    </p>
-    <p v-else-if="!settings" class="text-sm leading-5 text-secondary">
+    <p v-if="!settings" class="text-sm leading-5 text-secondary">
       Время указано для выбранной точки. Для копирования используется первый рабочий день.
     </p>
-    <div
-      v-if="settings || canApplyToAll"
-      :class="[settings ? 'mt-5 lg:mt-4' : 'mt-4', !canApplyToAll ? 'hidden lg:block' : '']"
-    >
+    <div v-if="settings || canApplyToAll" class="mt-4">
       <!-- Обычная кнопка, а не UiButton: длинная подпись должна переноситься, а не раздвигать страницу. -->
       <button
         type="button"
         :class="[
-          'block max-w-full text-left disabled:cursor-not-allowed disabled:opacity-60',
+          'block max-w-full disabled:cursor-not-allowed',
           settings
-            ? 'h-[46px] px-3.5 text-field leading-5 text-secondary hover:text-ink'
-            : 'text-sm leading-5 text-link hover:underline',
+            ? 'h-16 w-full px-3 disabled:opacity-50 text-center text-field leading-5 font-medium text-muted hover:text-ink md:h-[46px] md:w-auto md:text-left'
+            : 'text-left text-sm leading-5 text-link hover:underline disabled:opacity-60',
         ]"
         :disabled="submitting || !canApplyToAll"
         @click="applyToAll"
       >
         <template v-if="settings">
-          <span class="md:hidden">Применить ко всем рабочим дням</span>
+          <span class="md:hidden">Скопировать часы<br />первого рабочего дня</span>
           <span class="hidden md:inline">Скопировать часы первого рабочего дня</span>
         </template>
         <template v-else>Применить ко всем рабочим дням</template>
       </button>
     </div>
-    <ul :class="[settings ? 'mt-5 lg:mt-4' : 'mt-5', 'flex flex-col']" aria-label="Дни недели">
+    <ul :class="[settings ? 'mt-4' : 'mt-5', 'flex flex-col']" aria-label="Дни недели">
       <li
         v-for="day in days"
         :key="day.weekday"
         :class="[
-          'border-t border-hairline',
-          submitting && settings ? 'lg:opacity-60' : '',
+          'border-t',
+          settings ? 'border-line' : 'border-hairline',
           settings
-            ? 'py-5 md:max-lg:py-[12.5px] lg:py-[9.5px]'
+            ? day.closed
+              ? 'py-[9.5px]'
+              : 'pt-2 pb-3 md:py-[9.5px]'
             : 'py-3 md:max-lg:py-[8.5px] lg:py-[5.5px]',
         ]"
       >
         <div
-          class="day-row flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between md:gap-4"
+          :class="[
+            'lr-dr flex md:flex-row md:items-center md:justify-between',
+            settings
+              ? day.closed
+                ? 'flex-row items-center gap-1'
+                : 'flex-col gap-1'
+              : 'flex-col gap-2.5 md:gap-4',
+          ]"
         >
           <label
             :class="[
-              'flex items-center pl-4 leading-6 text-ink md:flex-1',
+              'flex items-center pl-4 text-ink md:flex-1',
               settings
-                ? 'gap-3.5 text-note font-semibold lg:text-base lg:leading-[22px]'
-                : 'gap-3 text-field md:pl-0',
+                ? 'day-label min-h-[46px] gap-3.5 text-base leading-[22px] font-semibold lg:min-h-[34px]'
+                : 'gap-3 text-field leading-6 md:pl-0',
             ]"
           >
             <input
@@ -303,7 +346,7 @@ const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === week
               :checked="!day.closed"
               :disabled="submitting && !settings"
               :aria-disabled="submitting || undefined"
-              :class="submitting ? 'opacity-60' : ''"
+              :class="submitting ? (settings ? 'opacity-50' : 'opacity-60') : ''"
               @click="submitting && $event.preventDefault()"
               @change="toggle(day, ($event.target as HTMLInputElement).checked)"
             />
@@ -311,10 +354,11 @@ const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === week
           </label>
           <div
             v-if="!day.closed"
-            :class="['time-controls flex items-center gap-3 md:gap-4', settings ? 'lg:gap-3' : '']"
+            :class="['lr-tc flex items-center gap-3 md:gap-4', settings ? 'lg:gap-3' : '']"
           >
             <label
-              class="time-group flex min-w-0 flex-1 items-center gap-3 text-sm text-secondary md:flex-none"
+              class="lr-tg flex min-w-0 flex-1 items-center gap-3 text-sm md:flex-none"
+              :class="settings ? 'text-muted' : 'text-secondary'"
             >
               <span aria-hidden="true">с</span>
               <span class="sr-only">{{ labelOf(day.weekday) }}, открытие</span>
@@ -330,7 +374,8 @@ const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === week
               />
             </label>
             <label
-              class="time-group flex min-w-0 flex-1 items-center gap-3 text-sm text-secondary md:flex-none"
+              class="lr-tg flex min-w-0 flex-1 items-center gap-3 text-sm md:flex-none"
+              :class="settings ? 'text-muted' : 'text-secondary'"
             >
               <span aria-hidden="true">до</span>
               <span class="sr-only">{{ labelOf(day.weekday) }}, закрытие</span>
@@ -348,7 +393,10 @@ const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === week
           </div>
           <span
             v-else
-            class="text-sm leading-5 text-secondary md:flex md:min-h-[46px] md:items-center lg:min-h-[34px]"
+            :class="[
+              'text-sm leading-5 md:flex md:min-h-[46px] md:items-center lg:min-h-[34px]',
+              settings ? 'lr-cl ml-auto text-muted' : 'text-secondary',
+            ]"
             >Выходной</span
           >
         </div>
@@ -366,25 +414,29 @@ const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === week
       </li>
     </ul>
 
-    <UiAlert v-if="saved" class="mt-4" tone="success">График сохранён.</UiAlert>
+    <p v-if="saved && settings" class="sr-only" role="status">График сохранён.</p>
+    <UiAlert v-else-if="saved" class="mt-4" tone="success">График сохранён.</UiAlert>
     <UiAlert
       v-if="errorView"
       class="mt-4"
       tone="danger"
-      :title="errorView.title"
+      :title="settings ? 'Не удалось сохранить график' : errorView.title"
       :trace-id="traceId"
     >
-      {{ errorView.description }}
+      {{
+        settings ? 'Введённое время осталось в форме. Повторите сохранение.' : errorView.description
+      }}
+      <template v-if="settings" #icon><UiGlyph name="circle-alert" class="size-5" /></template>
     </UiAlert>
 
     <div
       v-if="!hideSubmit"
       :class="[
-        'mt-4 flex flex-wrap items-center justify-between gap-4',
-        settings ? 'lg:flex-col lg:items-stretch lg:gap-0' : '',
+        'mt-4 flex flex-wrap items-center justify-between',
+        settings ? 'hours-footer flex-col items-stretch gap-3 md:gap-0' : 'gap-4',
       ]"
     >
-      <p class="text-xs text-muted">
+      <p class="text-xs leading-[18px] text-muted">
         {{
           settings
             ? 'Сохраняется вся неделя. Один интервал в день.'
@@ -395,9 +447,14 @@ const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === week
         type="submit"
         :class="
           settings
-            ? settingsErrors
-              ? 'w-full disabled:border disabled:border-hairline disabled:bg-paper disabled:text-[#c4c4c8] disabled:opacity-100 md:w-[203px] lg:ml-auto lg:w-[220px]'
-              : 'w-full md:w-[203px] lg:ml-auto lg:w-[220px]'
+            ? [
+                'w-full md:ml-auto md:w-[220px]',
+                submitting
+                  ? ''
+                  : settingsErrors
+                    ? 'disabled:border disabled:border-line disabled:bg-paper disabled:text-[#c4c4c8] disabled:opacity-100'
+                    : 'disabled:bg-line disabled:text-muted disabled:opacity-100',
+              ]
             : ''
         "
         :disabled="
@@ -406,30 +463,37 @@ const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === week
         "
         :loading="submitting"
       >
-        {{ settings && submitting ? 'Сохраняем…' : (submitLabel ?? 'Сохранить график') }}
+        {{
+          settings && submitting
+            ? 'Сохраняем…'
+            : settings && errorView
+              ? 'Повторить сохранение'
+              : (submitLabel ?? 'Сохранить график')
+        }}
       </UiButton>
     </div>
   </form>
 </template>
 
-<style scoped>
+<style>
+.lr-wh [type='checkbox']:not(:checked) {
+  appearance: none;
+  border: 1px solid #d2d2d7;
+  border-radius: 4px;
+}
 /* Между desktop-колонками строка складывается по доступной ширине самого графика. */
 @container (max-width: 599px) {
-  .settings-hours .day-row {
+  .lr-wh .lr-dr:not(:has(.lr-cl)) {
     flex-direction: column;
     align-items: stretch;
   }
-  .settings-hours .time-controls {
-    width: 100%;
+  .lr-wh .lr-tc {
+    display: grid;
+    grid-template-columns: 8px 1fr 18px 1fr;
+    gap: 12px;
   }
-  .settings-hours .time-group {
-    flex: 1;
-    min-width: 0;
-  }
-  .settings-hours .time-group input {
-    width: 0;
-    flex: 1;
-    min-width: 0;
+  .lr-wh .lr-tg {
+    display: contents;
   }
 }
 </style>

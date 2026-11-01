@@ -13,10 +13,11 @@ withDefaults(
     /** Пиктограмма выбранного макета; семантика и цвет остаются у tone. */
     icon?: IconName | undefined
     title?: string | undefined
+    textClass?: string | undefined
     /** Идентификатор трассировки для обращения в поддержку. */
     traceId?: string | undefined
   }>(),
-  { tone: 'info', icon: undefined, title: '', traceId: '' },
+  { tone: 'info', icon: undefined, title: '', traceId: '', textClass: '' },
 )
 
 const tones = {
@@ -47,11 +48,14 @@ const titles = {
     :class="['rounded-field border px-[15px] py-[11px] text-sm leading-5', tones[tone]]"
   >
     <div class="flex items-start gap-3">
-      <UiIcon :name="icon ?? icons[tone]" :class="['size-5', titles[tone]]" />
+      <span v-if="$slots.icon" :class="['inline-flex size-5 shrink-0', titles[tone]]"
+        ><slot name="icon"
+      /></span>
+      <UiIcon v-else :name="icon ?? icons[tone]" :class="['size-5', titles[tone]]" />
       <div class="min-w-0">
-        <p v-if="title" :class="['font-medium', titles[tone]]">{{ title }}</p>
+        <p v-if="title" :class="['font-medium', titles[tone], textClass]">{{ title }}</p>
         <div :class="title ? 'mt-1' : ''"><slot /></div>
-        <p v-if="traceId" class="mt-2 text-xs text-muted">
+        <p v-if="traceId" class="mt-2 text-xs text-muted" :class="textClass">
           Идентификатор запроса: <code class="select-all">{{ traceId }}</code>
         </p>
       </div>

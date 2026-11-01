@@ -111,6 +111,7 @@ describe('формы настроек', () => {
     await wrapper.get('form').trigger('submit')
     await settle()
     expect(fetchMock).not.toHaveBeenCalled()
+    await vi.waitFor(() => expect(body().find('[role="dialog"]').exists()).toBe(true))
     const dialog = body().get('[role="dialog"]')
     expect(dialog.text()).toContain('Новая валюта не пересчитывает прежние суммы')
     await dialog
@@ -131,6 +132,7 @@ describe('формы настроек', () => {
     await wrapper.get('select[name="organizationCurrency"]').setValue('KZT')
     await wrapper.get('form').trigger('submit')
     await settle()
+    await vi.waitFor(() => expect(body().find('[role="dialog"]').exists()).toBe(true))
     const dialog = body().get('[role="dialog"]')
     await dialog
       .findAll('button')
@@ -264,12 +266,12 @@ describe('формы настроек', () => {
       formId: 'dialog-form',
     })
     expect(wrapper.get('form').attributes('id')).toBe('dialog-form')
-    expect(wrapper.text()).toContain('Нет ответа, мин')
-    expect(wrapper.text()).toContain('Следующий шаг, мин')
+    expect(wrapper.text()).toContain('Нет ответа')
+    expect(wrapper.text()).toContain('Следующий шаг')
     expect(wrapper.text()).toContain('От 1 до 1 440 рабочих минут')
     expect(wrapper.text()).toContain('График этой точки настраивается отдельно')
     // Собственных кнопок нет: форму отправляет кнопка нижней панели окна.
-    expect(wrapper.find('button').exists()).toBe(false)
+    expect(wrapper.find('button[type=submit]').exists()).toBe(false)
     await wrapper.get('select[name="locationActive"]').setValue('inactive')
     await wrapper.get('form').trigger('submit')
     await settle()

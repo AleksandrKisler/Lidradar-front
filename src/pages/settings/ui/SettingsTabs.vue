@@ -9,6 +9,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { UiSelect } from '@/shared/ui'
 import { useSessionStore, type Permission } from '@/entities/session'
 
+defineProps<{ scrolling?: boolean }>()
 const session = useSessionStore()
 const route = useRoute()
 const router = useRouter()
@@ -42,19 +43,44 @@ async function open(name: string | undefined): Promise<void> {
     document.getElementById('settings-section')?.focus()
   }
 }
+function moveFocus(event: KeyboardEvent): void {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+  const links = [...(event.currentTarget as HTMLElement).querySelectorAll<HTMLAnchorElement>('a')]
+  const index = links.indexOf(document.activeElement as HTMLAnchorElement)
+  if (index < 0) return
+  event.preventDefault()
+  const next =
+    event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? links.length - 1
+        : (index + (event.key === 'ArrowRight' ? 1 : -1) + links.length) % links.length
+  links[next]?.focus()
+}
 </script>
 
 <template>
   <div>
-    <nav aria-label="Разделы настроек" class="hidden lg:block">
-      <ul class="grid grid-flow-col auto-cols-fr">
+    <nav
+      aria-label="Разделы настроек"
+      :class="scrolling ? 'settings-tabs min-w-0 overflow-x-auto' : 'hidden lg:block'"
+      @keydown="moveFocus"
+    >
+      <ul
+        :class="
+          scrolling
+            ? 'grid min-w-[1120px] grid-flow-col auto-cols-fr gap-2'
+            : 'grid grid-flow-col auto-cols-fr'
+        "
+      >
         <li v-for="tab in tabs" :key="tab.label">
           <RouterLink v-slot="{ href, navigate, isExactActive }" :to="tab.to" custom>
             <a
               :href="href"
               :aria-current="isExactActive ? 'page' : undefined"
               :class="[
-                'flex h-[46px] w-[calc(100%-8px)] items-center justify-center rounded-control text-sm leading-5',
+                'flex h-[46px] items-center justify-center rounded-control text-sm leading-5',
+                scrolling ? 'w-full' : 'w-[calc(100%-8px)]',
                 isExactActive ? 'bg-paper font-medium text-ink' : 'text-secondary hover:text-ink',
               ]"
               @click="navigate"
@@ -65,7 +91,7 @@ async function open(name: string | undefined): Promise<void> {
         </li>
       </ul>
     </nav>
-    <div class="flex flex-col gap-2 lg:hidden">
+    <div v-if="!scrolling" class="flex flex-col gap-2 lg:hidden">
       <label for="settings-section" class="text-base leading-6 text-ink">Раздел настроек</label>
       <UiSelect
         id="settings-section"
@@ -77,3 +103,12 @@ async function open(name: string | undefined): Promise<void> {
     </div>
   </div>
 </template>
+
+<style>
+.settings-tabs {
+  scrollbar-width: none;
+}
+.settings-tabs::-webkit-scrollbar {
+  display: none;
+}
+</style>

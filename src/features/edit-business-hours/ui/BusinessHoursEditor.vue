@@ -366,6 +366,7 @@ const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === week
               <input
                 v-model="day.opensAt"
                 type="text"
+                size="5"
                 inputmode="numeric"
                 autocomplete="off"
                 placeholder="ЧЧ:ММ"
@@ -386,6 +387,7 @@ const labelOf = (weekday: number) => WEEKDAYS.find((day) => day.weekday === week
               <input
                 v-model="day.closesAt"
                 type="text"
+                size="5"
                 inputmode="numeric"
                 autocomplete="off"
                 placeholder="ЧЧ:ММ"

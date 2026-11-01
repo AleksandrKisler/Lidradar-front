@@ -127,6 +127,7 @@ const timeClass =
               <input
                 :value="placeholder ? '' : day.opensAt"
                 type="text"
+                size="5"
                 inputmode="numeric"
                 autocomplete="off"
                 :placeholder="blank ? '' : placeholder ? '--:--' : 'ЧЧ:ММ'"
@@ -146,6 +147,7 @@ const timeClass =
               <input
                 :value="placeholder ? '' : day.closesAt"
                 type="text"
+                size="5"
                 inputmode="numeric"
                 autocomplete="off"
                 :placeholder="blank ? '' : placeholder ? '--:--' : 'ЧЧ:ММ'"

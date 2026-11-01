@@ -1,16 +1,36 @@
 # Статус frontend v2
 
-## Codex · Настройки S10 → Stage RC7 · 01.11.2026 · выпуск разрешён
+## Codex · Настройки S10 · Stage RC8 опубликован · 01.11.2026
 
-Владелец принял S10 и поручил коммит и stage deploy. Production исключён.
-Runtime/tests/tooling/contracts/scripts совпадают с принятым S10; raw TEST FAIL
-по QA-S8-01 сохранён. FUNCTIONAL frontend/mock и UI всех3адаптивов PASS.
-Preflight stage exit0: RC6,backend ed577f84e992,API/миграция прежние,
-checkout чистые,7services running/health. Полный dirty backup сохранён;
-параллельные Integrations/Codex правки остаются в рабочем дереве.
-Commit/tag/CI/deploy/live smoke ещё не объявлены выполненными.
-[Отчёт выпуска](evidence/stage-release/Codex-R1/settings-s10-rc7.md),
-artifacts: `settings-notifications-team/Codex-R1/stage-rc7/`.
+По поручению владельца S10 закоммичен и выложен только на stage. Код —
+`5d026577`, docs-only format fix — `26c111ee`, annotated tag —
+`release/2026-11-01-rc8`, stage version — `ed577f84e992-w26c111ee`.
+Atomic push обычный; старые RC tags сохранены. Production не затронут.
+
+CI41344194979 raw FAIL: 921 PASS / 12 contrast FAIL / 34 SKIP / 0 flaky;
+все36 failed attempts — QA-S8-01. Quality1213unit/106files + architecture13,
+Python10, builds×3, audit и container PASS. Auto deploy SKIPPED; ручной
+stage-only helper по принятому владельцем исключению завершился exit0 с
+backup/health/disk guards. CI/tests/environment policies не менялись.
+
+Post verifier:11 checks PASS;141/141 CI prod assets равны web container.
+Backend `ed577f84e992`, API `9f9766cc4d23`, миграция000032/checksum прежние;
+7services healthy, backup создан. Runtime/tests/tooling соответствуют S10.
+Live read-only QA: exit0,45checks/15route visits/22PNG, errors0/business
+mutations0,logout204. Новые role changes/Telegram issue/persistence/delivery
+не проверялись. Общий email reminder сохранён; native «Скрыть» позволяет
+проверить canonical desktop header y32 (с banner89px исходно y121).
+
+S10 FUNCTIONAL/UI frontend/mock PASS; raw TEST FAIL сохранён. Дополнительный
+post-deploy UI: desktop PASS, tablet PASS, mobile FAIL. Подтверждён новый
+UI-RC8-01/P3: при Tab/type на390×390 поле видно целиком, но нижние4px focus
+outline clipped; на390×844 тот же ввод PASS. Follow-up exit1,12новых PNG;
+исходные40QAfiles/22PNG и runtime/tests сохранены. Это открытое замечание,
+не принятое исключение QA-S8-01. Stage сохраняет порученный S10/RC8;
+точечный fix потребует отдельного snapshot/проверок/mobile review.
+[Отчёт](evidence/stage-release/Codex-R1/settings-s10-rc7.md), artifacts:
+`settings-notifications-team/Codex-R1/stage-rc7/` (историческое имя RC7).
+Чужие Integrations/Codex изменения сохранены и в stage не попали.
 
 ## Figma · Desktop-хедеры настроек · 01.11.2026 · исправлено
 

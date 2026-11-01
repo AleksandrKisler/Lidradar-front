@@ -159,3 +159,22 @@ lockfile не менялись. Preview остановлены,4173 освобо
 Изменения и evidence сохранены для review в текущем checkout. Согласованный
 frontend/mock-объём завершён; живая интеграционная и выпускная приёмка остаются
 отдельным объёмом. Push/deploy/merge и production этим результатом не выполнялись.
+
+## Последующее поручение: S10 опубликован на stage
+
+После приёмки S10 владелец отдельно поручил коммит и stage deploy.
+Runtime commit `5d026577`, docs-only format fix `26c111ee`, annotated tag
+`release/2026-11-01-rc8`; stage version `ed577f84e992-w26c111ee`.
+Штатный stage-only helper завершился exit0 с backup/health guards;
+backend/API/миграции прежние,141CIprod files равны running web container.
+CI raw FAIL сохранён:921PASS/12contrastFAIL/34SKIP/0flaky,других CI failures нет.
+
+Live read-only smoke: exit0,45checks/15routes/22PNG,errors0/business mutations0,
+logout204. Дополнительный focus follow-up — exit1: UI-RC8-01/P3,при Tab/type
+на390×390 поле видно целиком,но нижние4px focus outline clipped;390×844 PASS.
+Независимый post-deploy visual smoke: desktop PASS,tablet PASS,mobile FAIL.
+Это новое открытое замечание,не принятое исключение QA-S8-01; исторические S10
+verdicts/inputs не переписаны,новый runtime fix в задачу публикации не внесён.
+Полные команды/exit codes,commits,snapshot,34изображения,границы и next step:
+[отчёт stage RC8](../stage-release/Codex-R1/settings-s10-rc7.md).
+Production не затронут; persistence/role mutation/реальная delivery UNVERIFIED.

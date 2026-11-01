@@ -95,7 +95,6 @@ phone `1499:26740`390×1568;66 кадров, по22 на адаптив. Кар�
 `settingsPrivacySelection.canvasCleanup`, evidence —
 `artifacts/frontend-v2/settings-polish/figma-2026-10-31/privacy-cleanup-r59/manifest.json`.
 
-
 ## Визуальное направление
 
 Спокойный рабочий web-интерфейс. Точное воспроизведение Figma, без переосмысления.

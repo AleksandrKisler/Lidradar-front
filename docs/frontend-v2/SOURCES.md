@@ -1,5 +1,12 @@
 # Источники и приоритеты
 
+Аналитика02.11.2026: два новых содержимых макета328:17122/328:17325 помещены
+в основной desktop layout C. Composed frames Обзор1606:7507(1440×1939),
+Риски и качество1606:7777(1440×2168) подготовлены к согласованию. Точная карта:
+`otherAreas[analytics].desktopLayoutComposition`; [evidence](evidence/analytics-desktop-layout-2026-11-02.md).
+Текст/геометрия контента равны исходникам, оригиналы и адаптивы сохранены. Это не запуск
+runtime и не автоматическое утверждение новых макетов.
+
 Уточнение владельца 01.11.2026: до фактического релиза соблюдать
 [DESIGN-FREEZE.md](DESIGN-FREEZE.md) и `releaseDesignFreeze` в design-index.
 Заморожены только макеты Доступа. Настройки, Аналитика и остальные разделы
@@ -157,6 +164,23 @@ Tablet/mobile и общие masters сохранены. Используй `desk
 `approvedSnapshot`. Исторический #0071E3 не является текущим эталоном этой ссылки.
 Новые25nativePNG,включая18Privacyheaderstates,и source map — в
 `artifacts/frontend-v2/account-link-color/`; [отчёт](evidence/account-link-color-2026-11-02.md).
+Интеграции01.11.2026: правки6 замечаний владельца в403:3265/403:3266,
+включая3 адаптива. Источники: единые бейджи по1393:15640 и ошибки баннерами
+по1398:16378, FirstError без переноса после иконки, Telegram без Business,
+Empty-кнопка с логотипом. `otherAreas[integrations].designCorrection` содержит
+manifest и [отчёт](evidence/integrations-design-2026-11-01.md).
+Макеты R1+R2 утверждены владельцем01.11.2026; карточки историй M04 в Figma
+синхронизированы. `designCorrection.userStoriesCanvasUpdate` и
+[отчёт](evidence/integrations-stories-2026-11-01.md) фиксируют состав и проверку.
+Канонический backend Markdown и runtime в этой задаче не менялись;
+критерии REQUIRED_NOT_VERIFIED, продуктовый verdict не присваивается.
+
+Последующее поручение01.11.2026: канонические истории в
+`Lidradar/docs/user-stories/13-channels.md` синхронизированы с этим комплектом,
+одна связанная строка J1 исправлена в30-journeys.md.41 AC, все
+REQUIRED_NOT_VERIFIED; US-M04-03/06 сохранены. Backend/API не менялись.
+Состав — `designCorrection.canonicalStoryUpdate` и
+[отчёт](../proposals/us-m04-integrations-story-update-2026-11-01.md).
 
 Access/Onboarding: approved `id` из ledger, не legacy `sourceId` из plan.
 Для согласованных 30.10.2026 US-M01-03–08 используй также

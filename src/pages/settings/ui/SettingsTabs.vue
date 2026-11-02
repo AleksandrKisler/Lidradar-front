@@ -9,7 +9,11 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { UiSelect } from '@/shared/ui'
 import { useSessionStore, type Permission } from '@/entities/session'
 
-const props = defineProps<{ scrolling?: boolean; mobileScrollOffset?: number | undefined }>()
+const props = defineProps<{
+  scrolling?: boolean
+  mobileScrollOffset?: number | undefined
+  desktopPrivacy?: boolean
+}>()
 const strip = ref<HTMLElement>()
 const session = useSessionStore()
 const route = useRoute()
@@ -33,8 +37,18 @@ const tabs = computed(() =>
 const options = computed(() => tabs.value.map((tab) => ({ value: tab.to.name, label: tab.label })))
 const current = computed(() => String(route.name ?? ''))
 async function positionActive() {
-  if (props.mobileScrollOffset === undefined || !strip.value) return
+  if (!strip.value) return
   await nextTick()
+  if (!strip.value) return
+  if (props.desktopPrivacy && props.scrolling) {
+    const active = strip.value.querySelector<HTMLElement>('[aria-current="page"]')
+    strip.value.scrollLeft = Math.min(
+      strip.value.scrollWidth - strip.value.clientWidth,
+      active ? active.offsetLeft - strip.value.offsetLeft : Infinity,
+    )
+    return
+  }
+  if (props.mobileScrollOffset === undefined) return
   const active = strip.value.querySelector<HTMLElement>('[aria-current="page"]')
   strip.value.scrollLeft =
     window.innerWidth < 768 && active
@@ -46,7 +60,7 @@ onMounted(() => {
   window.addEventListener('resize', positionActive)
 })
 onBeforeUnmount(() => window.removeEventListener('resize', positionActive))
-watch(current, positionActive)
+watch(() => [current.value, props.scrolling], positionActive)
 
 const selectKey = ref(0)
 async function open(name: string | undefined): Promise<void> {
@@ -76,7 +90,7 @@ function moveFocus(event: KeyboardEvent): void {
 </script>
 
 <template>
-  <div>
+  <div :class="desktopPrivacy ? 'min-w-0' : undefined">
     <nav
       ref="strip"
       aria-label="Разделы настроек"
@@ -84,26 +98,55 @@ function moveFocus(event: KeyboardEvent): void {
       @keydown="moveFocus"
     >
       <ul
-        :style="scrolling ? { minWidth: `${tabs.length * 188 - 8}px` } : undefined"
+        :style="
+          scrolling
+            ? {
+                minWidth: desktopPrivacy
+                  ? 'var(--privacy-tabs, 1120px)'
+                  : `${tabs.length * 188 - 8}px`,
+              }
+            : undefined
+        "
         :class="
-          scrolling ? 'grid grid-flow-col auto-cols-fr gap-2' : 'grid grid-flow-col auto-cols-fr'
+          scrolling || desktopPrivacy
+            ? 'grid grid-flow-col auto-cols-fr gap-2'
+            : 'grid grid-flow-col auto-cols-fr'
         "
       >
-        <li v-for="tab in tabs" :key="tab.label">
-          <RouterLink v-slot="{ href, navigate, isExactActive }" :to="tab.to" custom>
+        <li v-for="tab in desktopPrivacy ? allTabs : tabs" :key="tab.label">
+          <RouterLink
+            v-if="tab.permission === null || session.can(tab.permission)"
+            v-slot="{ href, navigate, isExactActive }"
+            :to="tab.to"
+            custom
+          >
             <a
               :href="href"
+              :style="desktopPrivacy && scrolling ? { outlineOffset: '-2px' } : undefined"
               :aria-current="isExactActive ? 'page' : undefined"
               :class="[
                 'flex h-[46px] items-center justify-center rounded-control text-sm leading-5',
-                scrolling ? 'w-full' : 'w-[calc(100%-8px)]',
-                isExactActive ? 'bg-paper font-medium text-ink' : 'text-secondary hover:text-ink',
+                scrolling || desktopPrivacy ? 'w-full' : 'w-[calc(100%-8px)]',
+                desktopPrivacy ? 'font-medium' : '',
+                isExactActive
+                  ? 'bg-paper font-medium text-ink'
+                  : desktopPrivacy
+                    ? 'text-muted hover:text-ink'
+                    : 'text-secondary hover:text-ink',
               ]"
               @click="navigate"
             >
               {{ tab.label }}
             </a>
           </RouterLink>
+          <span
+            v-else
+            role="link"
+            aria-disabled="true"
+            title="Раздел недоступен в текущей роли"
+            class="flex h-[46px] items-center justify-center rounded-control text-sm leading-5 font-medium text-muted"
+            >{{ tab.label }}</span
+          >
         </li>
       </ul>
     </nav>

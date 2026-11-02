@@ -30,6 +30,7 @@ import { accountInitials } from '../model/account'
 import RadarNav from './RadarNav.vue'
 import RealtimeBadge from './RealtimeBadge.vue'
 import { isSectionCurrent } from '../model/navigation'
+import privacyMenu from './assets/privacy-menu.svg?no-inline'
 
 const emit = defineEmits<{
   loggedOut: [result: { confirmed: boolean }]
@@ -39,6 +40,7 @@ const emit = defineEmits<{
 const session = useSessionStore()
 const route = useRoute()
 const menuOpen = ref(false)
+const privacy = computed(() => route.name === 'settings-privacy')
 
 const settingsCurrent = computed(() => isSectionCurrent('/settings', false, route.name))
 const redesignedSettings = computed(() =>
@@ -97,7 +99,7 @@ function onSwitched(tenantId: string): void {
     <!-- Правое поле 23 px + рамка 1 px: содержимое 192 px, как в Figma 27:2766. -->
     <aside
       :class="
-        redesignedSettings
+        redesignedSettings || route.name === 'settings-privacy'
           ? 'lg:min-h-dvh lg:self-stretch'
           : 'lg:sticky lg:top-0 lg:h-dvh lg:self-start lg:overflow-y-auto'
       "
@@ -127,7 +129,8 @@ function onSwitched(tenantId: string): void {
             aria-haspopup="dialog"
             @click="menuOpen = true"
           >
-            <UiIcon name="menu" class="size-6" />
+            <img v-if="privacy" :src="privacyMenu" alt="" width="20" height="20" />
+            <UiIcon v-else name="menu" class="size-6" />
           </button>
           <p class="flex h-8 items-center gap-2 text-xl leading-7 font-semibold text-ink">
             <UiIcon name="radar" class="size-7" />LidRadar
@@ -169,21 +172,23 @@ function onSwitched(tenantId: string): void {
       <AccountDeletionBanner />
       <main
         id="main"
-        :class="
-          redesignedSettings
+        :style="privacy ? { paddingBottom: '32px' } : undefined"
+        :class="[
+          privacy ? 'md:px-6' : 'md:px-8',
+          redesignedSettings || privacy
             ? 'gap-6 pt-6 lg:pt-8'
             : ['settings-company', 'settings-services'].includes(String(route.name))
               ? 'gap-5 pt-6 lg:py-8'
-              : 'gap-4 pt-4 lg:py-8'
-        "
-        class="flex flex-1 flex-col px-4 pb-6 md:gap-6 md:px-8 md:py-6 lg:px-10"
+              : 'gap-4 pt-4 lg:py-8',
+        ]"
+        class="flex flex-1 flex-col px-4 pb-6 md:gap-6 md:py-6 lg:px-10"
       >
         <div
           :class="[
             ['settings-company', 'settings-services'].includes(String(route.name))
               ? 'leading-5 md:max-lg:-mx-2 lg:leading-[18px]'
               : 'leading-[18px]',
-            redesignedSettings ? 'hidden lg:flex' : 'flex',
+            redesignedSettings || privacy ? 'hidden lg:flex' : 'flex',
           ]"
           class="flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted md:gap-x-4 lg:min-h-11 lg:gap-x-5 lg:gap-y-2"
         >

@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from 'reka-ui'
 import UiIcon from './UiIcon.vue'
+import privacyClose from './assets/privacy-close.svg?no-inline'
 import { useDialogReturnFocus } from './dialog-return-focus'
 import { keepTabInside } from './UiDialog.vue'
 
@@ -51,6 +52,10 @@ const props = withDefaults(
     settingsRedesign?: boolean | undefined
     /** R54 header center is 8px below notification dialogs, without moving the body. */
     teamRedesign?: boolean | undefined
+    /** R57 Privacy: full-screen mobile and the accepted centered wide sheet. */
+    privacyDesktop?: boolean | undefined
+    /** Wide Privacy geometry; its mobile sheet uses the same content and command model. */
+    privacyWide?: boolean | undefined
     contentHeight?: number | undefined
     footerInset?: number | undefined
     returnFocus?: (() => HTMLElement | null) | undefined
@@ -78,6 +83,8 @@ const props = withDefaults(
     returnFocus: undefined,
     success: false,
     successHeight: 575,
+    privacyDesktop: false,
+    privacyWide: false,
   },
 )
 
@@ -131,7 +138,11 @@ function guard(event: Event): void {
         v-if="overlay"
         class="fixed inset-0 z-40 bg-black/[.17]"
         :style="
-          entityForm || settingsRedesign ? { backgroundColor: 'rgb(29 29 31 / 18%)' } : undefined
+          privacyDesktop
+            ? { backgroundColor: 'rgb(0 0 0 / 24%)' }
+            : entityForm || settingsRedesign
+              ? { backgroundColor: 'rgb(29 29 31 / 18%)' }
+              : undefined
         "
         @click="entityForm && dismissible && (open = false)"
       />
@@ -162,6 +173,8 @@ function guard(event: Event): void {
           '--ss-h': `${successHeight}px`,
           '--vh': viewport[0],
           '--vt': viewport[1],
+          borderRadius: privacyDesktop ? (privacyWide ? '16px' : '0') : undefined,
+          boxShadow: privacyDesktop ? 'none' : undefined,
         }"
         @escape-key-down="guard"
         @interact-outside="guard"
@@ -170,13 +183,20 @@ function guard(event: Event): void {
         @keydown.capture="keepTabInside"
       >
         <header
+          :style="
+            privacyDesktop
+              ? { alignItems: 'flex-start', padding: privacyWide ? '16px 24px 0' : '16px' }
+              : undefined
+          "
           :class="[
             settingsRedesign
               ? [
                   'flex shrink-0 items-center justify-between gap-3 pl-4 md:h-[78px] md:pl-6',
                   teamRedesign
                     ? 'h-[70px] pt-2 pr-4 md:pt-4 md:pr-6'
-                    : 'h-16 pr-[7px] md:pr-[15px]',
+                    : privacyDesktop
+                      ? 'md:h-[78px]'
+                      : 'h-16 pr-[7px] md:pr-[15px]',
                 ]
               : formLayout
                 ? 'flex h-16 shrink-0 items-center justify-between gap-4 pl-4 pr-[7px] md:h-auto md:px-8 md:pt-8'
@@ -196,9 +216,22 @@ function guard(event: Event): void {
             ]"
             >{{ title }}</DialogTitle
           >
+          <DialogDescription v-if="privacyDesktop" class="sr-only">{{
+            description
+          }}</DialogDescription>
           <DialogClose
             v-if="dismissible || formLayout"
             :disabled="!dismissible"
+            :style="
+              privacyDesktop
+                ? {
+                    boxSizing: 'border-box',
+                    padding: 0,
+                    margin: 0,
+                    opacity: dismissible ? undefined : 0.35,
+                  }
+                : undefined
+            "
             :class="[
               'flex shrink-0 items-center justify-center rounded-full text-muted hover:text-ink',
               formLayout
@@ -210,12 +243,14 @@ function guard(event: Event): void {
             aria-label="Закрыть"
           >
             <UiIcon
+              v-if="!privacyDesktop"
               name="close"
               :class="formLayout ? 'size-7 rounded-full bg-segment p-1' : 'size-5'"
             />
+            <img v-else :src="privacyClose" alt="" width="28" height="28" />
           </DialogClose>
           <DialogDescription
-            v-if="description && !descriptionInBody"
+            v-if="description && !descriptionInBody && !privacyDesktop"
             class="col-span-full row-start-2 text-sm text-secondary md:col-span-1 md:col-start-2"
             >{{ description }}</DialogDescription
           >
@@ -270,7 +305,7 @@ function guard(event: Event): void {
             settingsRedesign
               ? {
                   paddingInline: footerInset !== undefined ? `${footerInset}px` : undefined,
-                  paddingBottom: !teamRedesign ? '18px' : undefined,
+                  paddingBottom: privacyDesktop ? '16px' : !teamRedesign ? '18px' : undefined,
                 }
               : undefined
           "
@@ -290,6 +325,11 @@ function guard(event: Event): void {
         >
           <p v-if="$slots.note" class="text-xs text-secondary"><slot name="note" /></p>
           <div
+            :style="
+              privacyDesktop
+                ? { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }
+                : undefined
+            "
             :class="[
               settingsRedesign
                 ? 'flex w-full flex-col-reverse gap-3 md:flex-row md:[&>*]:flex-1'

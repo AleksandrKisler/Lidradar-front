@@ -22,6 +22,7 @@ export {
 } from './date-time'
 export { maskPhone, maskEmail } from './privacy'
 export { formatBytes } from './files'
+export { useMediaQuery } from './use-media-query'
 export { saveBlob, safeFilename } from './download'
 export { sanitizeReturnPath } from './return-path'
 export { readFragmentToken, ACCOUNT_TOKEN_PATTERN } from './fragment-token'

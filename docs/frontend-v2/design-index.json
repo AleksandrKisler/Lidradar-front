@@ -2463,12 +2463,99 @@
     {
       "area": "analytics",
       "sources": "analytics-2026-10-25/DELIVERY.md",
-      "selection": "Resolve exact current frame from final ledger; preserve business contracts."
+      "selection": "Resolve exact current frame from final ledger; preserve business contracts.",
+      "desktopLayoutComposition": {
+        "date": "2026-11-02",
+        "status": "composed-pending-owner-approval",
+        "scope": "Two new analytics content designs placed in the main Desktop C layout;1440px=240px sidebar+1200px unchanged content. No runtime or adaptive approval implied.",
+        "pageNodeId": "299:12337",
+        "sectionNodeId": "328:17078",
+        "overview": {
+          "sourceNodeId": "328:17122",
+          "frameNodeId": "1606:7507",
+          "frameSize": [1440, 1939]
+        },
+        "risksAndQuality": {
+          "sourceNodeId": "328:17325",
+          "frameNodeId": "1606:7777",
+          "frameSize": [1440, 2168]
+        },
+        "sidebarSourceNodeId": "27:2766",
+        "validation": "Primary inspected both final native PNG; content text and geometry equal to sources, PNG crops differ by2/11 pixels (exact equality not claimed); source fingerprints unchanged. Shared masters and existing adaptives preserved.",
+        "manifest": "artifacts/frontend-v2/analytics-desktop-layout-2026-11-02/manifest.json",
+        "evidence": "docs/frontend-v2/evidence/analytics-desktop-layout-2026-11-02.md"
+      }
     },
     {
       "area": "integrations",
       "sources": "integrations-2026-10-25/states/README.md",
-      "selection": "Resolve exact current frame from final ledger; preserve business contracts."
+      "selection": "Resolve exact current frame from final ledger; preserve business contracts.",
+      "designCorrection": {
+        "id": "N-INTEGRATIONS-DESIGN-01",
+        "date": "2026-11-01",
+        "status": "approved",
+        "areaNodeId": "403:3265",
+        "localResultsNodeId": "403:3266",
+        "sourceComponentSetId": "401:4587",
+        "panelComponentSetId": "401:4588",
+        "statusReferenceId": "1393:15640",
+        "bannerReferenceId": "1398:16378",
+        "errorBannerComponentId": "1539:4226",
+        "telegramButtonComponentId": "1539:4227",
+        "iconCorrection": {
+          "revision": "R2",
+          "date": "2026-11-01",
+          "story": "US-M04-04",
+          "status": "approved",
+          "nodes": ["404:4301", "404:4405", "404:4510"],
+          "property": "Показать значок ошибки#1549:0",
+          "scope": "Restore 20px exclamation icon before CheckError banner text; preserve card dimensions and button layout.",
+          "manifest": "artifacts/frontend-v2/integrations-design-2026-11-01/icon-fix-r2/manifest.json"
+        },
+        "adaptives": ["desktop", "tablet", "mobile"],
+        "scope": "Whole status badges; FirstError icon and text side by side; CheckError and SourceError banners above actions; no Telegram Business copy; Empty connect button with Telegram logo.",
+        "manifest": "artifacts/frontend-v2/integrations-design-2026-11-01/manifest.json",
+        "evidence": "docs/frontend-v2/evidence/integrations-design-2026-11-01.md",
+        "runtimeChanged": false,
+        "ownerApproval": "approved",
+        "approvedAt": "2026-11-01",
+        "approvedRevision": "R1 + R2",
+        "approvalManifest": "artifacts/frontend-v2/integrations-story-update-2026-11-01/manifest.json",
+        "approvedFingerprints": [
+          { "id": "403:3265", "nodes": 4019, "fnv1a32": "40a13548" },
+          { "id": "403:3266", "nodes": 845, "fnv1a32": "fd8665b9" }
+        ],
+        "userStoriesCanvasUpdate": {
+          "date": "2026-11-01",
+          "pageId": "689:3915",
+          "moduleId": "689:3926",
+          "status": "updated-to-approved-designs",
+          "updatedStoryIds": ["US-M04-01", "US-M04-02", "US-M04-04", "US-M04-05"],
+          "updatedCardIds": ["691:4209", "691:4219", "691:4239", "691:4249"],
+          "rulesPreservedStoryIds": ["US-M04-03", "US-M04-06"],
+          "allCardMetadataUpdated": true,
+          "criteriaStatus": "REQUIRED_NOT_VERIFIED",
+          "canonicalBackendMarkdownChanged": false,
+          "manifest": "artifacts/frontend-v2/integrations-story-update-2026-11-01/manifest.json",
+          "evidence": "docs/frontend-v2/evidence/integrations-stories-2026-11-01.md"
+        },
+        "canonicalStoryUpdate": {
+          "date": "2026-11-01",
+          "status": "documentation-updated",
+          "source": "Lidradar/docs/user-stories/13-channels.md",
+          "relatedSource": "Lidradar/docs/user-stories/30-journeys.md (J1 step 4 only)",
+          "updatedStoryIds": ["US-M04-01", "US-M04-02", "US-M04-04", "US-M04-05"],
+          "preservedStoryIds": ["US-M04-03", "US-M04-06"],
+          "criteriaCount": 41,
+          "newCriteriaCount": 21,
+          "criteriaStatus": "REQUIRED_NOT_VERIFIED",
+          "sourceSHA256": "ab44a972bdf877746a30ef56ca60d00bd652debe2ea1cae4184ceb864346a0e6",
+          "backendCodeChanged": false,
+          "apiChanged": false,
+          "manifest": "artifacts/frontend-v2/integrations-backend-stories-2026-11-01/manifest.json",
+          "evidence": "docs/proposals/us-m04-integrations-story-update-2026-11-01.md"
+        }
+      }
     },
     {
       "area": "settings",

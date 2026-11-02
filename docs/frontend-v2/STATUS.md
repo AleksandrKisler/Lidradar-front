@@ -1,5 +1,291 @@
 # Статус frontend v2
 
+## Codex · Settings Privacy · final R6 · 02.11.2026 · frontend/mock ПРИНЯТО
+
+Третий этап US-M14-01/02/04/07 завершён: mobile390 и финальная приёмка трёх размеров.
+Независимый TEST PASS, отдельный FUNCTIONAL PASS; UI desktop PASS22/tablet PASS22/
+mobile PASS22 против approved Figma и owner exception нижней Account#005BB5.
+Все66entries и40extras оценены, direct/reuseSHA метод раскрыт в R6/ui/report.md
+иviewed-images.json; исторический desktopR7 UNVERIFIED не переписан задним числом.
+
+Snapshot1680inputs/837git-visible,branchfrontend/v2-implementation,
+HEADc59bce88a64a596f3b3d2f0fb760105308cb193e,
+manifestSHA d0097014d85604924bc6436488a10f32715ef2c1697c25907e4089f1e44e6238.
+Check1260unit/109files,builddev/preprod/prod/audit exit0;fullstrict1368PASS40SKIP/
+1408attempts,0initialfail/retry/flaky. JS905560≤905600,CSS71967≤72000.
+FUNCTIONAL20controlled +6fallback PASS, MOBILE-R2-QA-01(rotation visibility) и
+MOBILE-R4-QA-01(enabled confirm/backgroundGET) CLOSED наR6. ResyncfindingCLOSEDR2
+сохранён, historicalAnalyticsR4-QA-01 OPEN/cause-datingUNVERIFIED.
+
+Все before/after TEST/FUNCTIONAL/UI coreguards0/drift[]1680/837;UIseal6SHA
+b7e0689e24474f8188c3e28f34c697a74a8d7a53dc5a068b385bdd627211de55 также0/drift[].
+QA/UI освободили locks и4173. После release ведущий обновил только STATUS и finalhandoff;
+дваmetadata delta/1678unchanged inputs объявлены в R6/post-review-metadata.json.
+Чужие source/tests/untracked/Analyticsmetadata и все прежние FAIL/evidence сохранены,
+819entryprotected/97oldFigma inputs unchanged;source-map/экспорты старых этапов прежние.
+
+Handoff:artifacts/frontend-v2/settings-privacy-redesign/final/handoff.md;
+reports/source/actual/diff/manifest в mobile/R6. Только frontend/mock acceptance:
+realstageconsent/export/prod NOTRUN;realZIPcontents/manifest/audit/retention/dataset
+effects/nativeWebKitpinch/toolbarzoom/useracceptance UNVERIFIED. Ни API/generated/
+backend/legal/deps/lockfile,ниpush/deploy/merge не менялись/не выполнялись.
+Реализация общая для всех размеров; следующий шаг — пользовательская оценка frontend.
+
+## Codex · Settings Privacy · R6 · 02.11.2026 · приёмка возобновлена
+
+Пользователь явно разрешил повтор локальных check/Playwright после двух deadline
+автоматической проверки разрешений. R5 checkpoint при входе:1691inputs/837git-visible,
+SHA b0c46595d569e6c518368fba50b4036b30eeb4b5bc8a915654532a934c927eb2, drift[].
+Branch/HEAD прежние. Новых source/test изменений после checkpoint нет.18addressed
+heldGET/retry cases all3 browser PASS без повторов. Исходный workspaceconsentcase
+повторяется отдельно. Далее fresh capture/native proof и новый immutable R6,
+все обязательные gates → independent TEST → FUNCTIONAL → UI66. Текущий PASS всего
+этапа ещё не заявлен; прежний R5 checkpoint и все FAIL/блокировки сохранены.
+Права/API/guard predicate/команды не переписаны: R5 UI disabled использует тот же guard.
+Реальные stageconsent/export и production не разрешены и не выполняются.
+
+## Codex · Settings Privacy · R5 checkpoint · 02.11.2026 · НЕ ПРИНЯТО
+
+US-M14-01/02/04/07: mobile реализован, финальная приёмка трёх размеров не завершена.
+R4 strict CI:1355PASS1FLAKY40SKIP/exit1, все1654inputs/837git-visible guards чистые.
+MOBILE-R4-QA-01: WebKit enabled confirm click совпал с фоновым GET; существующий
+blocked guard молча запретил POST. Ведущий воспроизвёл heldGET (button incorrectly
+enabled), переиспользовал ТОЧНО тот же predicate в handler и disabled. API/guards/
+команды/cache не переписаны. Добавлены4E2E grant/revoke×390/1280; mobilefile42cases.
+Первый after-target12PASS6FAIL только из-за нового exact badge expectation без✓;
+исправлено на существующее«✓ Действует», rawFAIL/inputs сохранены, rerun ещё не прошёл.
+
+R5 addressunit43PASS/3files,format/lint0,builddev/preprod/prod/audit0;
+JS905560≤905600/CSS71967≤72000. Checkdefault иCI1:EMFILE наwatcher; polling check
+не ослаблял rules, но завершилсяFAIL(stage-proxy listenEPERM/13notrun иParis timeout).
+Дважды automatic permission approval review timed out до запуска локального
+Playwright; разрешённый повтор использован. Default sandbox:listenEPERM4173.
+Browser rerun/capture/TEST/FUNCTIONAL/UI66 BLOCKED/UNVERIFIED, PASS не заявлен.
+Нужна guidance/explicit approval для повторного локального запуска после восстановления
+проверки разрешений. Код/тесты/прошлыеFAIL/чужая Analyticsmetadata сохранены, locks свободны.
+Checkpoint:mobile/R5/checkpoint-manifest.json; состояние и причины — final/handoff.md
+иmobile/R5/execution-blocker.md. Реальные stageconsent/export/prod запрещены иNOTRUN.
+Все старые desktop/tablet/mobile reports и источники остаются историческими evidence.
+
+## Codex · Settings Privacy · final R4 · 02.11.2026 · подготовка
+
+US-M14-01/02/04/07: mobile реализован, независимая приёмка продолжается.
+R3 выполнил check1260unit/build3/audit0/fullstrict1356PASS40SKIP0retry и
+rotation target12PASS, но immutable TEST/FUNCTIONAL BLOCKED: внешняя работа
+Analytics в09:29:24UTC изменила SOURCES/STATUS/design-index и добавила evidence,
+inventory837 вместо836. Код/tests/contracts/tooling и Privacy selection неизменны.
+Полные guards/delta/timeline/старые и новые docs сохранены в mobile/R3/qa;
+R3 не получил snapshot PASS, FUNCTIONAL/UI не принимались, QA освободил locks/4173.
+
+Чужие Analytics изменения сохранены. R4 включает их в новый manifest; ведущий
+повторяет capture/native proof и mandatory gates, затем TEST→FUNCTIONAL→UI66.
+Прежние R1 resync FAIL и R2 rotation focus FAIL сохранены; адресные fixes и
+регрессии входят в общий runtime. На R3 независимый rotation target12/12PASS,
+но окончательное закрытие visibility finding требует FUNCTIONAL на новом R4.
+Только нижняя Account ссылка #005BB5 имеет явное owner exception. Реальные
+stage mutations/export, production, backend/API/generated/legal/deps/push/deploy/
+merge не выполняются. Итоговый handoff: settings-privacy-redesign/final/handoff.md.
+Inputs будут заморожены до явного release QA/UI; текущий финальный PASS не заявлен.
+
+## Codex · Аналитика · desktop layout C · 02.11.2026
+
+По поручению владельца новые content328:17122/328:17325 помещены в основной
+desktop layout C: Обзор1606:7507(1440×1939), Риски и качество1606:7777(1440×2168).
+Sidebar240 + content1200, активна Аналитика. Исходники, текущие tablet/mobile,
+shared masters/styles/variables сохранены; fingerprint5/5 unchanged. Оба финальных
+native PNG просмотрены; текст/геометрия контента равны источникам. PNG diagnostic:
+2/11 отличающихся пикселей; точное pixel equality не утверждается.
+Новые макеты подготовлены к согласованию; runtime TEST/FUNCTIONAL/browser UI
+не запускались, общий UI UNVERIFIED. Branchfrontend/v2-implementation/
+HEADc59bce88a64a596f3b3d2f0fb760105308cb193e и чужой dirty tree сохранены.
+Manifest:artifacts/frontend-v2/analytics-desktop-layout-2026-11-02/manifest.json;
+[evidence](evidence/analytics-desktop-layout-2026-11-02.md). US-M13-01–04 references,
+без изменения правил. Следующий шаг: решение владельца по двум desktop frames.
+
+## Codex · Settings Privacy · mobile · 02.11.2026 · интеграция третьего этапа
+
+US-M14-01/02/04/07: mobile390 и итоговая приёмка всех66frames разрешены новым
+поручением. Branchfrontend/v2-implementation/HEADc59bce88a64a596f3b3d2f0fb760105308cb193e
+сохранены; entry835tracked/untracked архивированы в mobile/baseline. Сверка
+tabletR4: только2 объявленных reportmetadata отличаются,1147inputs unchanged.
+DesktopR7 differences полностью объяснены tabletR4+его объявленной metadata.
+Чужие исходники/untracked/старые evidence/source-map/экспорты сохранены.
+
+Прочитаны актуальные правила/обаhandoff, применён figma-design-to-code.
+Новый read-only Figma sessiond10a6633-de6b-4e1e-9b9c-d3b05d04d31f,22 exact
+mobilecontexts/nativePNG+4SVG/SHA в mobile/figma/source-map.json. Source22
+изображения просмотрены ведущим; APItimeouts сохранены, retryуспешны.
+Меню20/close28 byteequalexistingreuse,brand/cog existing28/20. Figma не правилась.
+
+Runtime владеет ведущий: SettingsPrivacyPage reuseSettingsPageHead20/28mobile,
+32/40wide, localtabs1000/1120/activecap320, cards16/20–28/legal1col; RadarShell
+Privacy appbar64/mainx16/content358/hiddencontext/pb32; ConsentControls один
+UiSheetDialog/model/command для всехразмеров, mobilefullscreen/headerbodyfooter,
+equal173actions; ExportOrganizationCard fullwidthmobile/busystyle. Shared
+UiSheetDialog только Privacyoptin/privateprivacyWide, defaultsAccess прежние.
+API/model/guards/cachekeys/businesshandlers/legal/deps не менялись.
+
+Предварительно capture77/77PASS:44desktop/tabletcanonical PNG byteequalR4,
+13/14main naturalheightsexactmobile; revoke-saved18px ниже source из-за
+dynamicactor «Вы» вместо длинногоFigmaимени, не layoutpadding. Unit40/4PASS,
+typecheck0. P1CSSFAIL72094/72000 иP2JSFAIL905771/905600 сохранены сinputsarchives;
+P3 корректно reuseexistingresponsiveclasses безновыхCSS/MQL:preprodJS905481,
+CSS71967, budgets0/прежние. LintprivacyWide default warning найден/исправляется,
+rawсохранён. Никакие бюджеты/assertions/baselines не ослаблялись.
+
+Worker владеет только новым tests/e2e/settings-privacy-mobile.spec.ts(34cases).
+MobileR1strict102scheduled:94PASS4FAIL4CDP-SKIP0flaky/8retries,exit1. Finding:
+longtracealertoverflow×3engine, nativepinchChromiumscale2достигнут,ноclosefocus
+заvisualedge. Rootправит Privacyoptin overflow-wrap/defaultprop, workerготовит
+bounded nativekeyboard/pan diagnostic безruntimeправок; порт4173покаroot.
+Остальные14main/6dialogs/short390×390/landscape/text200/reflow/touch/legalPASS
+вэтом авторскомtarget, это не финальныйQA/PASS. Raw worker/R1 сохранён.
+
+Владелец отдельно явно согласовал #005BB5 для нижней «Открыть аккаунт»
+(mobile/owner-decision.md), исключение применяется к финальному66frame UI;
+исторические R7/R4reports не переписываются. Прежний AnalyticsR4-QA-01OPEN
+unknowncause/dating, новые cleanruns не waiver. Финальный snapshot/mandatory
+check/build3/audit/fullstrictmatrix → independentTEST→FUNCTIONAL→UI66 ещё
+предстоят. Нет доказательстваUNVERIFIED. Stageconsent/export/prod/backend/API/
+generated/migrations/legal/Figma/deps/push/deploy/merge вне задачи. Итоговый
+handoff будет settings-privacy-redesign/final/handoff.md, mobile не завершён.
+
+Продолжение P4: Privacy-only overflow-wrap исправил longtrace, privacyWide:false
+закрыл lintwarning. Buildpreprod/bundle/lint0:JS905526/CSS71967. Boundedpinchprobe
+подтвердил: programmaticfocus не pan, нативныйShiftTab/Tabдаётцелыйring приscale2;
+исходныйprobeFAIL сохранён. FreshworkerR2strict98PASS4CDP-SKIP0FAIL/flaky/retry,
+8inputs guard unchanged;testfileownership/4173 переданы ведущему. Старыйtarget
+179PASS2FAIL2SKIP:толькоустаревший mobilebusycloseexpectedcount0. Поsource
+проверяется visible+disabled во всехразмерах,affected6/6PASS,бизнесassertions
+сохранены. Финальныйcapture77+nativeproof/diff66/snapshotR1 готовятся, затем
+всеmandatorygates/independentQA/UI66 заново, PASS пока не предполагается.
+
+Формальный mobileR1:1570inputs/836git-visible,SHA
+78f0bb2b64269b644e2abbd60e94d2cc05292284c17c17931a19d6ff96edb8d6.
+TESTFAIL:check1258/build3/audit0,target16PASS2SKIP,fullstrict1343PASS1FLAKY40SKIP
+(mobileconversationcursoroldercancelled,30stimeout/retry1PASS). Все243Privacy
+cases first-attemptPASS6CDPSKIP. FUNCTIONALBLOCKED/UI NOT RUN. Это новый
+MobileR1-QA-01,не historicalAnalytics. Bounded3PASSтолькоnonreproduction.
+Before/after1570guardбезdrift,QA RELEASE inputs/4173. Raw/report/snapshotR1
+не переписаны. Trace+sourceуказалиonResync tenantinvalidate defaultcanceltrue.
+
+Дляобязательногогейта ведущий добавиладресныйshared frontendfix только
+src/app/config/realtime.ts:cancelRefetch:false наresync,каксуществующийsafety
+refresh; API/ключи/tenantfilter/businesscommands/модели не менялись. Новые2unit
+cases(RECONNECTED/BUFFER_OVERFLOW)сheldnextpage воспроизвелиabort доfix(2FAIL),
+послеfix14realtimetestsPASS:olderpageсохраняется,15ssafetyобновляетвсестраницы,
+другойtenantнеперечитывается. Тесты tests/unit/app/realtime.test.ts;исходный
+browsercaseне ослаблялся. ПодготовкаR2:отдельныеfreshcapture/diff66,новыйfreeze
+иВСЕmandatorygates/TEST→FUNCTIONAL→UI66 заново. HistoricalAnalyticsOPENбезwaiver.
+
+R2frozen1580/836SHAa7a62afa53ba0d4e43c139504fe1a2e90c48778752d22c6c17d716b31dce2142:
+TESTPASS1344PASS40SKIP0failed/flaky/retry,check1260/build3/audit0. Новая
+FUNCTIONALFAIL MOBILE-R2-QA-01/P2:portrait390844openGrant→667375stable→500+GET500
+→Escapeфокусrecoveryприnormalzoom1,ноtargety563..609нижеviewport375вChromium/
+WebKit. R1resyncfindingCLOSEDR2,AnalyticsOPEN. R2guard1580безdrift/releaseполный;
+raw/probe/reportнеправились,UIBLOCKED. Ведущийдобавил4newmobilecases(grant/revoke
+×Escape/Cancel)сfullviewport/ring/1mutation/Enterrecovery;before1FAILreproduced,
+after12/12PASSall3. Shared dialog-return-focus.ts теперьпозволяетнативныйfocus
+scrollвместоpreventScroll:true,прочаялогикавыбораtarget/guardsпрежняя. Newmobile
+38cases. ПодготовкаR3сfresh66/полнымиgate/независимойприёмкойзаново;PASSещёнет.
+
+## Codex · Settings Privacy · tablet · 02.11.2026 · R4 принят
+
+Второй этап US-M14-01/02/04/07 завершён: TEST PASS → FUNCTIONAL PASS → UI PASS.
+Tablet834 принят по всем22 approved Figma кадрам. Desktop22 — regression против
+принятого новым поручением runtimeR7; mobile2 — working baseline regression,
+мобильный redesign не принят и автоматически не запускался. Existing sharedfooter
+005BB5 сохранён; исторический R7UI report не переименован задним числом.
+
+R4 snapshot1149inputs/835git-visible, HEADc59bce88a64a596f3b3d2f0fb760105308cb193e,
+branchfrontend/v2-implementation. ManifestSHA
+b5d7076ea531534e26671729e7e17eb383f7f208db4c836368e16b9d7a810a75.
+Entry833tracked/untracked архивированы;827 исходных inputs вне разрешённой
+дельты unchanged,123 старых desktop source/capture unchanged. Source22nativePNG/
+highfidelitycontexts+4SVG/SHA в tablet/figma; старые source-map/экспорты сохранены.
+
+Runtime: SettingsPrivacyPage wide768/tablet typography/cards/legal/loading;
+SettingsTabs local1120/46h/end334/keyboard/insetoutline/refguard; RadarShell
+толькоPrivacytablet appbar72/mainx24width786/hiddencontext/menu20; UiSheetDialog
+толькоPrivacywide equalfooter289/289 (адресный commonborderbasisfix с desktop
+sameDOM regression). Defaults/Access/mobile/API/model/commands/guards/cache/ZIP/
+roles/24h/legal/deps сохранены.18newtablet meaningful E2E cases +2точных ожидания
+Privacytablet header; mobile114/visible и остальные assertions прежние.
+
+Независимый QA: check1258unit/109files+architecture13, build:dev/pre-prod/prod,
+audit:release exit0; targeted12/12PASS; полный CI strict --fail-on-flaky-tests:
+1246PASS36SKIP0failed/flaky/retries,10.8min.52newtabletPASS2CDP-SKIP+93existing
+PrivacyPASS. JS905547/905600,CSS71967/72000,initial230146/304800, budgets прежние.
+Отдельный FUNCTIONAL Chromium/WebKit/8widthtransitions/shortfocus/axe0 PASS.
+36SKIP (30stand/2CDP/4existingguards) не выдаются за проверенные сценарии.
+
+Независимая hardreadonly visualrole реально просмотрела22tablet source/current,
+6dialogviewport,22desktopbefore/after,2mobilebefore/after,17extras incl834×480
+Cancelring. ВсеPASS в указанном scope; новыхfindings нет. R2-UI-01loading CLOSED:
+857.6/643.2+прямая отсечка source1499:25594. Desktop14main byteequal/8overlay
+onlyapprovedfooter289delta; mobile2 byteequal. Currentdialogcrop losslessly
+изтого жеviewport,22/22 независимо verified; старыеsecondaryfullPNG архивированы.
+UIseal52 SHA5811265455ce2d27cee7ce5265a35e9693c9efcaa2d33f5ffc72dd7c464fcbaa.
+
+R1TESTFAIL staleheader, R2TEST/FUNCTIONALPASS+UItabletFAIL loading, R3TESTFAIL
+detachedtestmeasurement11PASS1FLAKY сохранены. R4singleMQL+atomicDOMreadiness
+закрывает R3-QA-01; R1-QA-01 остаётся CLOSED. Historical AnalyticsR4-QA-01 OPEN
+unknowncause/dating: current first-attemptPASS только non-reproduction, не waiver.
+
+Guards before/after TEST/FUNCTIONAL/UI1149+seal52 exit0/drift[]; source inputs
+во время приёмки не менялись. Роли RELEASE inputs,4173free; ведущий владеет
+реализацией/тестами. После review только STATUS+tablet/handoff reportmetadata,
+дельта2inputs/остальные1147unchanged в R4/post-review-metadata.json. Ни commits,
+ни push/deploy/merge не выполнялись.
+
+Evidence artifacts/frontend-v2/settings-privacy-redesign/tablet/handoff.md,
+R4/manifest.json,qa/report.md,ui/report.md,ui/comparison-index.json,
+mobile-handoff.md. Native toolbarzoom/serveraudit/retention/realZIPcontents/
+dataset effects/realintegration UNVERIFIED;417CSSDSF2 equivalentreflow и mock
+учтены отдельно. Реальныеstagewrites/downloads запрещены/NOTRUN;production/
+Figma/backend/API/generated/migrations/legal/deps не затрагивались.
+Следующий шаг — отдельное поручение на mobile, без автоматического перехода.
+
+## Codex · Settings Privacy · desktop · 02.11.2026 · R7 проверен, footer decision pending
+
+US-M14-01/02/04/07: реализованы desktop1440 и общая логика /settings/privacy.
+Три карточки+Account,14mainstates/6dialogs/2hosts, реальный ZIP Blob,
+права/DATASETS/tenant/user/logoutguards, Retry-After,24h organizationtimezone.
+Основные файлы: SettingsPrivacyPage,ConsentControls,ExportOrganizationCard;
+shared opt-in primitives, context/mediaquery/date-time и meaningful unit/E2E.
+Ведущий владеет runtime/shared/tests/STATUS; worker передал4testfiles.
+
+R7 snapshot993inputs/833git-visible, HEADc59bce88a64a596f3b3d2f0fb760105308cb193e,
+manifestSHA1be46d5203aa10a23fb49ab38c5e7ce59fb7aa9aa3315c6a51aaf1dd548a5f29.
+Независимые TEST PASS / FUNCTIONAL PASS (frontend/mock): check1258unit109files,
+architecture13; build:dev/pre-prod/prod,audit:release exit0; stockCI1194PASS,
+34SKIP/0failed/flaky/retry,93PrivacyfirstattemptPASS;11дополнительныхaxeсостоянийPASS.
+CSS71967/72000,JS904416/905600,initial230088/304800. Assertions/coverage/budgets/
+browserconfig не ослаблялись. Sandbox EMFILE/listenEPERM raw сохранены,
+эскалированные локальные повторы exit0. Stage mutations/downloads NOT RUN.
+
+UI реально просмотрел22Figma/browserpairs+4compactbefore/after:
+desktop UNVERIFIED только R6-UI-05/P3 footercolor — source0071E3contrast4.31,
+actual005BB5contrast6.10. Выбор владельца запрошен, ответа/waiver пока нет.
+R6-UI-01–04 CLOSED: cooldownbutton/overlay24%/revokeparagraph/loaderrorwidth.
+Tablet regression PASS / mobile regression PASS; их Figma redesign вне поручения.
+R4focus/R5lintfindings CLOSED. Исторический R4-QA-01/P2 Analyticsflaky OPEN:
+причина/давность UNVERIFIED, R6/R7 не воспроизвели; raw не стирались.
+
+До/после QA/UI все993inputs и7reviewinputs безdrift. После release изменены
+только этотблокSTATUS и handoff.md; точный post-review-metadata.json хранит
+старые/новыеhashes и проверку всех остальных991inputs. Snapshotarchive неизменен.
+Protected25 byte-equal baseline, исходный STATUSsuffix сохранён. У отдельных
+исторических ignoredgeneratedPNG до R1 сохранность UNVERIFIED; inventories/raw
+сохранены, дальнейшие outputs изолированы. Доступ/backend/API/generated/legal/
+Figma/production не менялись. Реальные audit/retention/ZIPcontents и nativezoom
+UNVERIFIED;720CSS/DSF2 — equivalentreflow. Push/deploy/merge не выполнялись.
+
+Evidence: artifacts/frontend-v2/settings-privacy-redesign/desktop/handoff.md,
+R7/qa/report.md,R7/ui/report.md,figma/source-map.json,tablet-handoff.md.
+Следующий шаг: решение владельца по footer и окончательный desktop UI verdict.
+Затем — отдельное поручение на tablet, автоматически этап не запускать.
+
 ## Codex · Онбординг · CI fixture timezone fix · 02.11.2026
 
 По поручению владельца исправлено падение company-page.test.ts в CI41365010251
@@ -76,6 +362,34 @@ M02-01/M03. При удалении точки с услугами сначал�
 Следующий этап — макеты и согласование; реализация не начата, канонические US,
 runtime/API/Figma/stage/production прежние. TEST/FUNCTIONAL/UI NOT RUN.
 
+## Figma · Аккаунт · Компактная раскладка · 02.11.2026
+
+Следующим поручением владельца секция `1574:24806` уплотнена до3368×32594
+вместо19480×34920: площадь меньше на83.9%. Три колонки Desktop/Tablet/Mobile,
+17 одинаково пронумерованных состояний, верхние края макетов17/17 выровнены.
+Все49 исходных макетов: IDs/размеры/внутренние слои и reactions по контрольному
+hash сохранены49/49. Исходные семь секций и их ссылки сохранены; изменены
+canvas-позиции, размеры контейнеров и служебные подписи. Добавлены34TEXT.
+Снимок `account-compact-2026-11-02-final`, artifacts в
+`account-consolidation-2026-11-02/compact/`: baseline/plan/scripts/validation,
+final.json, composition.png. Ведущий просмотрел изображение всех трёх колонок;
+пересечений/выхода за границы нет. Это canvas review; TEST/FUNCTIONAL/browser UI
+NOT RUN, US/runtime/API/stage/production прежние. [Отчёт](evidence/account-consolidation-2026-11-02.md).
+
+## Figma · Аккаунт · Единая секция · 02.11.2026
+
+По поручению владельца семь оставшихся блоков Аккаунта объединены в одну
+секцию `1574:24806` на странице Настроек. Слева пять desktop-групп, справа
+tablet и mobile. Исходные семь SECTION IDs и 3288 вложенных узлов сохранены;
+контрольные hashes содержимого 7/7 совпали, размеры/child IDs прежние.
+Пересечений между группами и с другими секциями нет; соседние секции прежние.
+Итоговая общая компоновка реально просмотрена inline; содержимое экранов не
+редактировалось. US/runtime/API/тесты/stage/production не менялись.
+TEST/FUNCTIONAL/browser UI NOT RUN: задача только на организацию canvas.
+[Отчёт](evidence/account-consolidation-2026-11-02.md), снимок и скрипт —
+`artifacts/frontend-v2/account-consolidation-2026-11-02/`. Следующий шаг —
+просмотр владельцем общей секции; реализации это поручение не запускает.
+
 ## Codex · Account link #005BB5 · 02.11.2026 · C3 принят в header scope
 
 N-ACCOUNT-LINK-COLOR-01/P2 реализован: текстовые Account-ссылки всегда text-link
@@ -105,6 +419,24 @@ Input/capture/stockSHAguards0drift. Послеприёмки—толькоmainr
 qa/test-report.md,ui/report.md,comparisons/index.json. P3UI-RC8-01 остаётся OPEN;
 Privacy body/старый overlay внеheader-onlyscope. StageRC8/backend/API/production
 не менялись;push/deploy/merge не выполнялись. Порт4173 освобождён,чужой4174сохранён.
+
+## US-M04 · Реализация отменена, сначала план · 01.11.2026
+
+Владелец отменил текущую frontend-реализацию и установил порядок: сначала
+согласование плана задач, затем отдельное поручение писать код. Основной чат
+подтвердил остановку; локальный preview4175 остановлен. Изменения реализации
+в16 tracked-файлах восстановлены до HEAD26c111ee,17 новых runtime/test/tooling
+файлов убраны из активного дерева. Все33 файла и patch сохранены в
+`artifacts/frontend-v2/integrations-implementation/cancelled-2026-11-01/`.
+Согласованные Figma R1+R2, истории и backend-документация сохранены;
+чужие правки настроек/конфигурации не откатывались. API, backend-код и production
+не затронуты; frontend восстановлен до начала отменённой реализации.
+Прогоны отменённого снимка не означают приёмку восстановленного frontend.
+[План задач](tasks/INTEGRATIONS-IMPLEMENTATION-PLAN.md) имеет статус проекта,
+реализация запрещена до отдельного поручения. До её запуска согласовать
+границы недостающего username в API и восстановления частичного отключения.
+Проверка отката: побайтное сравнение16 файлов, отсутствие17 новых файлов,
+сохранностьAPI/generated/lockfile, `git diff --check` — exit0.
 
 ## Codex · Настройки S10 · Stage RC8 опубликован · 01.11.2026
 
@@ -138,6 +470,64 @@ outline clipped; на390×844 тот же ввод PASS. Follow-up exit1,12но�
 `settings-notifications-team/Codex-R1/stage-rc7/` (историческое имя RC7).
 Чужие Integrations/Codex изменения сохранены и в stage не попали.
 
+## US-M04 · Backend-документация синхронизирована · 01.11.2026
+
+По явному поручению владельца обновлены только13-channels.md и одна строка
+J1/шаг4 в30-journeys.md backend-документации: US-M04-01/02/04/05 соответствуют
+согласованным R1+R2 и Figma-историям. Live Figma6/6 совпало с принятым снимком.
+US-M04-03/06 побайтно прежние;20 старых AC сохранены,21 новый, всего41
+REQUIRED_NOT_VERIFIED. Документ отделяет UI-подписи от машинного контракта.
+Backend HEAD e7f8767 прежний, diff только2Markdown, новых backend files нет.
+API/код/миграции/generated/тесты не менялись. DOC CHECK PASS: Python и diff-check
+exit0; TEST/FUNCTIONAL/UI/stage NOT RUN, production не затронут.
+[Состав и evidence](../proposals/us-m04-integrations-story-update-2026-11-01.md),
+снимок `artifacts/frontend-v2/integrations-backend-stories-2026-11-01/`.
+Manifest SHAc3443dc8e94f; итоговый канон SHAab44a972bdf8.
+Следующий этап — границы реализации; запрет изменений backend/API сохраняется.
+
+## Figma · Интеграции согласованы, истории обновлены · 01.11.2026
+
+Владелец явно утвердил текущие макеты R1+R2, все3 адаптива, включая значок
+CheckError. В User Stories & Flows/M04 `689:3926` обновлены US-M04-01/02/04/05:
+обычный Telegram/Secretary Mode, Empty с логотипом, актуальные бейджи,
+баннеры ошибок над действиями, отдельные remote/local результаты и отключение.
+Основной текст US-M04-03/06 побайтно сохранён; в6 карточках обновлены согласование,
+примечания и ссылки. Два превью актуализированы, связанные подписи J1/Gaps исправлены.
+Критерии REQUIRED_NOT_VERIFIED; продуктовый PASS не присвоен.
+Структура/контент PASS,4 полных истории и итоговый обзор реально просмотрены.
+Утверждённые UI области неизменны:4019/FNV40a13548 и845/FNVfd8665b9.
+Evidence/manifest — `artifacts/frontend-v2/integrations-story-update-2026-11-01/`;
+SHA4a1eb8b64ab1,27 файлов;15 Figma destinations/JSON/SHA checks PASS, diff-check exit0.
+[отчёт и ссылки](evidence/integrations-stories-2026-11-01.md).
+Runtime/API/backend Markdown не менялись; TEST/FUNCTIONAL/browser UI/stage NOT RUN.
+Следующий этап — синхронизация канона/границы реализации по дальнейшему поручению.
+
+## Figma · Интеграции · 01.11.2026 · правки готовы к просмотру
+
+R2/US-M04-04: по замечанию владельца возвращён восклицательный знак20×20
+слева от текста CheckError во всех3 адаптивах404:4301/4405/4510. Размеры
+карточек и раскладка кнопок прежние; SourceError тексты/размеры сохранены.
+Структура и реально просмотренные3PNG PASS; evidence — `icon-fix-r2/`
+в каталоге ниже. Исходный снимок R1 сохранён. Runtime/product QA не запускались.
+
+`N-INTEGRATIONS-DESIGN-01`, US-M04-01/02/04/05: выполнены6 замечаний владельца.
+30 Source masters используют цельные бейджи по Уведомлениям; FirstError —
+иконка рядом с текстом, CheckError/SourceError — баннер над действиями.
+Desktop/tablet CheckError:3 кнопки в одной строке. Telegram без Business;
+Empty-кнопка с векторным логотипом во всех3 адаптивах. Исправлены размеры
+4 длинных страниц и пересечения в UI Kit; root IDs сохранены.
+Структура PASS:41 бейдж/38 именованных panels/36 основных frames, Inter,
+Business0, без clipping нижнего края. Ведущий просмотрел21 итоговый PNG:
+15 карточек,3 полных страницы и3 дополнительных статуса; scoped Figma visual
+desktop/tablet/mobile PASS. Это не независимый browser UI/product verdict.
+Доступ7292 узла/FNVfb95b7a0 до/после неизменен. Первоначальные failed audit,
+PNG и screenshot timeout сохранены; точная проверка radius/full9999+binding PASS.
+Manifest/scripts/SHA/PNG: `artifacts/frontend-v2/integrations-design-2026-11-01/`.
+Индекс снимка SHAf3e6c3c93e5a,50 файлов/21 итоговый PNG; JSON и diff-check exit0.
+[Отчёт и ссылки](evidence/integrations-design-2026-11-01.md).
+Runtime/US/API/тесты не менялись; TEST/FUNCTIONAL/browser UI/stage NOT RUN,
+production не затронут. Следующий шаг — просмотр владельцем; approval pending.
+
 ## Figma · Desktop-хедеры настроек · 01.11.2026 · исправлено
 
 `N-SHELL-HEADER-01`: по поручению владельца все48 desktop-хедеров Уведомлений,
@@ -153,6 +543,90 @@ approval snapshots не переписывались; добавлен `desktopH
 `artifacts/frontend-v2/settings-polish/figma-2026-10-31/desktop-header-fix-2026-11-01/`.
 Runtime/тесты/stage/production не менялись; TEST/FUNCTIONAL/browser UI/Present
 NOT RUN. Следующий runtime/UI QA — по обновлённому source snapshot.
+
+## Codex · 24h-only RC6 · 01.11.2026 · опубликован и принят на stage
+
+US-M02-05/06, регрессия US-M02-02/04 и часы M10 preferences: только ЧЧ:ММ
+во всех адаптивах. UI-RC5-01 закрыт по уточнённому контракту владельца;
+прежняя классификация только как обрезки AM/PM была ошибочной. Данные API
+уже были HH:mm, конвертация/миграция не требовалась.
+
+На stage опубликован точный принятый S3
+`1df33d785fe8400b5c7eb873aa5b9668c29a7f2f`, annotated
+`release/2026-11-01-rc6`, версия `ed577f84e992-w1df33d78`.
+GitHub run41323229349 SUCCESS, все 8 jobs с первой попытки:
+1189 unit / 104 файла, 13 architecture cases, 10 deploy guards,
+три build/audit; E2E 819 PASS + 34 ожидаемых skip, 0 failed/flaky.
+Независимые TEST PASS → FUNCTIONAL PASS → UI desktop/tablet/mobile PASS.
+Локальный reviewer реально просмотрел 137 PNG; финальный stage reviewer —
+все 12 PNG часов, обе локали/три адаптива, findings нет.
+
+Real stage smoke exit0: 109 PASS, 66 route visits (11 маршрутов × ru-RU/en-US
+× три адаптива), ошибок API/JS и попыток бизнес-записей 0, logout204.
+График 09:00–21:00, сводка 09:00, тихие часы 22:00–08:00 читаемы без AM/PM.
+«Не сохранено» остаётся одной строкой. Draft восстановлены без Save.
+Все 11 server checks PASS; backend ed577f84e992, API SHA9f9766cc4d23,
+applied/latest migration000032 и checksum неизменны. Production/main не тронуты.
+
+Evidence `artifacts/frontend-v2/company-time-24h/Codex-R1/S3/`: русский
+handoff.md, qa/, ui/, stage/ci-final.*, server-after.json, live/report.json,
+stage/ui/. Финальный final-audit.json: source780, execution2, UI437,
+live evidence29 — drift0. Remote stage и peeled RC6 tag подтверждены на1df33d7.
+S1/S2 failures и исходные capture records сохранены. Чужая параллельная
+Notifications/Team реализация основной копии сохранена и в RC6 не включена.
+
+Ограничения: real persistence/delivery и физическая клавиатура не проверялись;
+точные PUT/валидация проверены на mock. UI stage — формат часов, не новая
+полная Figma-приёмка M10/Team. Следующий шаг — просмотр готового stage владельцем.
+Этот STATUS/handoff — локальный итог после deploy, docs-only push не запускался.
+
+## Codex · 24h-only RC6 · 01.11.2026 · stage CI
+
+Time24 S3 принят: независимые TEST PASS, FUNCTIONAL PASS и UI desktop/tablet/
+mobile PASS. Commit `1df33d785fe8400b5c7eb873aa5b9668c29a7f2f` отправлен exactSHA
+в stage с annotated `release/2026-11-01-rc6`; GitHub run41323229349 выполняется.
+Production исключён. Время хранится как раньше HH:mm, интерфейс фиксирован
+text/numeric без native AM/PM в графике, отдельном wizard и UiInput time
+сводки/тихих часов. size5 устранил intrinsic overflow640.
+
+QA S3: check1189unit/104files+13architecture,build×3/auditPASS;
+strict853cases=819PASS+34expectedskip,failed/flaky/retry0. Company73capturePASS,
+173PNG и54time-formatPNG. UI reviewer реально просмотрел137images:54новых,
+63exactFigma/browser pairs и20responsive; all3PASS, AM/PM/обрезок нет.
+Source780 +execution2 +UI437files послеreview0drift; rawrecords не переписаны.
+Исходные S1/S2 failures сохранены; QA-T24-01/02 закрыты новымS3.
+
+Evidence `artifacts/frontend-v2/company-time-24h/Codex-R1/S3/`: manifest,
+qa/,company-browser/,comparisons/,ui/,post-review-audit иstage/CI.
+Серверный preflight11checksPASS: покаRC5, backended577/API/migration неизменны.
+Следующий шаг: завершение CI/autodeploy и real read-only stage24h smoke обеих
+локалей/всех трёх размеров. Не смешивать candidate с текущей чужой main
+Notifications/Team реализацией; её файлы сохранены и не входят вRC6.
+
+## Codex · 24h-only time · 01.11.2026 · S3 на проверке
+
+Кандидат `1df33d785fe8400b5c7eb873aa5b9668c29a7f2f`,780source inputs,
+manifest `f004ea7997b3c24ea430591fe77c93cc7af0523ea6b69c0356e226c18d92a170`.
+S1 lint finding закрыт; S2 check/build×3/audit PASS, но найдена регрессия
+intrinsic width текстовых полей онбординга на640px (696>641). S2 остановлен
+после690PASS,1FAIL; история/три failure attempts сохранены.
+S3 задаёт size5 для четырёх raw clock fields, CSS/validators/API прежние.
+Адресный closure S3 PASS12/12: шесть responsive график ширин, включая640zoom200,
+и шесть ru/en×adaptive24h сценариев; focus/axe/noPageScroll сохранены.
+
+Полный QA идёт в immutable `/private/tmp/lidradar-time24h-s3-1df33d7`.
+Чужой main-preview4173 не трогаем; root предоставил execution wrappers4174
+в S3/execution-4174,2SHA дополнительно к780inputs. Это только port/baseURL,
+абсолютные пути тех же testDir/cwd и generated outputs. Original/override
+case union853, проекты/retries/selectors и workers2 идентичны. Source config
+не менялся; первый port-blocked attempt сохранён. После TEST/FUNCTIONAL нужны
+54новых time-format PNG и73Company captures для независимого UI всех адаптивов.
+
+В main параллельно идёт Notifications/Team runtime +Figma/Codex/docs работа;
+она сохранена и исключена из narrow hotfix. Не запускать main build как
+доказательство этого candidate и не коммитить чужие изменения. Stage покаRC5;
+следующий шаг — закончить S3 QA/UI, затем опубликовать точный принятый SHA
+и выполнить read-only stage24h smoke. Production/backend/API не менялись.
 
 ## Codex · N-SNT-REDESIGN-01 · 01.11.2026 · S10 принят с contrast exception
 
@@ -195,6 +669,30 @@ API/generated/roles/lifecycle/money/deps/lockне менялись,push/deploy/m
 4173свободен,чужой4174нетронут. Live stage/persistence/реальнаяdeliveryUNVERIFIED.
 Согласованныйfrontend/mockобъём завершён;дальнейшаяlive/releaseприёмкаотдельно.
 
+## Codex · 24h-only time · 01.11.2026 · S2 на проверке
+
+Владелец уточнил: AM/PM недопустимы во всём интерфейсе. Прежняя классификация
+UI-RC5-01 только как P3 обрезки была неверной: требуется фиксированное ЧЧ:ММ,
+независимое от нативного browser/OS locale. Данные API уже были 24-часовыми.
+Root заменил native time controls на text/numeric в графике настроек, отдельном
+BusinessHoursFields онбординга и логическом UiInput type=time (digest/quiet).
+Shared helper добавляет двоеточие при вводе3–4цифр и сохраняет курсор;
+диапазоны/AMPM не конвертируются, существующие validators и PUT прежние.
+
+42адресных unit PASS, Chromium6/6 (ru-RU/en-US ×desktop/tablet/mobile),
+проверены точные HH:mm PUT. Candidate commits6e7b340 и4fcc936; S1 TEST FAIL
+по QA-T24-01 (порядок атрибутов Vue), source/logs сохранены;42unit/build×3/audit
+S1 PASS. Линтер исправлен в S2, адресный ESLint0. Runtime snapshot S2 immutable
+в `/private/tmp/lidradar-time24h-s2-4fcc936`,780Git inputs; все финальные gates,
+полная browser matrix и capture переданы независимому time24_qa.
+Новый UI-review всех трёх адаптивов нужен после TEST/FUNCTIONAL PASS.
+
+Evidence: `artifacts/frontend-v2/company-time-24h/Codex-R1/` с initial archive,
+S1/S2 manifests, diff, briefs и логами. Чужие Figma/Codex docs и STATUS сохранены
+в main, в точечные commits не включены. На stage пока остаётся RC5 `087970b`;
+новый кандидат ещё не push/deploy. Production/backend/API/миграции не менялись.
+Следующий шаг: S2 TEST→FUNCTIONAL→UI, затем RC6 stage и живой24h smoke.
+
 ## Codex · N-SNT-REDESIGN-01 · 01.11.2026 · ТЗ подготовлено
 
 По поручению владельца подготовлена задача на реализацию редизайнов двух
@@ -214,6 +712,50 @@ Figma прочитана без правок: live metadata подтвердил
 Эта задача меняет только документацию; реализация не запущена,
 TEST/FUNCTIONAL/UI не запускались и не получили новый PASS.
 Следующий шаг — отдельное поручение выполнить подготовленное ТЗ.
+
+## Codex · Stage RC5 · 01.11.2026 · опубликован
+
+По прямому поручению владельца весь текущий frontend с Company S7 и Services S4
+отправлен обычным atomic push в stage и развёрнут на
+`https://stage.app-lid-radar.ru`. Commit
+`087970b6de0f6fda22f104a65a722de4d79063ed`, annotated tag
+`release/2026-11-01-rc5`, серверный release `ed577f84e992-w087970b6`.
+Production/main не затрагивались, runtime после приёмки S4 не менялся.
+
+GitHub run41309866705 завершён SUCCESS с первой попытки: все8jobs,
+check1184unit/103files +13architecture +10deployguards, build×3/audit,
+container, оба strict E2E shards и stage-deploy. E2E801PASS+34expectedskip,
+failed/flaky/retry0. Пропуски:30stand без credentials,2Safari logout,
+2width-owner. JS903809/905600, CSS71932/72000; пороги не менялись.
+Backend остался на deployed `ed577f84e992afb5b0564c685736976c0c3255d9`,
+API hash и миграция000032 неизменны. Серверные11checks PASS, readiness ready,
+7running services/5healthy checks, exact frontend checkout/image SHA.
+
+Независимый qa_s1: release TEST PASS и FUNCTIONAL PASS в scope точного deploy
+и реального read-only smoke. Финальные52checks,11routes×3=33visits,
+Chromium1440×1000/834×1194/390×844, errors0/business mutations0/logout204.
+Реальный login/auth-me, новые настройки, все8названий/edit/switch/SVG готовы,
+add/cancel, однострочный dirty status и SSE200 проверены. Runtime persistence/
+business CRUD/delivery/native OS keyboard этим smoke не подтверждаются.
+
+Независимый services_ui_s4 просмотрел9finalstagePNG: desktop FAIL,
+tablet FAIL, mobile PASS. Открыт **UI-RC5-01 P3**: compact native time fields
+на desktop/tablet обрезают AM/PM (`09:00 A` / `09:00 P`); на mobile суффиксы
+полные. Аналогичный вид есть в прежнем controlled S7/S4 capture, новая регрессия
+RC5 не установлена. Services names/controls и company dirty label PASS во всех
+трёх. Это ограниченный stage rendering smoke; историческая полная Figma
+приёмка S4 не переписывается. P3 требует отдельной точечной правки и проверок;
+общий stage UI PASS не объявляется.
+
+Evidence: `artifacts/frontend-v2/stage-settings-release-2026-11-01/RC5/`:
+commit/source/manifest, CI raw+summary, server-before/after, live/report и9PNG,
+qa/report/verdict, ui/report/verdict/findings, handoff и commands/exits.
+1006принятых S4 inputs и17finalevidence files без drift. Единственная внешняя
+post-commit delta — сохранённый Figma R50 prose в STATUS; эта итоговая release
+запись тоже локальная документация и не входит в deployed immutable commit.
+Ранние harness failures/PNG сохранены с диагнозами; финальный capture ждёт
+async names/controls/images/font/paint, raw errors/credentials не пишет.
+Следующий шаг — проверка владельцем stage и triage UI-RC5-01.
 
 ## Codex · Stage RC5 · 01.11.2026 · публикация разрешена
 
@@ -357,6 +899,158 @@ Low-height и mock VisualViewport отдельно PASS, не выдаются �
 Следующий шаг: review локального diff владельцем; публикация не выполнялась.
 
 ## Figma · Правки настроек по поручению владельца · 31.10.2026
+
+Privacy cleanup R59 · 01.11.2026 · ЗАВЕРШЕНО: по поручению владельца удалены
+41 старый экран/диалог Privacy для desktop/tablet/mobile, включая `531:4174`,
+всего3155 узлов. В удалённых деревьях общих masters нет. Утверждённая область
+`1499:23110` сохранена:5282 узла,66 составных кадров, approved R57.
+Перенаправлены124 prototype-узла на актуальные адаптивы; все278 уникальных
+назначений переходов страницы Settings существуют, удалённых корней на canvas0.
+На US `689:3915` исправлены5 ссылок и их подписи; история отзыва ведёт на
+active `1499:23614`, остальные — на primary `1499:23486`. Старое US-превью
+заменено статичным снимком утверждённого экрана, обновлены контекст/дата.
+Два PNG US реально просмотрены; подписи помещаются, новая ссылка в одну строку.
+Визуальные FNV/count для всех9 approved областей и49 Account/navigation
+кадров совпали до/после; реакции исключены из визуального hash.
+Семь оставшихся старых секций названы «Аккаунт», пять служебных описаний
+уточнены. DESIGN/SOURCES и `settingsPrivacySelection.canvasCleanup` обновлены;
+остальные корни индекса и утверждение R57 сохранены. Evidence —
+`artifacts/frontend-v2/settings-polish/figma-2026-10-31/privacy-cleanup-r59/`.
+Эта запись заменяет прежнее решение оставлять legacy Privacy на canvas;
+исторические exports/manifests сохранены. Runtime/tests/config/backend/API,
+общие tokens/components и замороженный Доступ не менялись; продуктовые проверки
+и Figma Present не запускались. Очистка завершена; реализация этой задачей
+не разрешается.
+
+Статусы R58 · 01.11.2026 · ИСПРАВЛЕНЫ ПОДПИСИ: владелец повторно уточнил,
+что макеты согласованы. Названия областей «Уведомления» `1392:15150`,
+«Команда и доступ» `1426:18281`, «Данные и конфиденциальность» `1499:23110`
+и две подписи обзорных досок теперь содержат «Утверждено».
+Изменены ровно пять служебных узлов; устаревших «На согласование» внутри
+трёх областей не осталось, число узлов сохранено:7275/13147/5282.
+Решения владельца R47/R54/R57 действуют без повторного согласования.
+DESIGN/SOURCES и шесть полей карты синхронизированы; прочие поля карты
+сохранены. Старые полные отпечатки включают прежние подписи; overlay —
+`artifacts/frontend-v2/settings-polish/figma-2026-10-31/settings-status-labels-r58/manifest.json`.
+Эта запись заменяет прежние пояснения о сохранении названия «На согласование».
+Сами экраны, masters/tokens, runtime/test/config/backend/production не менялись.
+Продуктовые проверки для исправления подписей не запускались.
+
+Privacy R57 · 01.11.2026 · УТВЕРЖДЕНО ВЛАДЕЛЬЦЕМ: полный комплект66 кадров
+desktop/tablet/mobile в `1499:23110` после согласованной правки отзыва.
+В12 revoke-диалогах/hosts (confirm/saving/error,3 адаптива) текст: новые
+переписки и вердикты перестанут включаться в наборы; Radar продолжит работу
+без изменений; история выдачи/отзыва сохранится. После успеха в3 адаптивах
+только «✓ Согласие отозвано.».28 text nodes изменены,3 описания удалены;
+проверка12 текстов и3 success PASS, overflow0, обещаний удаления0.
+Просмотрены phone confirm, tablet error и desktop success;66 IDs live.
+Approved snapshot:5282 узла, FNV-1a32 `5457f9c2`. Каноническая карта
+`settingsPrivacySelection` заменила pending `settingsPrivacyDraft`;
+остальные selection-блоки сохранены. DESIGN.md/SOURCES.md обновлены.
+Evidence — `artifacts/frontend-v2/settings-polish/figma-2026-10-31/privacy-redesign-r57/`.
+Утверждён UI/copy; расхождение legal/lifecycle по созданным наборам этим
+решением не разрешено. Backend docs/runtime/test/config не менялись;
+runtime TEST/FUNCTIONAL/UI и Figma Present не запускались. Следующий шаг —
+отдельное поручение на реализацию; повторное утверждение макетов не требуется.
+
+Privacy R56 · 01.11.2026 · МАКЕТ ГОТОВ К СОГЛАСОВАНИЮ: отдельная область
+`1499:23110` «Данные и конфиденциальность — Redesign / На согласование».
+Визуальный референс — утверждённые Уведомления `1392:15150`; существующие
+Privacy/Account сохранены. Scope US-M14-01/02/04/07: ML-согласие, ZIP компании,
+документы. Личный экспорт/удаление аккаунта M14-03/05/06 вне макета.
+Desktop `1499:23486`1440×1214, tablet `1499:25281`834×1276,
+phone `1499:26740`390×1568. Всего66 кадров, по22 на адаптив:14 main,
+6 подтверждений grant/revoke (confirm/saving/error),2 opened hosts.
+На телефоне попапы390×844. Локальные4 sets/30 variants, existing HIG buttons,
+Inter/semantic tokens; raster-filled nodes0, новых shared masters/tokens0.
+Права владельца/менеджера и независимость экспорта от согласия сохранены;
+нет мгновенного switch, общего сохранения, процента прогресса или новой API-логики.
+150 prototype bindings; targets доступны. Проверены2427 текстовых узлов,
+overflow0; dialog bounds issues0. Saving6×3 controls: реакции0, hit areas≥44.
+Просмотрены11 PNG, включая все3 основные адаптации и ошибки/загрузку/readonly.
+Активный текст/статусы contrast4.58–16.83:1 по реальным токенам; focus example
+и keyboard/ARIA-аннотации добавлены. Все8 approved visual fingerprints MATCH.
+Формулировка судьбы уже созданных наборов требует сверки legal/lifecycle перед
+реализацией;90/365 показаны как условия, исполнение retention не подтверждалось.
+Figma Present, runtime TEST/FUNCTIONAL/browser/keyboard/ZIP verification NOT_RUN/
+UNVERIFIED. Старые approved selections не переписаны; `settingsPrivacyDraft`
+явно pending. Evidence — `artifacts/frontend-v2/settings-polish/figma-2026-10-31/privacy-redesign-r56/`.
+Код/тесты/config/backend/production не менялись. Следующий шаг — решение
+владельца по макету; реализация требует отдельного поручения после утверждения.
+
+Настройки R55 · 01.11.2026 · ОЧИСТКА ЗАВЕРШЕНА по поручению владельца:
+удалены128 старых экранов/диалогов четырёх утверждённых разделов,7853 узла.
+В удалённом наборе общих masters/components0. Все8 указанных approved областей
+сохранены: до/после совпадают node counts и visual FNV (reactions исключены).
+140 входящих prototype-переходов перенаправлены на новые tablet/mobile эталоны;
+на странице US `689:3915` обновлены39 ссылок/подписей по9 старым адресам,
+включая ранее недоступные targets. Все39 проверены, link/layout issues0;
+карточка US-M11-01 просмотрена. Исторические US-снимки с датой26.10 сохранены.
+128 удалённых roots отсутствуют, остаточных старых экранов в смешанных областях0;
+на Настройках255 уникальных prototype targets, missing0. «Данные» и «Аккаунт»
+сохранены,7 смешанных областей/описания переименованы по оставшемуся содержимому.
+Индекс `settingsPageCleanup`, DESIGN.md/SOURCES.md обновлены; прежние approved
+selection-блоки не переписаны. Утверждения4 разделов продолжают действовать.
+Evidence: `artifacts/frontend-v2/settings-polish/figma-2026-10-31/settings-cleanup-r55/`.
+Runtime/test/config/production и замороженный Доступ не менялись; runtime QA не
+запускался. Следующее действие — отдельное поручение владельца.
+
+Команда R54 · 01.11.2026 · УТВЕРЖДЕНО ВЛАДЕЛЬЦЕМ: полный комплект
+desktop/tablet/mobile в `1426:18281`, итог R48–R53. Основные экраны
+`1427:18286`1440×1496 / `1428:19529`834×1522 / `1428:21909`390×2071;
+141 кадров, по47 на адаптив. Live-сверка: все141 IDs на месте, снимок13147
+узлов, FNV-1a32 `274d5fbb`; метод и код сохранены в evidence R54.
+Карта `settingsTeamSelection` в design-index.json, DESIGN.md и SOURCES.md
+обновлены; остальные разделы индекса сохранены. Три последних основных
+превью R50/R53 проверены по SHA. Решение/состав —
+`artifacts/frontend-v2/settings-polish/figma-2026-10-31/team-redesign-r54/manifest.json`.
+Figma, общие masters/tokens, code/test/config не менялись. Название области
+«На согласование» историческое; актуальный статус approved записан в карте.
+Runtime TEST/FUNCTIONAL/UI не запускались. Следующий шаг — отдельное поручение
+на реализацию; текущим утверждением разработка не разрешена.
+
+Команда R53 · 01.11.2026 · НА СОГЛАСОВАНИЕ: мобильный «Отозвать…»
+в приглашениях заменён на корзину во всех14 Phone/Pending-инстансах.
+Правый край визуальной кнопки совпадает с иконками участников; области48×44.
+Локальный master `1426:18350`, action `1426:18381`, пример `1428:22053`;
+существующие переходы на подтверждение сохранены. Master+14 instances:
+rightDelta0, issues0. Phone-превью просмотрено; PNG/manifest —
+`artifacts/frontend-v2/settings-polish/figma-2026-10-31/team-redesign-r53/`.
+Общие masters/tokens, code/test/config не менялись; runtime QA/Present не
+запускались. Ожидается решение владельца по макету.
+
+Команда R52 · 01.11.2026 · НА СОГЛАСОВАНИЕ: в мобильной карточке
+`1428:21986` и всех58 Active-инстансах текстовые действия заменены на
+карандаш «Изменить роль» и корзину «Отозвать доступ». Группа справа,
+правый край визуальной кнопки совпадает со статусом «Активен»; области48×44.
+Изменён только локальный Phone/Active и его actions; существующие NAVIGATE
+сохранены, у ключевой карточки по одному переходу на действие. Проверены
+master+58 instances, rightDelta0, issues0. Phone-превью просмотрено;
+PNG/manifest — `artifacts/frontend-v2/settings-polish/figma-2026-10-31/team-redesign-r52/`.
+Общие masters/tokens, code/test/config не менялись; runtime QA/Present не
+запускались. Ожидается решение владельца по макету.
+
+Команда R51 · 01.11.2026 · НА СОГЛАСОВАНИЕ: мобильная кнопка приглашения
+`1428:21971` и ещё17 аналогов в `1426:18281` заменены на синий плюс из
+локального R50 Icon action. Заголовок и плюс в одной строке; область48×44,
+недоступное состояние и существующие переходы сохранены. Phone390×2079
+просмотрен; PNG и manifest —
+`artifacts/frontend-v2/settings-polish/figma-2026-10-31/team-redesign-r51/`.
+Общие masters/tokens, code/test/config не менялись. Runtime QA/Present не
+запускались. Ожидается решение владельца по макету.
+
+Команда R50 · 01.11.2026 · НА СОГЛАСОВАНИЕ: desktop/tablet действия в
+`1426:18281` заменены на иконки: плюс по `1307:13332`, карандаш, корзина.
+Targets `1427:18372` / `1427:18391` / `1427:18456` сохранены. Локальные
+INSTANCE_SWAP glyphs и Icon action Default/Hover/Focus/Disabled; визуал28px,
+перенесённые области48×44. 182 icon controls проверены, issues0; на ключевых
+действиях ровно один NAVIGATE, лишние CLOSE удалены. Подтверждение отзыва
+сохранено. Колоночный slot64px освобождает ширину идентификатору. Mobile R49
+с текстовыми действиями сохранён. Desktop/tablet и три открытых tooltip
+просмотрены;3 PNG и manifest —
+`artifacts/frontend-v2/settings-polish/figma-2026-10-31/team-redesign-r50/`.
+Общие masters/tokens, code/test/config не менялись; Present/runtime QA не
+запускались. Ожидается решение владельца по макету.
 
 Команда R49 · 01.11.2026 · НА СОГЛАСОВАНИЕ: мобильные карточки участников
 в области `1426:18281` перестроены по поручению к `1428:22914`: роль слева

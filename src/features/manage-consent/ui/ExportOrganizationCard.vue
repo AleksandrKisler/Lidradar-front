@@ -1,107 +1,148 @@
 <script setup lang="ts">
-/**
- * Выгрузка данных организации (ADR 0059), право только у владельца. Архив собирается на сервере потоком
- * и приходит файлом: команда, точки, услуги, каналы без ключей доступа, переписки, сделки, риски, выручка
- * и журнал действий. Ключи, служебные очереди и личные данные участников в архив не входят. Выгрузок не
- * больше трёх в час на организацию; пока идёт другая, сервер просит повторить позже.
- */
+/** ADR0059: one real streaming ZIP response, never a synthetic job/progress API. */
 import { computed, ref } from 'vue'
 import { describeError, isApiError } from '@/shared/api'
-import { formatBytes, formatWait, safeFilename, saveBlob } from '@/shared/lib'
+import { formatBytes, safeFilename, saveBlob } from '@/shared/lib'
 import { UiAlert, UiButton, UiCard } from '@/shared/ui'
+import { useSessionStore } from '@/entities/session'
 import { exportOrganizationData } from '@/entities/organization'
+import { usePrivacyContext } from '../model/use-privacy-context'
 
-const props = defineProps<{ tenantId: string }>()
-
+const props = defineProps<{ tenantId: string; desktop?: boolean }>()
+const session = useSessionStore()
 const busy = ref(false)
 const saved = ref<{ name: string; size: number } | null>(null)
 const failure = ref<unknown>(null)
-
+const retryUntil = ref(0)
+let timer: ReturnType<typeof setTimeout> | undefined
+const context = usePrivacyContext(
+  () => props.tenantId,
+  'organization.export',
+  () => {
+    busy.value = false
+    saved.value = null
+    failure.value = null
+    retryUntil.value = 0
+    clearTimeout(timer)
+  },
+)
 const failureView = computed(() => {
   const error = failure.value
-  if (error === null) return null
-  // EXPORT_BUSY тоже приходит со статусом 429: срок повтора из Retry-After показывается так же, как у предела.
+  if (!error) return null
   if (isApiError(error) && error.isRateLimited) {
     const wait = error.retryAfterSeconds
-    const base = describeError(error)
+    const occupied = error.code === 'EXPORT_BUSY'
     return {
       tone: 'warning' as const,
-      title: base.title,
-      text: wait ? `Повторите через ${formatWait(wait)}.` : base.description,
+      title: occupied ? '! Сейчас нельзя начать выгрузку' : '! Лимит выгрузок достигнут',
+      text: `${occupied ? 'Сервер занят подготовкой архива.' : 'Доступно 3 выгрузки в час.'} ${wait ? `Повторите ${new Intl.RelativeTimeFormat('ru-RU').format(Math.ceil(wait / (wait < 90 ? 1 : 60)), wait < 90 ? 'second' : 'minute')}.` : 'Повторите позже.'}`,
     }
   }
-  const described = describeError(error)
-  return { tone: 'danger' as const, title: described.title, text: described.description }
+  return {
+    tone: 'danger' as const,
+    title: '! Не удалось получить архив',
+    text:
+      isApiError(error) && error.isForbidden
+        ? describeError(error).description
+        : 'Попробуйте скачать архив ещё раз.',
+  }
 })
-
-async function download(): Promise<void> {
-  if (busy.value) return
+async function download() {
+  const captured = context.capture()
+  if (!captured || busy.value || Date.now() < retryUntil.value) return
   busy.value = true
   saved.value = null
   failure.value = null
   try {
-    const file = await exportOrganizationData(props.tenantId)
+    const file = await exportOrganizationData(captured.tenantId)
+    if (!context.current(captured)) return
     const name = safeFilename(file.filename, 'lidradar-organization.zip')
     saveBlob(file.blob, name)
     saved.value = { name, size: file.blob.size }
   } catch (error) {
+    if (!context.current(captured)) return
     failure.value = error
+    if (isApiError(error) && error.isRateLimited && error.retryAfterSeconds) {
+      retryUntil.value = Date.now() + error.retryAfterSeconds * 1000
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        retryUntil.value = 0
+      }, error.retryAfterSeconds * 1000)
+    }
+    if (isApiError(error) && error.isForbidden) await session.refresh().catch(() => {})
   } finally {
-    busy.value = false
+    if (context.current(captured)) busy.value = false
   }
 }
 </script>
 
 <template>
-  <UiCard as="section" aria-labelledby="export-organization-title">
-    <h2 id="export-organization-title" class="text-lg font-bold text-ink">
-      Выгрузка данных организации
+  <UiCard
+    as="section"
+    :padded="false"
+    aria-labelledby="export-organization-title"
+    class="flex flex-col gap-4 p-4 md:p-6"
+  >
+    <h2 id="export-organization-title" class="text-xl leading-7 font-semibold text-ink">
+      Копия данных компании
     </h2>
-    <p class="mt-1 text-sm text-muted">
-      Архив ZIP со всеми данными организации: файлы JSON Lines по разделам, описание состава и
-      контрольные суммы.
-    </p>
-    <ul class="mt-4 flex flex-col gap-2 text-sm text-ink">
-      <li>
-        В архиве: команда, точки и часы работы, услуги, каналы без ключей доступа, контакты,
-        переписки и сообщения, сводки, сделки, риски, вердикты, действия, исходы, выручка, согласия
-        и журнал действий организации.
-      </li>
-      <li>
-        Не входят: ключи и секреты, служебные очереди, личные данные участников — каждый скачивает
-        их в разделе «Аккаунт».
-      </li>
-      <li>Не чаще трёх раз в час. Подготовка большого архива может занять несколько минут.</li>
-    </ul>
-    <div class="mt-5">
+    <p class="text-sm text-muted">Рабочие данные и настройки в одном ZIP-архиве.</p>
+    <dl class="flex flex-col gap-3 text-sm leading-5 text-muted">
+      <dt class="font-medium text-ink">В архиве</dt>
+      <dd>
+        Команда, точки, услуги, подключения, контакты и переписки; сделки, риски, выручка, согласия
+        и журнал действий.
+      </dd>
+      <dt class="font-medium text-ink">Не входят</dt>
+      <dd>Пароли и ключи доступа, служебные данные и личные данные участников.</dd>
+    </dl>
+    <div class="flex flex-wrap items-center gap-3">
       <UiButton
         variant="secondary"
         :loading="busy"
+        :style="{
+          width: desktop ? '210px' : '100%',
+          transitionDuration: '0s',
+          ...(busy || retryUntil > 0
+            ? {
+                backgroundColor: 'var(--color-line)',
+                color: 'var(--color-muted)',
+                opacity: busy ? 0.65 : 1,
+              }
+            : {}),
+        }"
+        :aria-disabled="retryUntil > 0 || undefined"
         data-testid="export-organization"
         @click="download"
+        >{{ busy ? 'Готовим архив…' : 'Скачать архив ZIP' }}</UiButton
       >
-        {{ busy ? 'Готовим архив…' : 'Скачать архив' }}
-      </UiButton>
+      <p class="text-xs leading-[18px] text-muted">
+        Не чаще 3 раз в час. Подготовка может занять несколько минут.
+      </p>
     </div>
+    <p v-if="busy" role="status" class="text-xs leading-[18px] text-muted">
+      После подготовки браузер начнёт скачивание. Большой архив может готовиться несколько минут.
+    </p>
     <UiAlert
       v-if="failureView"
-      class="mt-4"
       :tone="failureView.tone"
+      compact
+      privacy-page
       :title="failureView.title"
       :trace-id="isApiError(failure) ? failure.traceId : ''"
       data-testid="export-organization-error"
+      >{{ failureView.text }}</UiAlert
     >
-      {{ failureView.text }}
-    </UiAlert>
     <UiAlert
       v-if="saved"
-      class="mt-4"
       tone="success"
-      title="Архив сохранён"
+      compact
+      privacy-page
+      title="✓ Архив готов"
       data-testid="export-organization-saved"
     >
-      {{ saved.name }} ({{ formatBytes(saved.size) }}). Файл manifest.json в конце архива
-      подтверждает, что выгрузка полная.
+      <p class="break-words">{{ saved.name }} · {{ formatBytes(saved.size) }}</p>
+      <p>Файл передан браузеру для скачивания.</p>
     </UiAlert>
   </UiCard>
 </template>

@@ -18,8 +18,18 @@ withDefaults(
     traceId?: string | undefined
     /** Plain bordered feedback used by approved settings dialogs. */
     compact?: boolean | undefined
+    /** R57 page feedback, only at desktop; existing dialog/compact appearances remain available. */
+    privacyPage?: boolean | undefined
   }>(),
-  { tone: 'info', icon: undefined, title: '', traceId: '', textClass: '', compact: false },
+  {
+    tone: 'info',
+    icon: undefined,
+    title: '',
+    traceId: '',
+    textClass: '',
+    compact: false,
+    privacyPage: false,
+  },
 )
 
 const tones = {
@@ -55,9 +65,10 @@ const titles = {
   <div
     :role="tone === 'danger' || tone === 'warning' ? 'alert' : 'status'"
     :class="[
-      'rounded-field border text-sm leading-5',
+      'text-sm leading-5',
+      privacyPage ? 'rounded-card p-4' : 'rounded-field border',
       tones[tone],
-      compact ? 'p-3' : 'px-[15px] py-[11px]',
+      privacyPage ? '' : compact ? 'p-3' : 'px-[15px] py-[11px]',
       compact
         ? tone === 'danger'
           ? 'border-danger'
@@ -72,11 +83,23 @@ const titles = {
         ><slot name="icon"
       /></span>
       <UiIcon v-else-if="!compact" :name="icon ?? icons[tone]" :class="['size-5', titles[tone]]" />
-      <div class="min-w-0">
-        <p v-if="title" :class="[compact ? 'font-normal' : 'font-medium', titles[tone], textClass]">
+      <div class="min-w-0" :class="privacyPage ? 'break-words' : ''">
+        <p
+          v-if="title"
+          :class="[
+            compact && !privacyPage ? 'font-normal' : 'font-medium',
+            titles[tone],
+            textClass,
+          ]"
+        >
           {{ title }}
         </p>
-        <div :class="title ? 'mt-1' : ''"><slot /></div>
+        <div
+          v-if="!privacyPage || $slots.default"
+          :class="title ? (privacyPage ? 'mt-1.5' : 'mt-1') : ''"
+        >
+          <slot />
+        </div>
         <p v-if="traceId" class="mt-2 text-xs text-muted" :class="textClass">
           Идентификатор запроса: <code class="select-all">{{ traceId }}</code>
         </p>

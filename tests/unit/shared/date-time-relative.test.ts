@@ -60,6 +60,42 @@ const boundaries = [
 )
 
 describe('formatRelative: совместимость с русской date-fns locale', () => {
+  it.each(['UTC', 'Europe/Paris', 'Asia/Kathmandu', 'America/New_York'])(
+    'сохраняет oracle на детерминированной выборке и исторических offsets: %s',
+    (zone) => {
+      const moduleUrl = pathToFileURL(resolve('src/shared/lib/date-time.ts')).href
+      const result = execFileSync(
+        process.execPath,
+        [
+          '--input-type=module',
+          '-e',
+          `
+        import { formatRelative } from ${JSON.stringify(moduleUrl)};
+        import { formatDistanceStrict } from 'date-fns';
+        import { ru } from 'date-fns/locale';
+        let seed = 38;
+        const random = () => (seed = Math.imul(seed, 1664525) + 1013904223 >>> 0) / 4294967296;
+        const mismatches = [];
+        for (let index = 0; index < 600; index++) {
+          const now = new Date(Date.parse('1860-01-01T00:00:00Z') + random() * 200 * 365.25 * 86400000);
+          const date = new Date(now.getTime() + (random() - .5) * 3 * 365.25 * 86400000);
+          const actual = formatRelative(date, now);
+          const expected = formatDistanceStrict(date, now, { addSuffix: true, locale: ru });
+          if (actual !== expected) mismatches.push({ date, now, actual, expected });
+        }
+        for (const year of ['0060', '0099', '1860']) {
+          const now = new Date(year + '-01-01T00:00:00Z');
+          const date = new Date(now.getTime() + 45 * 86400000);
+          if (formatRelative(date, now) !== formatDistanceStrict(date, now, { addSuffix: true, locale: ru })) mismatches.push({ year });
+        }
+        console.log(JSON.stringify({ cases: 603, mismatches }));
+      `,
+        ],
+        { encoding: 'utf8', env: { ...process.env, TZ: zone } },
+      )
+      expect(JSON.parse(result)).toEqual({ cases: 603, mismatches: [] })
+    },
+  )
   it.each(distances)('$unit × $count, направление $direction', ({ delta }) => {
     const date = new Date(NOW.getTime() + delta)
     expect(formatRelative(date, NOW)).toBe(oracle(date))

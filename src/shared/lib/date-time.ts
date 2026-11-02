@@ -5,13 +5,7 @@
  * организации, а не браузера: разные сотрудники одной организации должны
  * видеть одинаковое время.
  */
-import {
-  formatDistanceStrict,
-  isValid,
-  parseISO,
-  type FormatDistanceToken,
-  type Locale,
-} from 'date-fns'
+import { isValid, parseISO } from 'date-fns'
 
 /** Разбирает RFC 3339 и возвращает `null` для некорректной строки. */
 export function parseInstant(value: string | null | undefined): Date | null {
@@ -134,47 +128,72 @@ export function formatTime(
   }
 }
 
-/** Только шесть токенов formatDistanceStrict; выбор единиц и DST остаются в date-fns. */
-const relativeUnits: Partial<Record<FormatDistanceToken, Intl.RelativeTimeFormatUnit>> = {
-  xSeconds: 'second',
-  xMinutes: 'minute',
-  xHours: 'hour',
-  xDays: 'day',
-  xMonths: 'month',
-  xYears: 'year',
-}
 const relativeFormatter = new Intl.RelativeTimeFormat('ru-RU', { numeric: 'always' })
-/** Локаль только для formatRelative, который всегда запрашивает суффикс. */
-const relativeLocale: Pick<Locale, 'formatDistance'> = {
-  formatDistance(token, count, options) {
-    const unit = relativeUnits[token]
-    if (!unit) throw new RangeError(`Unsupported strict distance token: ${token}`)
-    // -0 сохраняет прежнее «0 секунд назад» и для равных моментов, и при округлении.
-    const signedCount = options?.comparison && options.comparison > 0 ? count : -count
-    // date-fns пишет 1000 без группировки; Intl добавляет неразрывный пробел.
-    return relativeFormatter
-      .formatToParts(signedCount, unit)
-      .filter((part) => part.type !== 'group')
-      .map((part) => part.value)
-      .join('')
-  },
+
+/** date-fns 4.4.0 strict-distance semantics, specialized for our single Russian formatter.
+ * Keeping the unit/DST calculation here avoids bundling the unused default en-US locale.
+ * The independent date-fns + ru oracle remains in date-time-relative.test.ts.
+ */
+function offsetMilliseconds(date: Date): number {
+  const utc = new Date(
+    Date.UTC(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      date.getHours(),
+      date.getMinutes(),
+      date.getSeconds(),
+      date.getMilliseconds(),
+    ),
+  )
+  utc.setUTCFullYear(date.getFullYear())
+  return date.getTime() - utc.getTime()
 }
 
-/**
- * Относительное время без округления до «около»: `2 часа назад`,
- * `через 15 минут`. Относительная подпись всегда дополняется абсолютным
- * временем в подсказке, это делает вызывающий компонент.
- */
+/** Относительное календарное время с суффиксом; callers retain the absolute-time tooltip. */
 export function formatRelative(
   value: string | Date | null | undefined,
   now: Date = new Date(),
 ): string | null {
   const date = value instanceof Date ? value : parseInstant(value)
   if (!date) return null
-  return formatDistanceStrict(date, now, {
-    addSuffix: true,
-    locale: relativeLocale,
-  })
+  const delta = date.getTime() - now.getTime()
+  if (!Number.isFinite(delta)) throw new RangeError('Invalid time value')
+  const [earlier, later] = delta > 0 ? [now, date] : [date, now]
+  const elapsed = Math.abs(delta)
+  const minutes = elapsed / 60_000
+  const normalized = (elapsed - (offsetMilliseconds(later) - offsetMilliseconds(earlier))) / 60_000
+  let unit: Intl.RelativeTimeFormatUnit, amount: number
+  if (minutes < 1) {
+    unit = 'second'
+    amount = elapsed / 1000
+  } else if (minutes < 60) {
+    unit = 'minute'
+    amount = minutes
+  } else if (minutes < 1440) {
+    unit = 'hour'
+    amount = minutes / 60
+  } else if (normalized < 43200) {
+    unit = 'day'
+    amount = normalized / 1440
+  } else if (normalized < 525600) {
+    unit = 'month'
+    amount = normalized / 43200
+    if (Math.round(amount) === 12) {
+      unit = 'year'
+      amount = 1
+    }
+  } else {
+    unit = 'year'
+    amount = normalized / 525600
+  }
+  const count = Math.round(amount)
+  // Preserve negative zero for equal/past moments and the absence of digit grouping.
+  return relativeFormatter
+    .formatToParts(delta > 0 ? count : -count, unit)
+    .filter((part) => part.type !== 'group')
+    .map((part) => part.value)
+    .join('')
 }
 
 /** Ключ календарного дня `YYYY-MM-DD` в часовом поясе организации. */

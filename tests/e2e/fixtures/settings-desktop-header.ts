@@ -13,7 +13,7 @@ export const HEADER_NOW = NOTIFICATIONS_NOW
 export const HEADER_ROUTES = [
   { kind: 'notifications', path: '/settings/notifications', title: 'Уведомления' },
   { kind: 'team', path: '/settings/team', title: 'Команда и доступ' },
-  { kind: 'privacy', path: '/settings/privacy', title: 'Данные и согласие на обучение' },
+  { kind: 'privacy', path: '/settings/privacy', title: 'Данные и конфиденциальность' },
 ] as const
 export type HeaderKind = (typeof HEADER_ROUTES)[number]['kind']
 type Consent = components['schemas']['MLConsentStatus']

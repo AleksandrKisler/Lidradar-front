@@ -276,7 +276,7 @@ for (const frame of frames) {
         fixture.failures.set('read', { status: 500, code: 'INTERNAL_ERROR' })
       await page.goto('/settings/privacy')
       await expect(
-        page.getByRole('heading', { name: 'Данные и согласие на обучение', exact: true }),
+        page.getByRole('heading', { name: 'Данные и конфиденциальность', exact: true }),
       ).toBeVisible()
       await prepare(page, frame, fixture)
       await capture(page, info, frame, source, fixture, errors)

@@ -110,13 +110,13 @@ for (const route of HEADER_ROUTES) {
         expect(geometry.title.y).toBe(
           route.kind === 'privacy'
             ? adaptive.name === 'tablet'
-              ? 138
-              : 114
+              ? 96
+              : 88
             : adaptive.name === 'tablet'
               ? 96
               : 88,
         )
-        expect(geometry.shellHeader.visible).toBe(route.kind === 'privacy')
+        expect(geometry.shellHeader.visible).toBe(false)
         expect(geometry.document.width).toBe(adaptive.width)
         await headerAccount(page, false).click()
         await expect(page).toHaveURL(/\/account$/)

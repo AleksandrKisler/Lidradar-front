@@ -101,6 +101,8 @@ const props = withDefaults(
     tone?: 'light' | 'dark' | 'panel' | undefined
     dismissible?: boolean | undefined
     initialFocus?: string | undefined
+    descriptionHidden?: boolean | undefined
+    returnFocus?: (() => HTMLElement | null) | undefined
   }>(),
   {
     description: '',
@@ -108,6 +110,8 @@ const props = withDefaults(
     tone: 'light',
     dismissible: true,
     initialFocus: undefined,
+    descriptionHidden: false,
+    returnFocus: undefined,
   },
 )
 
@@ -153,7 +157,7 @@ function guard(event: Event): void {
 }
 
 const open = defineModel<boolean>('open', { default: false })
-const restoreFocus = useDialogReturnFocus(open)
+const restoreFocus = useDialogReturnFocus(open, props.returnFocus)
 </script>
 
 <template>
@@ -216,9 +220,11 @@ const restoreFocus = useDialogReturnFocus(open)
               <UiIcon name="close" class="size-6" />
             </DialogClose>
           </div>
-          <DialogDescription v-if="description" class="mt-2 text-sm text-muted">{{
-            description
-          }}</DialogDescription>
+          <DialogDescription
+            v-if="description"
+            :class="descriptionHidden ? 'sr-only' : 'mt-2 text-sm text-muted'"
+            >{{ description }}</DialogDescription
+          >
           <div :class="size === 'full' ? 'mt-4' : 'mt-5'"><slot /></div>
           <div v-if="$slots.footer" class="mt-6 flex flex-wrap justify-end gap-3">
             <slot name="footer" />

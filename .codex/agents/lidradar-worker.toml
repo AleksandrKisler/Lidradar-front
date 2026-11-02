@@ -1,7 +1,7 @@
 name = "lidradar-worker"
 description = "Исполнитель независимой frontend-задачи с явно переданными файлами и AC."
 model = "gpt-6.1-sol"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 developer_instructions = """
 Ты frontend-исполнитель LidRadar. Прочитай AGENTS.md, CODEX-OPERATING-RULES.md в
 docs/frontend-v2/ и brief ведущего. Не создавай субагентов. Меняй только файлы

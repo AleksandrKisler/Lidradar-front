@@ -1,9 +1,6 @@
 import { expect, test } from '@playwright/test'
-import { mkdirSync } from 'node:fs'
 import { settingsFixture, openSettings } from './fixtures/settings-company'
 
-const OUT = 'artifacts/frontend-v2/settings-polish-2026-10-31/S1/browser'
-const COMPANY_OUT = 'artifacts/frontend-v2/settings-company-adaptive/Codex-R1/browser/polish'
 test.use({ locale: 'ru-RU', timezoneId: 'Europe/Moscow', reducedMotion: 'reduce' })
 
 for (const width of [1440, 834, 390]) {
@@ -35,6 +32,9 @@ for (const width of [1440, 834, 390]) {
       )
       await expect(help).toHaveAttribute('aria-describedby', /.+/)
       await documentShot('edit-help')
+      await expect(page.getByRole('tooltip')).toContainText(
+        'Через сколько рабочих минут ожидания ответа',
+      )
       await page.keyboard.press('Escape')
       await expect(page.getByRole('tooltip')).toHaveCount(0)
       await expect(dialog).toBeVisible()
@@ -59,10 +59,10 @@ for (const width of [1440, 834, 390]) {
     }
     async function documentShot(state: string) {
       await page.evaluate(() => document.fonts.ready)
-      mkdirSync(COMPANY_OUT, { recursive: true })
       await page.screenshot({
-        path: `${COMPANY_OUT}/${info.project.name}-${width}-${state}.png`,
-        fullPage: true,
+        path: info.outputPath(`${info.project.name}-${width}-${state}.png`),
+        // A full-page capture can resize/reposition a modal and dismiss its tooltip.
+        fullPage: state === 'company',
       })
     }
   })
@@ -105,9 +105,8 @@ for (const width of [1440, 834, 390]) {
       await expect(page.getByRole('tooltip')).toContainText('История сохраняется.')
       await expect(page.getByRole('tooltip')).toContainText('Пустая цена означает «Не указана»')
       await page.evaluate(() => document.fonts.ready)
-      mkdirSync(OUT, { recursive: true })
       await page.screenshot({
-        path: `${OUT}/${info.project.name}-${width}-services-help.png`,
+        path: info.outputPath(`${info.project.name}-${width}-services-help.png`),
         fullPage: true,
       })
       await page.mouse.move(0, 0)

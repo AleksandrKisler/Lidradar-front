@@ -1597,27 +1597,27 @@ test.describe('владелец организации', () => {
 
   test('данные и согласие: выдача, повтор и отзыв с честным текстом', async ({ page }) => {
     await page.goto('/settings/privacy')
-    await expect(page.getByRole('heading', { name: 'Данные и согласие на обучение' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Данные и конфиденциальность' })).toBeVisible()
     await expectSettingsSection(page, 'Данные')
-    const card = page.getByRole('region', { name: 'Согласие на использование данных в наборах' })
+    const card = page.getByRole('region', { name: 'Обучение моделей' })
     await expect(card).toContainText('Не дано')
-    await expect(card).toContainText('используются только для работы сервиса')
+    await expect(card).toContainText('Согласие ещё не выдавалось.')
     await expectNoAxeViolations(page)
 
     // Выдача с подтверждением: аудит показывает время и автора.
     await card.getByRole('button', { name: 'Дать согласие' }).click()
     const grant = page.getByRole('dialog', { name: 'Дать согласие на использование данных?' })
-    await expect(grant).toContainText('можно отозвать в любой момент')
+    await expect(grant).toContainText('Согласие можно отозвать в любое время.')
     await grant.getByRole('button', { name: 'Дать согласие' }).click()
     await expect(card).toContainText('Действует')
-    await expect(card).toContainText('Согласие выдано')
-    await expect(card.getByTestId('consent-audit')).toContainText('вы')
+    await expect(page.getByRole('status').filter({ hasText: 'Согласие выдано' })).toBeVisible()
+    await expect(card.getByTestId('consent-audit')).toContainText('Вы')
     await expect(card.getByRole('button', { name: 'Дать согласие' })).toHaveCount(0)
 
     // Отзыв: текст не обещает удаления истории, запись остаётся с датой отзыва.
     await card.getByRole('button', { name: 'Отозвать согласие' }).click()
     const revoke = page.getByRole('dialog', { name: 'Отозвать согласие?' })
-    await expect(revoke).toContainText('история выдач остаётся в аудите')
+    await expect(revoke).toContainText('История выдачи и отзыва согласия сохранится.')
     await revoke.getByRole('button', { name: 'Отозвать' }).click()
     await expect(card).toContainText('Не дано')
     await expect(card.getByTestId('consent-audit')).toContainText('Отозвано')
@@ -1928,7 +1928,7 @@ test.describe('новый сотрудник', () => {
 test.describe('администратор платформы', () => {
   test.beforeEach(async ({ page }) => mockOwner(page, { platformAdmin: true }))
 
-  test('обзор, каталоги и мёртвые письма с командами восстановления', async ({ page }) => {
+  test('обзор, каталоги и мёртвые письма с командами восстановления', async ({ page }, info) => {
     await page.goto('/radar')
     // Оболочка C не добавляет новых входов: администрирование — прежним путём через «Аккаунт».
     await expect(page.getByRole('heading', { name: 'Radar' })).toBeVisible()
@@ -1943,7 +1943,7 @@ test.describe('администратор платформы', () => {
     await expect(page.getByTestId('snapshot-time')).toBeVisible()
     await expectNoAxeViolations(page)
     // Макетов у раздела нет: снимок обзора — часть отчёта о работе.
-    await page.screenshot({ path: 'test-results/mock-admin-overview.png', fullPage: true })
+    await page.screenshot({ path: info.outputPath('mock-admin-overview.png'), fullPage: true })
 
     await page.getByRole('link', { name: 'Организации' }).click()
     const organizations = page.getByRole('table', { name: 'Организации' }).locator('tbody tr')
@@ -1960,7 +1960,7 @@ test.describe('администратор платформы', () => {
     await page.getByRole('link', { name: 'Мёртвые письма' }).click()
     const deadJobs = page.getByRole('list', { name: 'Мёртвые задания' }).getByRole('listitem')
     await expect(deadJobs).toHaveCount(1)
-    await page.screenshot({ path: 'test-results/mock-admin-dead-letters.png', fullPage: true })
+    await page.screenshot({ path: info.outputPath('mock-admin-dead-letters.png'), fullPage: true })
     await deadJobs.first().getByRole('button', { name: 'Повторить' }).click()
     const confirm = page.getByRole('dialog', { name: 'Повторить: задание?' })
     await expect(confirm).toContainText(ADMIN_IDS.deadJob)

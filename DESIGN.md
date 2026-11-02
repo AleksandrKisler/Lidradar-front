@@ -95,6 +95,19 @@ phone `1499:26740`390×1568;66 кадров, по22 на адаптив. Кар�
 `settingsPrivacySelection.canvasCleanup`, evidence —
 `artifacts/frontend-v2/settings-polish/figma-2026-10-31/privacy-cleanup-r59/manifest.json`.
 
+Интеграции01.11.2026: по6 замечаниям владельца обновлены источники и состояния
+на desktop/tablet/mobile. Цельные статусные бейджи — по Уведомлениям,
+ошибки CheckError/SourceError — баннеры над действиями, FirstError — иконка
+рядом с текстом. Telegram без Business; Empty-кнопка с логотипом.
+Основная область403:3265 и локальные результаты403:3266; точная поправка —
+`otherAreas[integrations].designCorrection` и
+[evidence](docs/frontend-v2/evidence/integrations-design-2026-11-01.md).
+Макеты R1+R2 утверждены владельцем01.11.2026 на всех3 адаптивах.
+Карточки US-M04-01/02/04/05 в Figma обновлены; US-M04-03/06 сохраняют правила
+уникальности и прав. Точная отметка — `designCorrection.userStoriesCanvasUpdate`
+и [отчёт](docs/frontend-v2/evidence/integrations-stories-2026-11-01.md).
+Критерии REQUIRED_NOT_VERIFIED; runtime PASS и реализация этим не подразумеваются.
+
 Текстовая ссылка «Аккаунт →» в актуальных хедерах приложения02.11.2026
 использует единый `color/link`/`text-link` `#005BB5` на всех адаптивах,где
 показывается. Это заменяет только цвет из N-SHELL-HEADER-01; desktop top32

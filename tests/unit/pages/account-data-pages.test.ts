@@ -128,7 +128,7 @@ describe('Настройки → Данные', () => {
   it('владелец видит выгрузку данных организации', async () => {
     await signIn('OWNER')
     const { wrapper } = await mountAt(SettingsPrivacyPage, '/settings/privacy')
-    expect(wrapper.text()).toContain('Выгрузка данных организации')
+    expect(wrapper.text()).toContain('Копия данных компании')
     expect(wrapper.find('[data-testid="export-organization"]').exists()).toBe(true)
     wrapper.unmount()
   })
@@ -136,8 +136,8 @@ describe('Настройки → Данные', () => {
   it('менеджеру выгрузка организации не предлагается', async () => {
     await signIn('MANAGER')
     const { wrapper } = await mountAt(SettingsPrivacyPage, '/settings/privacy')
-    expect(wrapper.text()).toContain('Данные и согласие на обучение')
-    expect(wrapper.text()).not.toContain('Выгрузка данных организации')
+    expect(wrapper.text()).toContain('Данные и конфиденциальность')
+    expect(wrapper.text()).not.toContain('Копия данных компании')
     expect(wrapper.find('[data-testid="export-organization"]').exists()).toBe(false)
     wrapper.unmount()
   })

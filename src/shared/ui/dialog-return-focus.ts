@@ -18,9 +18,13 @@ export function useDialogReturnFocus(
   return (event: Event) => {
     if (event.defaultPrevented) return
     const target =
-      origin?.isConnected && (!fallback || origin.getClientRects().length) ? origin : fallback?.()
+      origin?.isConnected &&
+      (!fallback || (origin.getClientRects().length && !origin.matches(':disabled')))
+        ? origin
+        : fallback?.()
     if (!target?.isConnected) return
     event.preventDefault()
-    target.focus({ preventScroll: true })
+    // Errors or rotation can move the recovery control outside the viewport.
+    target.focus()
   }
 }

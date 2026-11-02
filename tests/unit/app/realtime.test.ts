@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
-import { QueryClient, QueryObserver } from '@tanstack/vue-query'
+import { InfiniteQueryObserver, QueryClient, QueryObserver } from '@tanstack/vue-query'
 import {
   ApiError,
   RealtimeConnection,
@@ -43,6 +43,107 @@ const fakeDocument = {
 }
 
 describe('installRealtime', () => {
+  it.each(['RECONNECTED', 'BUFFER_OVERFLOW'] as const)(
+    '%s preserves a held next page and the safety refresh still reconciles every loaded page',
+    async (reason) => {
+      vi.useFakeTimers()
+      vi.mocked(fetchMe).mockResolvedValue({
+        canCreateOrganization: false,
+        user: {
+          emailVerifiedAt: null,
+          deletionDueAt: null,
+          id: 'u',
+          email: 'a@b.c',
+          displayName: 'A',
+          status: 'ACTIVE',
+          createdAt: '',
+          updatedAt: '',
+        },
+        memberships: [{ tenantId: 'tenant-a', organizationName: 'A', role: 'OWNER' }],
+      })
+      const session = useSessionStore()
+      await session.bootstrap()
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+      })
+      type Page = { items: string[]; nextCursor: string | null }
+      let resolveOlder!: (page: Page) => void
+      const older = new Promise<Page>((resolve) => {
+        resolveOlder = resolve
+      })
+      const abort = vi.fn()
+      let revision = 1
+      const read = vi.fn(
+        async ({
+          pageParam,
+          signal,
+        }: {
+          pageParam: unknown
+          signal: AbortSignal
+        }): Promise<Page> => {
+          if (pageParam === 'older') {
+            signal.addEventListener('abort', abort, { once: true })
+            return older
+          }
+          return { items: [`newest-${revision}`], nextCursor: 'older' }
+        },
+      )
+      const observer = new InfiniteQueryObserver(queryClient, {
+        queryKey: ['tenant', 'tenant-a', 'conversation', 'c', 'messages'],
+        queryFn: read,
+        initialPageParam: null as string | null,
+        getNextPageParam: (lastPage) => lastPage.nextCursor,
+        staleTime: Infinity,
+      })
+      const otherRead = vi.fn(async () => 1)
+      const other = new QueryObserver(queryClient, {
+        queryKey: ['tenant', 'tenant-b', 'conversation', 'c', 'messages'],
+        queryFn: otherRead,
+        staleTime: Infinity,
+      })
+      const unsubscribe = observer.subscribe(() => {})
+      const unsubscribeOther = other.subscribe(() => {})
+      await vi.advanceTimersByTimeAsync(0)
+      const fake = fakeConnectionFactory()
+      const realtime = installRealtime({
+        session,
+        queryClient,
+        createConnection: fake.createConnection,
+        window: fakeWindow,
+        document: fakeDocument,
+      })
+      const pending = observer.fetchNextPage()
+      try {
+        await vi.advanceTimersByTimeAsync(0)
+        expect(observer.getCurrentResult().isFetchingNextPage).toBe(true)
+        revision = 2
+        fake.handlers().onResync(reason)
+        await vi.advanceTimersByTimeAsync(0)
+        expect(abort).not.toHaveBeenCalled()
+        expect(read).toHaveBeenCalledTimes(2)
+        resolveOlder({ items: ['earlier'], nextCursor: null })
+        await pending
+        expect(observer.getCurrentResult().data?.pages.map((page) => page.items)).toEqual([
+          ['newest-1'],
+          ['earlier'],
+        ])
+        await vi.advanceTimersByTimeAsync(15_000)
+        expect(observer.getCurrentResult().data?.pages.map((page) => page.items)).toEqual([
+          ['newest-2'],
+          ['earlier'],
+        ])
+        expect(read).toHaveBeenCalledTimes(4)
+        expect(otherRead).toHaveBeenCalledTimes(1)
+      } finally {
+        resolveOlder({ items: ['earlier'], nextCursor: null })
+        await pending
+        realtime.dispose()
+        unsubscribe()
+        unsubscribeOther()
+        queryClient.clear()
+      }
+    },
+  )
   it('без сигналов SSE получает новый REST snapshot и восстанавливается после ошибки', async () => {
     vi.useFakeTimers()
     vi.mocked(fetchMe).mockResolvedValue({
@@ -163,7 +264,10 @@ describe('installRealtime', () => {
     expect(keys).toContainEqual(['tenant', 'tenant-a', 'radar'])
     invalidate.mockClear()
     fake.handlers().onResync('RECONNECTED')
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['tenant', 'tenant-a'] })
+    expect(invalidate).toHaveBeenCalledWith(
+      { queryKey: ['tenant', 'tenant-a'] },
+      { cancelRefetch: false },
+    )
 
     fake.handlers().onStateChange?.('open')
     expect(realtime.state.value).toBe('open')

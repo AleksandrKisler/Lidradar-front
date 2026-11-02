@@ -750,14 +750,17 @@ test.describe('mobile320 CSS reflow with DSF2, not native browser zoom', () => {
 })
 
 test('Chromium native mobile pinch: visual scale, focus and cancellation remain reachable', async ({
-  browser,
+  playwright,
   browserName,
 }, info) => {
   test.skip(
     browserName !== 'chromium',
     'Native synthetic pinch uses Chromium CDP; this is not cross-engine or toolbar zoom evidence.',
   )
-  const context = await browser.newContext({
+  // Exercise native touch pinch in full Chrome rather than Linux's reduced headless-shell.
+  // https://playwright.dev/docs/browsers#chromium-new-headless-mode
+  const pinchBrowser = await playwright.chromium.launch({ channel: 'chromium' })
+  const context = await pinchBrowser.newContext({
     baseURL: info.project.use.baseURL,
     viewport: { width: 390, height: 844 },
     isMobile: true,
@@ -859,6 +862,7 @@ test('Chromium native mobile pinch: visual scale, focus and cancellation remain 
     fixture.dispose()
     await session.detach()
     await context.close()
+    await pinchBrowser.close()
   }
 })
 

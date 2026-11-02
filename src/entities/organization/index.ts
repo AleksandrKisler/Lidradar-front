@@ -16,9 +16,16 @@ export {
   useOrganizationQuery,
   useOnboardingQuery,
 } from './api/organization-api'
-export { CURRENCY_OPTIONS, timeZoneOptions, timeZoneLabel, defaultTimeZone } from './lib/options'
+export {
+  CURRENCY_OPTIONS,
+  CURRENCY_CODE_OPTIONS,
+  timeZoneOptions,
+  timeZoneLabel,
+  defaultTimeZone,
+} from './lib/options'
 export {
   ONBOARDING_STEP_ORDER,
   onboardingStepLabel,
   isOnboardingStepDone,
 } from './model/onboarding'
+export { organizationFormSchema, organizationChanges, organizationValues } from './model/schema'

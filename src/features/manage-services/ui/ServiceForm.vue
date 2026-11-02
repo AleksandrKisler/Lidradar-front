@@ -15,9 +15,9 @@ import {
   type UiSelectOption,
 } from '@/shared/ui'
 import { UNKNOWN_PRICE, SERVICE_NAME_MAX_LENGTH, type ServiceCatalogItem } from '@/entities/service'
-import { CURRENCY_OPTIONS } from '@/entities/organization'
+import { CURRENCY_OPTIONS, CURRENCY_CODE_OPTIONS } from '@/entities/organization'
 import type { Location } from '@/entities/location'
-import { serviceSchema } from '../model/schema'
+import { serviceSchema, type ServiceValues } from '../model/schema'
 import { useServiceCommands } from '../model/use-services-commands'
 import serviceChevron from './assets/service-chevron.svg?no-inline'
 
@@ -31,10 +31,12 @@ const props = defineProps<{
   dialog?: boolean | undefined
   formId?: string | undefined
   operationKey?: number | undefined
+  draft?: ServiceValues | undefined
 }>()
 const emit = defineEmits<{
   saved: [service: ServiceCatalogItem, operationKey?: number]
   cancel: []
+  draft: [values: ServiceValues]
   busy: [busy: boolean, operationKey?: number]
   failed: [error: unknown, operationKey?: number]
 }>()
@@ -46,17 +48,10 @@ const locationOptions = computed<UiSelectOption[]>(() => [
     label: location.active ? location.name : `${location.name} (неактивна)`,
   })),
 ])
-const currencyOptions = computed(() =>
-  props.dialog
-    ? CURRENCY_OPTIONS.map(({ value, label }) => ({
-        value,
-        label: `${value} · ${label.split(' · ')[1]}`,
-      }))
-    : CURRENCY_OPTIONS,
-)
-const { defineField, handleSubmit, errors, resetForm } = useForm({
+const currencyOptions = computed(() => (props.dialog ? CURRENCY_CODE_OPTIONS : CURRENCY_OPTIONS))
+const { defineField, handleSubmit, errors, resetForm, values } = useForm({
   validationSchema: toTypedSchema(serviceSchema),
-  initialValues: {
+  initialValues: props.draft ?? {
     name: props.service?.name ?? '',
     locationId: props.service?.locationId ?? '',
     priceFrom:
@@ -65,6 +60,7 @@ const { defineField, handleSubmit, errors, resetForm } = useForm({
     currency: props.service?.currency ?? props.defaultCurrency,
   },
 })
+watch(values, () => emit('draft', { ...values } as ServiceValues), { deep: true, flush: 'sync' })
 const fields = reactive([
   {
     key: 'name' as const,

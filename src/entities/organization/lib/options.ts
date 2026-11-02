@@ -13,6 +13,12 @@ export const CURRENCY_OPTIONS: UiSelectOption[] = [
   { value: 'EUR', label: 'Евро · €' },
 ]
 
+/** Компактные подписи редакторов: код и знак. */
+export const CURRENCY_CODE_OPTIONS = CURRENCY_OPTIONS.map(({ value, label }) => ({
+  value,
+  label: `${value} · ${label.split(' · ').at(-1)}`,
+}))
+
 /** Русские названия поясов России: подпись «Москва · UTC+3»; остальные пояса подписываются идентификатором. */
 const russianZones: Record<string, string> = {
   'Europe/Kaliningrad': 'Калининград',

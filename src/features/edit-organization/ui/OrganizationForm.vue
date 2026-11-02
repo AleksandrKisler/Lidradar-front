@@ -8,7 +8,7 @@
  * После сохранения перечитываются организация, аналитика и `/auth/me`
  * (название видно в переключателе пространств).
  */
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
@@ -16,8 +16,10 @@ import { describeError, isApiError, tenantScope } from '@/shared/api'
 import { UiAlert, UiGlyph, UiButton, UiField, UiInput, UiSelect, UiSheetDialog } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
 import {
-  CURRENCY_OPTIONS,
+  CURRENCY_CODE_OPTIONS,
   organizationKeys,
+  organizationChanges,
+  organizationValues,
   timeZoneOptions,
   updateOrganization,
   type Organization,
@@ -35,22 +37,34 @@ const session = useSessionStore()
 const queryClient = useQueryClient()
 const zones = timeZoneOptions()
 /** Валюта в макете подписана кодом и знаком: «RUB · ₽». */
-const currencies = CURRENCY_OPTIONS.map((option) => ({
-  value: option.value,
-  label: `${option.value} · ${option.label.split(' · ').at(-1)}`,
-}))
 
 const { defineField, handleSubmit, errors, resetForm, setFieldValue, values, meta } = useForm({
   validationSchema: toTypedSchema(organizationSchema),
-  initialValues: {
-    name: props.organization.name,
-    defaultTimezone: props.organization.defaultTimezone,
-    defaultCurrency: props.organization.defaultCurrency,
-  },
+  initialValues: organizationValues(props.organization),
 })
 const [name] = defineField('name')
 const [defaultTimezone] = defineField('defaultTimezone')
 const [defaultCurrency] = defineField('defaultCurrency')
+const fields = reactive([
+  {
+    key: 'name' as const,
+    label: 'Название компании',
+    value: name,
+    attrs: { name: 'organizationName', maxlength: 200 },
+  },
+  {
+    key: 'defaultCurrency' as const,
+    label: 'Основная валюта',
+    value: defaultCurrency,
+    attrs: { name: 'organizationCurrency', class: 'min-w-0', options: CURRENCY_CODE_OPTIONS },
+  },
+  {
+    key: 'defaultTimezone' as const,
+    label: 'Часовой пояс',
+    value: defaultTimezone,
+    attrs: { name: 'organizationTimezone', class: 'min-w-0', options: zones },
+  },
+])
 
 type Command = { tenantId: string; generation: number; body: UpdateOrganizationRequest }
 let generation = 0
@@ -81,11 +95,7 @@ const sameContext = (command: Command) =>
 
 function resetOrganization(organization: Organization) {
   resetForm({
-    values: {
-      name: organization.name,
-      defaultTimezone: organization.defaultTimezone,
-      defaultCurrency: organization.defaultCurrency,
-    },
+    values: organizationValues(organization),
   })
 }
 
@@ -139,25 +149,16 @@ function keepPrevious(): void {
   confirmOpen.value = false
 }
 
-/** Тело PATCH из изменённых полей; пустое — сохранять нечего. */
-function diff(formValues: { name: string; defaultTimezone: string; defaultCurrency: string }) {
-  const body: UpdateOrganizationRequest = {}
-  if (formValues.name !== props.organization.name) body.name = formValues.name
-  if (formValues.defaultTimezone !== props.organization.defaultTimezone) {
-    body.defaultTimezone = formValues.defaultTimezone
-  }
-  const currency = formValues.defaultCurrency.toUpperCase()
-  if (currency !== props.organization.defaultCurrency) body.defaultCurrency = currency
-  return body
-}
-
 async function onSubmit(event: Event): Promise<void> {
   if (isSubmitting.value || confirmOpen.value) return
   isSubmitting.value = true
   const context = { tenantId: props.tenantId, generation }
   try {
     await handleSubmit(async (formValues) => {
-      const command: Command = { ...context, body: diff(formValues) }
+      const command: Command = {
+        ...context,
+        body: organizationChanges(props.organization, formValues),
+      }
       if (!sameContext(command)) return
       saved.value = false
       requestError.value = null
@@ -204,13 +205,7 @@ async function send(command: Command): Promise<void> {
 }
 
 const hasChanges = computed(() => {
-  if (!meta.value.dirty) return false
-  const current = values
-  return (
-    current.name?.trim() !== props.organization.name ||
-    current.defaultTimezone !== props.organization.defaultTimezone ||
-    (current.defaultCurrency ?? '').toUpperCase() !== props.organization.defaultCurrency
-  )
+  return meta.value.dirty && Object.keys(organizationChanges(props.organization, values)).length > 0
 })
 const status = computed(() =>
   isSubmitting.value ? 'saving' : (feedback.value ?? (hasChanges.value ? 'dirty' : 'idle')),
@@ -230,51 +225,19 @@ watch(
       class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-[1.875fr_minmax(0,1fr)_minmax(192px,1fr)] [&>div]:min-w-0"
     >
       <UiField
+        v-for="field in fields"
+        :key="field.key"
         v-slot="{ id, describedBy, invalid }"
-        class="md:col-span-2 lg:col-span-1"
-        label="Название компании"
+        :class="field.key === 'name' ? 'md:col-span-2 lg:col-span-1' : ''"
+        :label="field.label"
         label-style="compact"
-        :error="errors.name"
+        :error="errors[field.key]"
       >
-        <UiInput
+        <component
+          :is="field.key === 'name' ? UiInput : UiSelect"
           :id="id"
-          v-model="name"
-          name="organizationName"
-          :maxlength="200"
-          :described-by="describedBy"
-          :invalid="invalid"
-          :disabled="isSubmitting"
-        />
-      </UiField>
-      <UiField
-        v-slot="{ id, describedBy, invalid }"
-        label="Основная валюта"
-        label-style="compact"
-        :error="errors.defaultCurrency"
-      >
-        <UiSelect
-          :id="id"
-          v-model="defaultCurrency"
-          name="organizationCurrency"
-          class="min-w-0"
-          :options="currencies"
-          :described-by="describedBy"
-          :invalid="invalid"
-          :disabled="isSubmitting"
-        />
-      </UiField>
-      <UiField
-        v-slot="{ id, describedBy, invalid }"
-        label="Часовой пояс"
-        label-style="compact"
-        :error="errors.defaultTimezone"
-      >
-        <UiSelect
-          :id="id"
-          v-model="defaultTimezone"
-          name="organizationTimezone"
-          class="min-w-0"
-          :options="zones"
+          v-model="field.value"
+          v-bind="field.attrs"
           :described-by="describedBy"
           :invalid="invalid"
           :disabled="isSubmitting"

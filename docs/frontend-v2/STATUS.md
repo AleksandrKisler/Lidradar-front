@@ -1,5 +1,62 @@
 # Статус frontend v2
 
+## Codex · Возврат в онбординге без изменения дизайна/API · 02.11.2026 · R2 проверен
+
+US-M02-01/02/03/04: реализованы редактор той же компании при возврате,
+поэтапное сохранение, черновики полей/графика в памяти открытого мастера,
+история 1→2→3 и явное создание другого пространства по существующей ссылке.
+Дизайн/CSS/Figma/backend/API/production не менялись; удаление остаётся Hotfix09.11.
+Владелец runtime/tests/shared schema — ведущая сессия Codex, QA только outputs.
+
+R2 frozen:820inputs, HEAD e7940037e6a15ff6a4e7e2e07b99b981a234e442,
+manifestSHA df39a657368735c5d81c1446b947c002236ca76228b6cd4acece26b0bf258d11.
+`artifacts/frontend-v2/onboarding-existing-api-2026-11-02/R2/`: archive/diff/inputs,
+qa/report.md/commands/logs,comparisons.json,location-matrix.json,ui/report.md.
+Независимые TEST PASS / FUNCTIONAL PASS frontend/mock N1–N7: адресные133unit,
+check1225unit/107files+architecture13, builds×3/audit exit0,
+stock1101PASS+34standSKIP/0FAIL/retry/flaky;33/33новых onboarding browsercases.
+JS905395/905600,CSS71967/72000,initial237804/304800, пороги прежние.
+Сверки до/после TEST/FUNCTIONAL/UI:820/820безdrift; после — только mainreport/STATUS.
+Обычные команды с sandbox override после доказанных EMFILE/listenEPERM;
+конфигурация/assertions/coverage/baselines ради PASS не менялись.
+
+R1 TEST PASS / FUNCTIONAL FAIL сохранён, UI не запускался. QA-R1-01/P1
+(same-tenant user change) и QA-R1-02/P1 (201→refresh503→reload) CLOSED наR2.
+RouterView ключуется userID;4regression проверяют A→B→A/latePOST/PATCH.
+Подтверждённый201 сохраняет companyID до authme;9browserrecoverycases проверяют
+consumed/open/multiple membership,1POST и точныйtenantPATCH. ЧужойrecoveryID
+не вызываетorganizationwrites/reads; правки перед retry не теряются.
+Для бюджета дедуплицированы поля/схемы двух форм и подписи валют с прежними
+контролами/порядком/атрибутами/валидацией. Settings company/services regressions PASS.
+
+НезависимыйUI реально просмотрел93PNG с SHAguard. Normal/edit company/location/
+services+перваяCompanySettings: desktop/tablet/mobile PASS approved-pattern.
+Дополнительнаяlocationmatrix enabled/disabled/saving/retry: desktop/tablet PASS,
+mobile FAIL. UI-L01/P2 OPEN — busyформа390бледнееapproved, opacityпредсуществуетHEAD
+(template byte-equal). UI-L02/P2 OPEN — initialviewport390 перекрывает строку
+ошибкиfixedCTA; послеscroll ошибкацеликомвидна, причина/давностьнеустановлены.
+Полный UI всех loading/focus/overlayM02/M03 UNVERIFIED, общего полногоPASSнет.
+Дизайн радиfindingsнеправился. Следующийшагпередпоставкой — отдельноразобрать
+UI-L01/02 и применимыенепроверенныесостояния. Stage/production/реальныеканалы
+непроверялись/неменялись наэтапелокальнойприёмки,preview4173свободен.
+Следующимпоручением02.11 владелецразрешилcommit/pushstageбезповторныхтестов;
+результатпубликации — R2/stage-release/, штатныеCI/autodeployнеизменны.
+[Полный отчёт](evidence/onboarding-existing-api-2026-11-02.md).
+
+## Hotfix · Удаление в онбординге · План на 09.11.2026
+
+По поручению владельца 02.11.2026 сценарий удаления точек и услуг включён
+в Hotfix на 9 ноября. В Plane создан модуль Hotfix (02–09.11, Запланировано),
+[LIDRADAR-27](https://plane.lid-radar.online/lid-radar/browse/LIDRADAR-27/)
+добавлена в него со сроком 09.11 и статусом New. US-M02-02/03/04, регрессии
+M02-01/M03. При удалении точки с услугами сначала предупреждение; подтверждение
+переводит связанные услуги на «Все точки», отмена сохраняет привязки.
+Поэтапное сохранение одной компании сохраняется. [План и критерии](RELEASE-PLAN-2026-11-09.md).
+Карточка повторно открыта, модуль/срок/описание подтверждены; evidence —
+`artifacts/frontend-v2/hotfix-2026-11-09/lidradar-27.jpg`.
+Следующий этап — макеты и согласование; реализация не начата, канонические US,
+runtime/API/Figma/stage/production прежние. TEST/FUNCTIONAL/UI NOT RUN.
+
 ## Codex · Account link #005BB5 · 02.11.2026 · C3 принят в header scope
 
 N-ACCOUNT-LINK-COLOR-01/P2 реализован: текстовые Account-ссылки всегда text-link

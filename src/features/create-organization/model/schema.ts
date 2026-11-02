@@ -1,15 +1,6 @@
 /** Схема формы создания организации по ограничениям контракта. */
-import * as v from 'valibot'
+import type * as v from 'valibot'
+import { organizationFormSchema } from '@/entities/organization'
 
-export const createOrganizationSchema = v.object({
-  name: v.pipe(
-    v.string(),
-    v.trim(),
-    v.nonEmpty('Введите название компании.'),
-    v.maxLength(200, 'Слишком длинное название'),
-  ),
-  defaultTimezone: v.pipe(v.string(), v.nonEmpty('Выберите часовой пояс')),
-  defaultCurrency: v.pipe(v.string(), v.regex(/^[A-Za-z]{3}$/, 'Выберите валюту')),
-})
-
+export const createOrganizationSchema = organizationFormSchema('Введите название компании.')
 export type CreateOrganizationValues = v.InferOutput<typeof createOrganizationSchema>

@@ -5,7 +5,8 @@
  * менеджер без `location.manage` увидит «Раздел недоступен», а не форму. `loading` — каркас первой
  * загрузки: сессия неизвестна, ряд шагов показывает только первый шаг текущим. Шаг «Точки и графики»
  * (US-M02-04) занимает широкую рабочую область 1120 px: точки слева, график справа; ряд шагов
- * остаётся 840 px. Ритм по Figma у всех шагов: «Шаг n из 4» 13/16 на 28 px ниже шапки, ряд шагов 60 px,
+ * остаётся 840 px. Данные трёх форм сохраняются в памяти открытого мастера.
+ * Ритм по Figma у всех шагов: «Шаг n из 4» 13/16 на 28 px ниже шапки, ряд шагов 60 px,
  * ряд шагов → заголовок 28 px (телефон 16 px).
  */
 import { computed } from 'vue'
@@ -16,12 +17,14 @@ import { useOnboardingQuery } from '@/entities/organization'
 import { AccountDeletionBanner } from '@/features/auth-session'
 import { AccountHeader } from '@/widgets/account-header'
 import { OnboardingProgress } from '@/widgets/onboarding-progress'
+import { provideOnboardingState } from '@/pages/onboarding'
 
 const props = defineProps<{ loading?: boolean }>()
 
 const session = useSessionStore()
 const route = useRoute()
 const router = useRouter()
+provideOnboardingState()
 const status = useOnboardingQuery(() => (props.loading ? null : session.tenantId))
 
 const wide = computed(() => route.name === 'onboarding-location')
@@ -56,7 +59,7 @@ const denied = computed(
             back-label="Вернуться в Radar"
             @back="router.push({ name: 'radar' })"
           />
-          <RouterView v-else />
+          <RouterView v-else :key="session.user?.id ?? ''" />
         </slot>
       </div>
     </main>

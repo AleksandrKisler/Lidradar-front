@@ -4,17 +4,21 @@
  * успешные строки остаются, даже если следующая не принята. Минимум одна
  * услуга — цель продукта, но сервер шаг не блокирует.
  */
-import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref } from 'vue'
+import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { UiButton, UiErrorState, UiPageIntro } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
 import { useOrganizationQuery } from '@/entities/organization'
 import { useLocationsQuery } from '@/entities/location'
 import { formatPriceRange, useServicesQuery } from '@/entities/service'
 import { ServiceForm } from '@/features/manage-services'
+import { useOnboardingState } from '../model/state'
 
 const router = useRouter()
 const session = useSessionStore()
+const state = useOnboardingState()
+const saving = ref(false)
+onBeforeRouteLeave(() => !saving.value)
 const tenantId = computed(() => session.tenantId ?? '')
 const organization = useOrganizationQuery(() => session.tenantId)
 const locations = useLocationsQuery(() => session.tenantId)
@@ -154,12 +158,15 @@ const locationName = (locationId: string | null) =>
       </div>
       <ServiceForm
         v-else
+        :key="tenantId"
         wizard
         :tenant-id="tenantId"
         :service="null"
         :locations="locations.data.value ?? []"
         :default-currency="organization.data.value?.defaultCurrency ?? 'RUB'"
-        @cancel="router.push({ name: 'onboarding-location' })"
+        :draft="state?.service.value"
+        @draft="state && (state.service.value = $event)"
+        @busy="saving = $event"
       />
     </section>
 
@@ -176,6 +183,7 @@ const locationName = (locationId: string | null) =>
     <div class="mt-4 flex flex-wrap items-center gap-3 md:flex-nowrap">
       <UiButton
         variant="secondary"
+        :disabled="saving"
         class="md:w-[100px]"
         @click="router.push({ name: 'onboarding-location' })"
       >
@@ -190,6 +198,7 @@ const locationName = (locationId: string | null) =>
       </div>
       <UiButton
         v-else
+        :disabled="saving"
         class="flex-1 md:w-[180px] md:flex-none"
         @click="router.push({ name: 'onboarding-channel' })"
       >

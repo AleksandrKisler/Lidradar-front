@@ -46,7 +46,10 @@ async function openTarget(): Promise<void> {
     >
       <p v-if="session.canCreateOrganization && !loading" class="mb-2">
         Нужно новое пространство?
-        <RouterLink :to="{ name: 'onboarding-company' }" class="text-link hover:underline">
+        <RouterLink
+          :to="{ name: 'onboarding-company', query: { new: '1' } }"
+          class="text-link hover:underline"
+        >
           Создать организацию
         </RouterLink>
       </p>

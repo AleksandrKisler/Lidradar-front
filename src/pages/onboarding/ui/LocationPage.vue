@@ -27,6 +27,7 @@ import { defaultWeek, useLocationsQuery, type DayDraft, type Location } from '@/
 import { LocationFormDialog } from '@/features/manage-locations'
 import { BusinessHoursFields } from '@/features/edit-business-hours'
 import { blockReasonText, draftErrors, isDraftValid, useLocationStep } from '../model/location-step'
+import { useOnboardingState } from '../model/state'
 
 const router = useRouter()
 const session = useSessionStore()
@@ -34,10 +35,12 @@ const tenantId = computed(() => session.tenantId ?? '')
 const organization = useOrganizationQuery(() => session.tenantId)
 const locations = useLocationsQuery(() => session.tenantId)
 
-const step = useLocationStep({
-  tenantId: () => session.tenantId,
-  userId: () => session.user?.id ?? null,
-})
+const step =
+  useOnboardingState()?.location ??
+  useLocationStep({
+    tenantId: () => session.tenantId,
+    userId: () => session.user?.id ?? null,
+  })
 watch(
   () => locations.data.value,
   (list) => {

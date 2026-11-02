@@ -274,7 +274,7 @@ describe('страницы регистрации по приглашениям'
   })
 
   it('без права на организацию страница создания объясняет причину и не показывает форму', async () => {
-    const { wrapper } = await mountPage(CompanyPage, '/onboarding/company', {
+    const { wrapper } = await mountPage(CompanyPage, '/onboarding/company?new=1', {
       memberships: [membership],
       canCreateOrganization: false,
     })

@@ -26,6 +26,15 @@ const user = {
   emailVerifiedAt: null,
   deletionDueAt: null,
 }
+const company = {
+  id: 't-1',
+  name: 'Detail Lab',
+  defaultTimezone: 'Europe/Moscow',
+  defaultCurrency: 'RUB',
+  status: 'ACTIVE',
+  createdAt: '2026-10-13T00:00:00Z',
+  updatedAt: '2026-10-13T00:00:00Z',
+}
 
 async function settle(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 30))
@@ -47,9 +56,9 @@ describe('страница «Компания» (шаг 1)', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  async function mountPage(props: { loading?: boolean } = {}) {
+  async function mountPage(props: { loading?: boolean } = {}, path = '/onboarding/company') {
     const router = createRouter({ history: createMemoryHistory(), routes })
-    await router.push('/onboarding/company')
+    await router.push(path)
     await router.isReady()
     const wrapper = mount(CompanyPage, {
       props,
@@ -66,6 +75,125 @@ describe('страница «Компания» (шаг 1)', () => {
     })
     return { wrapper, router }
   }
+
+  async function existingOwner(canCreateOrganization = false) {
+    vi.mocked(fetchMe).mockResolvedValue({
+      user,
+      memberships: [{ tenantId: company.id, organizationName: company.name, role: 'OWNER' }],
+      canCreateOrganization,
+    })
+    await useSessionStore().refresh()
+    fetchMock.mockImplementation(
+      async (request) =>
+        new Response(
+          JSON.stringify(
+            request.method === 'PATCH'
+              ? { ...company, ...(await request.clone().json()) }
+              : company,
+          ),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+    )
+  }
+
+  it.each([false, true])(
+    'возврат к компании при canCreate=%s: заполненная форма и PATCH того же tenant, без POST',
+    async (allowed) => {
+      await existingOwner(allowed)
+      const { wrapper, router } = await mountPage()
+      await settle()
+      expect(wrapper.get('input[name="organization"]').element).toHaveProperty(
+        'value',
+        company.name,
+      )
+      expect(wrapper.get('button[type="submit"]').text()).toBe('Сохранить и продолжить')
+      await wrapper.get('input[name="organization"]').setValue('Новая вывеска')
+      await wrapper.get('form').trigger('submit')
+      await settle()
+      const writes = fetchMock.mock.calls
+        .map(([request]) => request)
+        .filter((request) => request.method !== 'GET')
+      expect(writes).toHaveLength(1)
+      expect(writes[0]!.method).toBe('PATCH')
+      expect(writes[0]!.headers.get('X-Tenant-ID')).toBe(company.id)
+      expect(await writes[0]!.json()).toEqual({ name: 'Новая вывеска' })
+      expect(router.currentRoute.value.name).toBe('onboarding-location')
+      expect(useSessionStore().tenantId).toBe(company.id)
+      wrapper.unmount()
+    },
+  )
+
+  it('возврат без изменений: продолжает мастер без POST и PATCH', async () => {
+    await existingOwner()
+    const { wrapper, router } = await mountPage()
+    await settle()
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(fetchMock.mock.calls.every(([request]) => request.method === 'GET')).toBe(true)
+    expect(router.currentRoute.value.name).toBe('onboarding-location')
+    wrapper.unmount()
+  })
+
+  it('ошибка PATCH оставляет название в форме и на шаге 1; повтор обновляет ту же компанию', async () => {
+    await existingOwner()
+    const { wrapper, router } = await mountPage()
+    await settle()
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ error: { code: 'INTERNAL', message: 'x', traceId: 'edit-1' } }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    await wrapper.get('input[name="organization"]').setValue('Исправленное имя')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(wrapper.get('input[name="organization"]').element).toHaveProperty(
+      'value',
+      'Исправленное имя',
+    )
+    expect(wrapper.text()).toContain('edit-1')
+    expect(router.currentRoute.value.name).toBe('onboarding-company')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(fetchMock.mock.calls.filter(([request]) => request.method === 'PATCH')).toHaveLength(2)
+    expect(fetchMock.mock.calls.some(([request]) => request.method === 'POST')).toBe(false)
+    expect(router.currentRoute.value.name).toBe('onboarding-location')
+    wrapper.unmount()
+  })
+
+  it('ошибка загрузки существующей компании не подменяется пустой формой создания', async () => {
+    await existingOwner(true)
+    fetchMock.mockResolvedValue(
+      new Response('{}', { status: 503, headers: { 'Content-Type': 'application/json' } }),
+    )
+    const { wrapper } = await mountPage()
+    await settle()
+    expect(wrapper.text()).toContain('Не удалось загрузить компанию')
+    expect(wrapper.find('form').exists()).toBe(false)
+    expect(wrapper.find('input[name="organization"]').exists()).toBe(false)
+    expect(fetchMock.mock.calls.every(([request]) => request.method === 'GET')).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('явное новое пространство сохраняет отдельный путь создания с пустой формой', async () => {
+    await existingOwner(true)
+    const { wrapper } = await mountPage({}, '/onboarding/company?new=1')
+    expect(wrapper.get('input[name="organization"]').element).toHaveProperty('value', '')
+    expect(wrapper.get('button[type="submit"]').text()).toBe('Создать компанию')
+    expect(fetchMock).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('recovery query чужой компании не разрешает GET/PATCH/POST без подтверждённого членства', async () => {
+    await existingOwner(true)
+    const { wrapper } = await mountPage({}, '/onboarding/company?company=other-tenant')
+    await settle()
+    expect(wrapper.text()).toContain('Не удалось загрузить компанию')
+    expect(wrapper.find('form').exists()).toBe(false)
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(useSessionStore().tenantId).toBe(company.id)
+    wrapper.unmount()
+  })
 
   it('показывает три строки формы, подсказки и кнопку «Создать компанию»', async () => {
     const { wrapper } = await mountPage()
@@ -197,6 +325,45 @@ describe('страница «Компания» (шаг 1)', () => {
     await settle()
     // Запрос на создание ушёл один раз; повтор только перечитал членства.
     expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(router.currentRoute.value.name).toBe('onboarding-location')
+    wrapper.unmount()
+  })
+
+  it('после 201 и сбоя сессии повтор сохраняет исправленное название PATCH без второго POST', async () => {
+    const { wrapper, router } = await mountPage({}, '/onboarding/company?new=1')
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify(company), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.mocked(fetchMe).mockRejectedValueOnce(
+      new ApiError({ httpStatus: 503, code: 'UNAVAILABLE', traceId: 'recovery-1' }),
+    )
+    await wrapper.get('input[name="organization"]').setValue(company.name)
+    await wrapper.findAll('select')[0]!.setValue(company.defaultTimezone)
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(router.currentRoute.value.query).toEqual({ company: company.id })
+    await wrapper.get('input[name="organization"]').setValue('Исправленное имя')
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ...company, name: 'Исправленное имя' }), {
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.mocked(fetchMe).mockResolvedValueOnce({
+      user,
+      memberships: [{ tenantId: company.id, organizationName: company.name, role: 'OWNER' }],
+      canCreateOrganization: false,
+    })
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    const writes = fetchMock.mock.calls
+      .map(([request]) => request)
+      .filter((request) => request.method !== 'GET')
+    expect(writes.map((request) => request.method)).toEqual(['POST', 'PATCH'])
+    expect(writes[1]!.headers.get('X-Tenant-ID')).toBe(company.id)
+    expect(await writes[1]!.json()).toEqual({ name: 'Исправленное имя' })
     expect(router.currentRoute.value.name).toBe('onboarding-location')
     wrapper.unmount()
   })

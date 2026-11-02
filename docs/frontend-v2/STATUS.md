@@ -1,5 +1,26 @@
 # Статус frontend v2
 
+## Codex · Settings Privacy · stage delivery · 02.11.2026 · CI blockers
+
+Владелец поручил commit/push/stage без новых локальных tests и устранение blockers.
+6654678/RC1 отправлен вstage иfeature; все837filehashes unchanged. CI41439289032:
+quality/builds3/container PASS, shard1 nativepinch scale1 FAIL, shard2 WebKit open
+dialog1FLAKY; stage-deploy SKIPPED. Rawlogs/traces/artifacts сохранены.
+a84440a/RC2 меняет только native-pinch browser на fullheadlessChromium, жест ивсе
+assertions прежние; CI41443408243 проверяет этот fix. Runtime/UI/API не менялись.
+Следующий адресный fixture fix ordinaryworkspaceconsent держит SSE stream открытым,
+вместо искусственных EOF/reconnect во времяmouseDown/up; explicitreconnect иheldGET
+проверки остаются. Никакие skips/таймауты/coverage/budgets/matrix не ослаблены.
+
+VPN исправлен владельцем, SSH stage доступен. Подтверждён envstaging/domain/
+composeproject; старыйrelease ed577f84e992-we7940037. Неиспользуемый Dockerbuildercache
+старше24h очищен:2.747GB, свободно6.6GB вместо4.8; images145/volumes4 не менялись,
+backups/данные/prod не тронуты. Требование5GB не обходилось. Backend/source/API/
+migrations прежние. Stage пока не объявлен выложенным; ожидается чистый CI+deploy.
+Evidence:docs/frontend-v2/evidence/settings-privacy-stage-2026-11-02.md и
+artifacts/frontend-v2/settings-privacy-redesign/stage-2026-11-02/. R6 acceptance
+ниже — исторический frontend/mock snapshot, не PASS изменённых CI inputs.
+
 ## Codex · Settings Privacy · final R6 · 02.11.2026 · frontend/mock ПРИНЯТО
 
 Третий этап US-M14-01/02/04/07 завершён: mobile390 и финальная приёмка трёх размеров.

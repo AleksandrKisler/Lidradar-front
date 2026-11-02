@@ -33,3 +33,20 @@ Stage deploy guard5GB сохранён. Backend commit/source/migrations не м
 Новый fix должен быть отдельным commit и новым RC tag; старые tags не переназначать.
 Итоговый deploy/run outcome сохраняется в stage artifacts/delivery.json и финальном
 ответе. Этот документ фиксирует подготовку/диагностику, а не ещё не полученный deployPASS.
+
+## Второй CI blocker: legacy WebKit fixture
+
+Shard2 завершился663PASS1FLAKY40SKIP, stage-deploy SKIPPED. Исходный workspace1598
+не открыл grant dialog после primary click. Trace: dispatch11:57:22.360…397UTC,
+SSE reconnect22.353, consentGET22.368…382; guard/native disabled включается между
+mouseDown иmouseUp. Legacy mockOwner отдаёт конечное SSE body и непрерывно закрывает
+соединение, что создаёт искусственные reconnect/resync в ordinary command flow.
+Raw artifact13140738204/trace сохранены, первоначальный FAIL не переписан.
+
+Точечный fixture fix: только этот workspace command flow получает opt-in живой
+ReadableStream с connected comment и AbortSignal cleanup, как уже утверждённые
+settings fixtures. Existing API routes/state/commands/assertions/mouse actions прежние.
+Explicit event/unavailable/reconnect cases по-прежнему используют старые конечные
+routes; dedicated heldGET/permission/late-response/retry regressions сохранены.
+Runtime guards не ослаблены, timeout/retry/coverage/budget/CI matrix не менялись.
+Новый commit/RC3 проверяется штатным CI; локальные tests не запускаются по поручению.

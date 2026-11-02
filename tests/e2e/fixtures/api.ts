@@ -7,6 +7,39 @@
  */
 import type { Page, Route } from '@playwright/test'
 
+/** Healthy long-lived SSE for command flows; reconnect tests keep their finite routes. */
+export async function keepEventStreamOpen(page: Page) {
+  await page.addInitScript(() => {
+    const networkFetch = window.fetch.bind(window)
+    window.fetch = async (input, init) => {
+      const request = input instanceof Request ? input : null
+      const url = new URL(request?.url ?? String(input), location.origin)
+      if (url.pathname !== '/api/v1/events') return networkFetch(input, init)
+      const signal = init?.signal ?? request?.signal
+      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(': connected\n\n'))
+            signal?.addEventListener(
+              'abort',
+              () => {
+                try {
+                  controller.close()
+                } catch {
+                  /* already closed */
+                }
+              },
+              { once: true },
+            )
+          },
+        }),
+        { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } },
+      )
+    }
+  })
+}
+
 export const TENANT_ID = '01990000-0000-7000-8000-000000000001'
 export const RISK_ID = '01990000-0000-7000-8000-000000000301'
 export const OPPORTUNITY_ID = '01990000-0000-7000-8000-000000000401'

@@ -14,6 +14,7 @@ import {
   ADMIN_IDS,
   failNextAdminCommand,
   setOpportunityStage,
+  keepEventStreamOpen,
 } from './fixtures/api'
 
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21aa']
@@ -1596,6 +1597,8 @@ test.describe('владелец организации', () => {
   })
 
   test('данные и согласие: выдача, повтор и отзыв с честным текстом', async ({ page }) => {
+    // This command flow models a healthy stream; explicit reconnect/held-GET cases are separate.
+    await keepEventStreamOpen(page)
     await page.goto('/settings/privacy')
     await expect(page.getByRole('heading', { name: 'Данные и конфиденциальность' })).toBeVisible()
     await expectSettingsSection(page, 'Данные')

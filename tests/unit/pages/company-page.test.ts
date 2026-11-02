@@ -312,6 +312,8 @@ describe('страница «Компания» (шаг 1)', () => {
       new ApiError({ httpStatus: 503, code: 'UNAVAILABLE', message: 'down', traceId: 't-9' }),
     )
     await wrapper.get('input[name="organization"]').setValue('Detail Lab')
+    // Ответ создания содержит Moscow: исходная форма должна отправить тот же пояс при любом TZ runner.
+    await wrapper.findAll('select')[0]!.setValue('Europe/Moscow')
     await wrapper.get('form').trigger('submit')
     await settle()
     expect(wrapper.get('[role="alert"]').text()).toContain('t-9')
@@ -324,7 +326,13 @@ describe('страница «Компания» (шаг 1)', () => {
     await wrapper.get('form').trigger('submit')
     await settle()
     // Запрос на создание ушёл один раз; повтор только перечитал членства.
+    expect(fetchMock.mock.calls.map(([request]) => request.method)).toEqual(['POST'])
     expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(await fetchMock.mock.calls[0]![0].json()).toEqual({
+      name: 'Detail Lab',
+      defaultTimezone: 'Europe/Moscow',
+      defaultCurrency: 'RUB',
+    })
     expect(router.currentRoute.value.name).toBe('onboarding-location')
     wrapper.unmount()
   })

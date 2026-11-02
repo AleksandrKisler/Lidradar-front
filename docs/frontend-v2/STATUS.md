@@ -1,5 +1,24 @@
 # Статус frontend v2
 
+## Codex · Онбординг · CI fixture timezone fix · 02.11.2026
+
+По поручению владельца исправлено падение company-page.test.ts в CI41365010251
+на stage d5abbd9. Причина: runner UTC отправлял UTC, mockPOST отвечал Moscow;
+после201+authme503 повтор корректно отправлял PATCH из-за разницы пояса.
+Source repro UTC exit1 подтвердил POST,PATCH. Fixture явно выбирает Moscow,
+старый fetchcount1 сохранён, добавлены exactPOSTmethod/body. Runtime/дизайн/CSS
+не менялись. US-M02-01,N2/N5/N7, все454trackedsrc byte-equalHEADd5abbd9.
+
+CI-fix-R1:820inputs,manifestSHA
+d48fe0865e84ccab0997f95831f51a3c05cd08c593d1bb1e1090c009ed034362.
+Независимые scoped TEST PASS / FUNCTIONAL PASS:18unit×UTC/Moscow/Yekaterinburg
+=54PASS,адресныеPrettier/ESLint/typecheck exit0,guard820/820безdrift.
+Полныеsuites/build/UI/stageнеперезапускались;UI-L01/02OPENсохранены.
+Исправлениеподготовленокpushstage;штатныйCI/autodeployнеизменны.
+Evidence: `artifacts/frontend-v2/onboarding-existing-api-2026-11-02/CI-fix-R1/`,
+qa/report.md,логиисходногоCI/UTCFAIL,snapshot/relevant.diff,публикацияотдельно.
+[Отчёт](evidence/onboarding-existing-api-2026-11-02.md).
+
 ## Codex · Возврат в онбординге без изменения дизайна/API · 02.11.2026 · R2 проверен
 
 US-M02-01/02/03/04: реализованы редактор той же компании при возврате,

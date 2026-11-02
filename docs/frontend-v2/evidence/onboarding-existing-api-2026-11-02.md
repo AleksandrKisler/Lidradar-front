@@ -127,3 +127,33 @@ Stage/production/реальный backend, письма и Telegram не про�
 diff. Перед полной визуальной приёмкой/поставкой требуется отдельно разобрать
 UI-L01/02 и закрыть применимые непроверенные состояния. Первоначальное поручение
 не включало публикацию; последующее разрешение на stage записано выше.
+
+## Исправление падения CI · 02.11.2026 · CI-fix-R1
+
+Коммит `d5abbd9` отправлен в stage. [CI 41365010251](https://github.com/AleksandrKisler/Lidradar-front/actions/runs/41365010251)
+завершился FAIL на `company-page.test.ts:327`, stage-deploy SKIPPED.
+Причина — несогласованный fixture: форма брала часовой пояс среды (UTC в CI),
+а mock создания возвращал `Europe/Moscow`. После 201 и сбоя auth/me повтор
+корректно отправлял PATCH с UTC. Локальный адресный UTC repro подтвердил
+методы `POST,PATCH`, exit 1; это не повторный POST и не ошибка дизайна.
+
+По новому поручению владельца перед первым submit в тесте явно выбран
+`Europe/Moscow`. Проверка одного fetch сохранена; дополнительно проверяются
+точная последовательность всех методов `['POST']` и полное тело запроса.
+Assertions не ослаблены. Соседний сценарий реальной правки имени после201+503
+по-прежнему проверяет `POST,PATCH`, точный tenant/body и переход на шаг2.
+
+Независимый scoped QA: TEST PASS / FUNCTIONAL PASS. Все18 unit этого файла
+прошли последовательно в UTC, Europe/Moscow, Asia/Yekaterinburg — 54/54,
+без фильтра тестов и retries; адресные Prettier, ESLint и typecheck exit0.
+Runtime/markup/CSS не менялись,454trackedsrc byte-equal базовому HEAD
+`d5abbd95b4c4aff35e1d3bc8f83afddce3a02c34`. Повторных полных check/build/E2E/UI
+не было; старые UI-L01/02 OPEN сохранены. После push штатный CI запускается
+автоматически; его результат не подменён локальным scoped PASS.
+
+Evidence: `artifacts/frontend-v2/onboarding-existing-api-2026-11-02/CI-fix-R1/`,
+`github-failure.log`, `repro-utc.log`, `qa/report.md` и отдельные логи команд.
+Snapshot820inputs, manifestSHA
+`d48fe0865e84ccab0997f95831f51a3c05cd08c593d1bb1e1090c009ed034362`,
+hashguard до/после QA820/820. Последующие изменения — только отчёт/STATUS;
+commit/push и новый CI записываются отдельно в artifacts этого исправления.

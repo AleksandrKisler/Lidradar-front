@@ -759,7 +759,11 @@ test('Chromium native mobile pinch: visual scale, focus and cancellation remain 
   )
   // Exercise native touch pinch in full Chrome rather than Linux's reduced headless-shell.
   // https://playwright.dev/docs/browsers#chromium-new-headless-mode
-  const pinchBrowser = await playwright.chromium.launch({ channel: 'chromium' })
+  const pinchBrowser = await playwright.chromium.launch({
+    channel: 'chromium',
+    // CDP Browser.getBrowserCommandLine requires this explicit diagnostic capability.
+    args: ['--enable-automation'],
+  })
   const context = await pinchBrowser.newContext({
     baseURL: info.project.use.baseURL,
     viewport: { width: 390, height: 844 },

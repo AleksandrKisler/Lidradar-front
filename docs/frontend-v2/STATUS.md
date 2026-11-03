@@ -42,6 +42,20 @@ feature switches. Координаты компенсируют только ч�
 на trusted/неотменённые события и два контакта; scale>1.5 и focus/cancel/write
 assertions сохранены. Это кандидат исправления CI harness, не новый UI PASS.
 
+Run41734995980 target1776c2df0f002e5005294c7d2d979f72cb692bd0:
+quality/container/3builds success; E2E2 success23m4s, E2E1 747passed/1failed.
+Сбой в добавленной diagnostic capability: Browser.getBrowserCommandLine
+требует --enable-automation (protocol.d.ts:2211), новый gesture ещё не вызван.
+В изолированный pinch browser добавлен только этот явный launch arg;
+feature guard, native touch sequence и все assertions сохранены. Stage-deploy
+126274619014 skipped. Следующий commit требует полного штатного CI.
+Штатная stage-сборка использует APP_MODE=production (backend build-images.sh:92),
+поэтому runtime/public static сверяются с точным dist-prod artifact target SHA.
+Pre-prod artifacts сохранены отдельно; смешивать modes нельзя. Технические
+proof helpers в ignored artifacts подготовлены, но до успешной доставки не
+запускались. App runtime/backend/API/production неизменны. Все manual extra
+browser/E2E/smoke/regression/functional/visual проверки по-прежнему NOT RUN.
+
 ## Codex · Интеграции · итог доставки BLOCKED · 03.11.2026
 
 Целевой commit `3b742a4ab714acf8fdd71bacd2dc8ac285bea49b` содержит все

@@ -20,6 +20,28 @@ WebKit guide scroll offset216.609375 вместо216. Тесты теперь о
 artifacts/frontend-v2/frontend-stage-optimization-2026-11-04/.
 Предыдущие checkpoint и evidence сохранены как история, включая STATUS dirty.
 
+Commit ff2bdf0d2caf6f682a0da059f315dc5090323f26 доставлен в origin/stage;
+run41730670424 completed/failure. Quality/container/dev/pre-prod/prod success,
+release audit подтвердил новые budgets. E2E1:747passed/1failed(native-pinch),
+E2E2:707passed/40existing skips, success19m18s. Все три последних Mobile/WebKit
+findings закрыты штатным CI; timeout не повторился, менять sharding не нужно.
+Stage-deploy126258545890 skipped. Диагностика pinch:32trusted touch events,
+два контакта, prevented=false, scale1 до/после во всех трёх попытках. Проблема
+не в отсутствии touch delivery и не в ограничении количества контактов.
+Root исследует путь native gesture recognition в Linux/Aura; assertion>1.5
+и остальные проверки сохранены. Следующий SHA после точечного harness fix
+требует нового штатного CI и технической проверки stage после deployment.
+
+Native-pinch harness candidate: стандартные CDP touchStart/Move/End с двумя
+контактами вместо synthetic pinch. Exact Chromium153 source различает paths:
+обычный dispatch включает TouchEmulator/FilteredGestureProvider; synthetic
+debugger touch идёт напрямую Aura WindowDelegate. SyntheticPointerActions
+defaultOFF, launch/config не включают его; CI дополнительно проверит и запишет
+feature switches. Координаты компенсируют только читаемый текущий page scale,
+геометрия страницы/scale не устанавливаются программно. Добавлены assertions
+на trusted/неотменённые события и два контакта; scale>1.5 и focus/cancel/write
+assertions сохранены. Это кандидат исправления CI harness, не новый UI PASS.
+
 ## Codex · Интеграции · итог доставки BLOCKED · 03.11.2026
 
 Целевой commit `3b742a4ab714acf8fdd71bacd2dc8ac285bea49b` содержит все

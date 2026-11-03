@@ -803,24 +803,57 @@ test('Chromium native mobile pinch: visual scale, focus and cancellation remain 
       return events
     })
     const beforeGesture = await session.send('Page.getLayoutMetrics')
-    // CDP Input.pdl: this emits touch events; scaleFactor is relative to the current visual scale.
-    await session.send('Input.synthesizePinchGesture', {
-      x: 195,
-      y: 422,
-      scaleFactor: 2,
-      relativeSpeed: 800,
-      gestureSourceType: 'touch',
+    const featureSwitches = (await session.send('Browser.getBrowserCommandLine')).arguments.filter(
+      (argument) => /^--(?:enable|disable)-features=/.test(argument),
+    )
+    // Chromium 153 defaults SyntheticPointerActions to OFF. Its ordinary CDP touch
+    // injector uses TouchEmulator/FilteredGestureProvider, including native pinch
+    // recognition. Aura's synthetic pinch bypasses that dispatcher: CI delivered
+    // two trusted contacts but never changed page scale. Keep browser zoom native.
+    expect(
+      featureSwitches.filter((argument) => argument.startsWith('--enable-features=')).join(','),
+    ).not.toMatch(/(?:=|,)SyntheticPointerActions(?:[<:,]|$)/)
+    const touches = async (halfSpan: number) => {
+      // CDP converts CSS input coordinates by the current page scale. Keep the
+      // physical fingers moving apart in the viewport as native zoom progresses.
+      const scale = await page.evaluate(() => visualViewport?.scale ?? 1)
+      return [
+        { id: 0, x: 195 / scale, y: (422 - halfSpan) / scale },
+        { id: 1, x: 195 / scale, y: (422 + halfSpan) / scale },
+      ]
+    }
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: await touches(128),
     })
+    try {
+      for (let frame = 1; frame <= 12; frame++) {
+        await page.evaluate(
+          () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+        )
+        await session.send('Input.dispatchTouchEvent', {
+          type: 'touchMove',
+          touchPoints: await touches(128 + (128 * frame) / 12),
+        })
+      }
+    } finally {
+      await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    }
+    const delivered = await inputs.jsonValue()
     await info.attach('native-pinch-input-delivery', {
       body: JSON.stringify({
         browser: await session.send('Browser.getVersion'),
+        featureSwitches,
+        inputMethod: 'Input.dispatchTouchEvent; two physical contacts, browser-native recognition',
         beforeGesture,
         afterGesture: await session.send('Page.getLayoutMetrics'),
         maxTouchPoints: await page.evaluate(() => navigator.maxTouchPoints),
-        events: await inputs.jsonValue(),
+        events: delivered,
       }),
       contentType: 'application/json',
     })
+    expect(delivered.some((event) => event.touches.length === 2)).toBe(true)
+    expect(delivered.every((event) => event.trusted && !event.prevented)).toBe(true)
     await expect.poll(() => page.evaluate(() => visualViewport?.scale ?? 1)).toBeGreaterThan(1.5)
     await noOverflow(page)
     const trigger = page.getByRole('button', { name: 'Дать согласие', exact: true })

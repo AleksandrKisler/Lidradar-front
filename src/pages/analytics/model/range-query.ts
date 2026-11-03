@@ -19,6 +19,6 @@ export function parseRangeQuery(query: LocationQuery): DateRange | null {
   return parseRange(from ?? '', to ?? '') ?? { from: from ?? '', to: to ?? '' }
 }
 
-export function rangeToQuery(range: DateRange): LocationQueryRaw {
-  return { from: range.from, to: range.to }
+export function rangeToQuery(range: DateRange, current: LocationQuery = {}): LocationQueryRaw {
+  return { ...current, from: range.from, to: range.to }
 }

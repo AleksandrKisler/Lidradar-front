@@ -1536,37 +1536,41 @@ test.describe('владелец организации', () => {
   })
 
   test('аналитика: окно дат, сводка, точность и оплаты за один период', async ({ page }) => {
+    await keepEventStreamOpen(page)
     await page.goto('/analytics')
-    await expect(page.getByRole('heading', { name: 'От риска — к результату' })).toBeVisible()
-    // Окно по умолчанию — 30 дней; подпись периода берётся из ответа сервера.
+    await expect(page.getByRole('heading', { name: 'Аналитика', exact: true })).toBeVisible()
     await expect(page.getByTestId('analytics-period')).toContainText('Europe/Moscow')
-    await expect(page.getByText('30 дн.')).toBeVisible()
-    const cards = page.getByRole('list', { name: 'Главные показатели' }).getByRole('listitem')
-    await expect(cards).toHaveCount(4)
+    await expect(page.getByTestId('analytics-period')).toContainText('30 дн.')
+    const cards = page.getByRole('list', { name: 'Показатели рисков' }).getByRole('listitem')
+    await expect(cards).toHaveCount(3)
     await expect(cards.nth(0)).toContainText('24')
-    await expect(cards.nth(1)).toContainText('75\u00a0% найденных')
-    await expect(cards.nth(3)).toContainText('43\u00a0000\u00a0₽')
-    await expect(cards.nth(3)).toContainText('2 оплаты со связью с рисками')
-    // График: по одному столбцу на каждую дату окна, без интерполяции.
-    const chartRows = page
-      .getByRole('table', { name: 'Возвращённая выручка по дням' })
-      .locator('tbody tr')
-    await expect(chartRows).toHaveCount(30)
-    await expect(page.getByRole('figure', { name: /Возвращённая выручка по дням/ })).toBeVisible()
-    // Точность: null — «Недостаточно данных», низкое покрытие помечено.
+    await expect(cards.nth(1)).toContainText('18')
+    await expect(page.getByTestId('recovered-total')).toHaveText('43 000 ₽')
+    await expect(page.getByRole('tabpanel')).toContainText('2 оплаты после работы с риском')
+    await expect(page.locator('[data-day-index]')).toHaveCount(30)
+    await page.getByRole('button', { name: 'Данные по дням', exact: true }).click()
+    const daily = page.getByRole('dialog', { name: 'Данные по дням', exact: true })
+    await expect(daily.locator('tbody tr')).toHaveCount(30)
+    await page.keyboard.press('Escape')
+    await page.getByRole('tab', { name: 'Риски и качество', exact: true }).click()
     const precisionRows = page
-      .getByRole('table', { name: 'Точность сигналов по типам' })
-      .locator('tbody tr')
-    await expect(precisionRows).toHaveCount(5)
-    await expect(precisionRows.filter({ hasText: 'Нет ответа клиенту' })).toContainText('80\u00a0%')
+      .getByRole('list', { name: 'Точность сигналов по типам' })
+      .getByRole('listitem')
+    await expect(precisionRows).toHaveCount(6)
+    await expect(precisionRows.filter({ hasText: 'Нет ответа клиенту' })).toContainText('80 %')
     const booking = precisionRows.filter({ hasText: 'Запись не подтверждена' })
     await expect(booking).toContainText('Недостаточно данных')
-    await expect(booking).toContainText('низкое покрытие')
-    // Оплаты: курсорная подгрузка, ссылка на риск у возвращённой выручки.
-    const payments = page.getByRole('table', { name: 'Подтверждённые оплаты' }).locator('tbody tr')
+    await expect(booking).toContainText('Нет вердиктов')
+    await expect(precisionRows.filter({ hasText: 'Обещание не выполнено' })).toContainText(
+      'низкое покрытие',
+    )
+    await page.getByRole('tab', { name: 'Оплаты', exact: true }).click()
+    const payments = page.locator('[data-payment-id]')
     await expect(payments).toHaveCount(1)
-    await expect(payments.first().getByRole('link')).toHaveAttribute('href', `/risks/${RISK_ID}`)
-    // Вторая страница ждётся по ответу с курсором: под нагрузкой WebKit отвечает медленнее.
+    await expect(payments.first().getByRole('link', { name: /^Открыть риск/ })).toHaveAttribute(
+      'href',
+      new RegExp(`/risks/${RISK_ID}\\?returnTo=`),
+    )
     const secondPage = page.waitForResponse(
       (response) =>
         response.url().includes('/api/v1/analytics/payments') &&
@@ -1578,22 +1582,22 @@ test.describe('владелец организации', () => {
     await expect(payments.nth(1)).toContainText('Ольга Кузнецова')
     await expect(page.getByRole('button', { name: 'Показать ещё' })).toHaveCount(0)
     await expectNoAxeViolations(page)
-
-    // Неверное окно не уходит на сервер и объясняется на месте.
-    await page.getByLabel('Начало периода').fill('2026-09-30')
-    await page.getByLabel('Конец периода').fill('2026-09-01')
-    await expect(page.getByRole('alert')).toContainText('Дата начала позже даты окончания')
-    await expect(page.getByText('Исправьте период, чтобы увидеть показатели.')).toBeVisible()
-
-    // Пресет «7 дней» пишет даты в адрес; ряд снова по одной точке на дату.
-    const weekly = page.waitForResponse(
-      (response) => response.url().includes('/api/v1/analytics/summary') && response.ok(),
-    )
-    await page.getByRole('button', { name: '7 дней' }).click()
-    await weekly
+    await page
+      .getByRole('form', { name: 'Период аналитики' })
+      .getByRole('button', { name: /2026/ })
+      .click()
+    const period = page.getByRole('dialog', { name: 'Период аналитики', exact: true })
+    await period.getByLabel('Начало периода').fill('2026-09-30')
+    await period.getByLabel('Конец периода').fill('2026-09-01')
+    await period.getByRole('button', { name: 'Применить' }).click()
+    await expect(period.getByRole('alert')).toContainText('Дата начала позже даты окончания')
+    await expect(page).not.toHaveURL(/from=2026-09-30/)
+    await period.getByRole('button', { name: 'Отменить' }).click()
+    await page.getByRole('button', { name: '7 дней', exact: true }).click()
     await expect(page).toHaveURL(/from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}/)
-    await expect(chartRows).toHaveCount(7)
-    await expect(page.getByText('7 дн.')).toBeVisible()
+    await page.getByRole('tab', { name: 'Обзор', exact: true }).click()
+    await expect(page.locator('[data-day-index]')).toHaveCount(7)
+    await expect(page.getByTestId('analytics-period')).toContainText('7 дн.')
   })
 
   test('данные и согласие: выдача, повтор и отзыв с честным текстом', async ({ page }) => {

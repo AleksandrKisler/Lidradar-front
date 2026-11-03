@@ -79,7 +79,7 @@ const screens: Screen[] = [
   {
     name: 'аналитика',
     path: '/analytics',
-    action: (page) => page.getByRole('list', { name: 'Главные показатели' }),
+    action: (page) => page.getByRole('list', { name: 'Показатели рисков' }),
   },
   {
     name: 'мёртвые письма',

@@ -2463,7 +2463,17 @@
     {
       "area": "analytics",
       "sources": "analytics-2026-10-25/DELIVERY.md",
-      "selection": "Resolve exact current frame from final ledger; preserve business contracts.",
+      "selection": "Use approved overviewStatesDraft, riskQualityStatesDraft and paymentsStatesDraft node tables for all three adaptives. Owner approval2026-11-03 supersedes historical pending labels; preserve business contracts.",
+      "designApproval": {
+        "date": "2026-11-03",
+        "status": "approved",
+        "evidence": "docs/frontend-v2/evidence/analytics-design-approval-2026-11-03.md",
+        "implementationPrompt": "docs/frontend-v2/prompts/analytics-implementation-2026-11-03.md",
+        "scope": "All three tabs, states and adaptives; includes Payments new desktop base, C shell synchronization and Risks P1/P2.",
+        "testingScope": "Analytics and changed transitions only. Full application regression and final frontend acceptance deferred until frontend development is complete, by explicit owner instruction.",
+        "executionStarted": false,
+        "executionNote": "Current request prepares an implementation prompt. Delivering that prompt to an executor authorizes implementation; design approval is not runtime acceptance."
+      },
       "desktopLayoutComposition": {
         "date": "2026-11-02",
         "status": "composed-pending-owner-approval",
@@ -2484,6 +2494,183 @@
         "validation": "Primary inspected both final native PNG; content text and geometry equal to sources, PNG crops differ by2/11 pixels (exact equality not claimed); source fingerprints unchanged. Shared masters and existing adaptives preserved.",
         "manifest": "artifacts/frontend-v2/analytics-desktop-layout-2026-11-02/manifest.json",
         "evidence": "docs/frontend-v2/evidence/analytics-desktop-layout-2026-11-02.md"
+      },
+      "adaptiveLayoutComposition": {
+        "date": "2026-11-02",
+        "status": "pending-owner-approval",
+        "scope": "Tablet834 and mobile390 adaptations of the two current Desktop C analytics screens; editable content, no runtime changes.",
+        "sectionNodeId": "328:17078",
+        "tablet": {
+          "overview": {
+            "frameNodeId": "1622:7517",
+            "frameSize": [834, 2543]
+          },
+          "risksAndQuality": {
+            "frameNodeId": "1622:7834",
+            "frameSize": [834, 2536]
+          }
+        },
+        "mobile": {
+          "overview": {
+            "frameNodeId": "1622:8245",
+            "frameSize": [390, 3767]
+          },
+          "risksAndQuality": {
+            "frameNodeId": "1622:8555",
+            "frameSize": [390, 4488]
+          }
+        },
+        "currentDesktopContentNodeIds": ["1606:7542", "1606:7812"],
+        "sourceNote": "Original source328:17122/328:17325 were already absent at start of adaptation; desktop composition history retained.",
+        "validation": "Primary viewed4 final native PNG; no visible overflow; all analytical block texts/values equal desktop. Four existing source fingerprints unchanged. Independent/runtime UI not run.",
+        "manifest": "artifacts/frontend-v2/analytics-adaptives-2026-11-02/manifest.json",
+        "evidence": "docs/frontend-v2/evidence/analytics-adaptives-2026-11-02.md"
+      },
+      "backgroundCorrection": {
+        "date": "2026-11-02",
+        "requestedBy": "Owner identified incorrect white background on all6new layouts; layout composition retained.",
+        "status": "applied",
+        "frameNodeIds": [
+          "1606:7507",
+          "1606:7777",
+          "1622:7517",
+          "1622:7834",
+          "1622:8245",
+          "1622:8555"
+        ],
+        "background": "#F5F5F7",
+        "referenceNodeId": "27:2765",
+        "scope": "Only6root fills changed from transparent to canonical Radar C canvas paint. Existing canvas variables resolve to different colors and were not edited.",
+        "validation": "Protected subtree digest unchanged6/6 excluding root fills; primary viewed6nativePNG on desktop/tablet/mobile. Runtime TEST/FUNCTIONAL/browser UI not run.",
+        "precedence": "Overrides root background only in desktopLayoutComposition/adaptiveLayoutComposition historical manifests; no new layout approval implied.",
+        "manifest": "artifacts/frontend-v2/analytics-background-2026-11-02/manifest.json",
+        "evidence": "docs/frontend-v2/evidence/analytics-background-2026-11-02.md"
+      },
+      "overviewStatesDraft": {
+        "date": "2026-11-03",
+        "status": "approved",
+        "approvedAt": "2026-11-03",
+        "approvalEvidence": "docs/frontend-v2/evidence/analytics-design-approval-2026-11-03.md",
+        "storyIds": ["US-M13-01", "US-M13-02", "US-M13-03"],
+        "scope": "Overview states and interactions only; no frontend implementation. Risks/quality and payments remain navigation.",
+        "pageNodeId": "299:12337",
+        "sectionNodeId": "1636:7923",
+        "stateCount": 41,
+        "frameCount": 123,
+        "widths": [1440, 834, 390],
+        "sourceFramesPreserved": ["1606:7507", "1622:7517", "1622:8245"],
+        "localComponentSets": ["1636:7978", "1643:14300"],
+        "nodeTable": "artifacts/frontend-v2/analytics-states-2026-11-02/states-and-node-ids.md",
+        "manifest": "artifacts/frontend-v2/analytics-states-2026-11-02/manifest.json",
+        "evidence": "docs/frontend-v2/evidence/analytics-overview-states-2026-11-03.md",
+        "runtimeVerification": "NOT_RUN"
+      },
+      "riskQualityStatesDraft": {
+        "date": "2026-11-03",
+        "status": "approved",
+        "approvedAt": "2026-11-03",
+        "approvalEvidence": "docs/frontend-v2/evidence/analytics-design-approval-2026-11-03.md",
+        "storyIds": ["US-M13-04", "US-M13-01", "US-M13-03"],
+        "scope": "Risks and quality states and canonical interactions only; no frontend implementation or source-frame changes.",
+        "pageNodeId": "299:12337",
+        "sectionNodeId": "1656:14471",
+        "stateCount": 53,
+        "viewportCount": 159,
+        "editableDocumentCount": 159,
+        "viewportSizes": [
+          [1440, 1000],
+          [834, 1194],
+          [390, 844]
+        ],
+        "documentHeightNote": "Long editable documents are nested inside scrolling viewports; full document height is not viewport height.",
+        "sourceFramesPreserved": ["1606:7777", "1622:7834", "1622:8555"],
+        "protectedOverviewSection": "1636:7923",
+        "reusedComponentSets": ["1636:7978", "1643:14300", "21:7500"],
+        "localErrorComponent": "1656:14485",
+        "questionsForOwner": [],
+        "approvedOwnerDecisions": [
+          "P1 approved2026-11-03: overall KPI sum(TP) / (sum(TP) + sum(FP)); API has no overall precision field. R00=9/11 rounds to82%; historical source79% preserved.",
+          "P2 approved2026-11-03: hint under acted count is По дате действия; historical source18рисковвработе is not the implementation reference."
+        ],
+        "prototypeScope": "Canonical loading/retry/period/refetch flows; separate success/failure review branches; tab pairs preserve30/7/1/4/90days. Other numerical fixtures are static review examples.",
+        "nodeTable": "artifacts/frontend-v2/analytics-risk-quality-states-2026-11-03/states-and-node-ids.md",
+        "manifest": "artifacts/frontend-v2/analytics-risk-quality-states-2026-11-03/manifest.json",
+        "evidence": "docs/frontend-v2/evidence/analytics-risk-quality-states-2026-11-03.md",
+        "designVerification": {
+          "fullDocumentImagesReviewed": 159,
+          "changedImagesReReviewed": 54,
+          "nativeViewportImagesReviewed": 21,
+          "openVisualFindings": 0,
+          "prototypeChainChecks": "231/231",
+          "sourceFingerprintsUnchanged": "12/12"
+        },
+        "runtimeVerification": "NOT_RUN",
+        "playbackAndAssistiveTechnology": "UNVERIFIED"
+      },
+      "paymentsStatesDraft": {
+        "date": "2026-11-03",
+        "status": "approved",
+        "approvedAt": "2026-11-03",
+        "approvalEvidence": "docs/frontend-v2/evidence/analytics-design-approval-2026-11-03.md",
+        "storyIds": ["US-M13-02", "US-M13-03", "US-M13-01"],
+        "scope": "Payments states/interactions only, no frontend implementation or source/shared-master edits.",
+        "pageNodeId": "299:12337",
+        "sectionNodeId": "1690:31301",
+        "stateCount": 66,
+        "viewportCount": 198,
+        "editableDocumentCount": 198,
+        "viewportSizes": [
+          [1440, 1000],
+          [834, 1194],
+          [390, 844]
+        ],
+        "desktopBase": {
+          "status": "approved",
+          "viewportId": "1703:46373",
+          "documentId": "1692:31298",
+          "note": "No separate current desktop journal found on analytics page; composed from existing Wide row and C shell."
+        },
+        "sourceFramesPreserved": ["328:17743", "328:18019", "305:2876", "305:2914"],
+        "protectedPreviousAreas": ["1636:7923", "1656:14471"],
+        "localComponentSets": ["1690:31406", "1690:31420"],
+        "reusedComponents": [
+          "1636:7978",
+          "1643:14300",
+          "1656:14485",
+          "21:7500",
+          "305:2860",
+          "308:2826"
+        ],
+        "shellSyncProposal": "New copies only: F5F5F7 canvas/current analytics subtitle/Risks and quality/readable existing colors; remove unverified manual-only and Radar tooltip. Original sources preserved.",
+        "shellSyncStatus": "approved2026-11-03",
+        "designVerification": {
+          "fullDocumentImagesReviewed": 198,
+          "nativeViewportImagesReviewed": 27,
+          "componentSpecimenReviewed": true,
+          "openLayoutFindings": 0,
+          "prototypeChainChecks": "324/324",
+          "sourceFingerprintsUnchanged": "30/30",
+          "sectionDigest": "4de28eb6"
+        },
+        "prototypeScope": "Canonical independent loading/error/retry,30day4→8→9 paging,invalid continuation reset/start,P05 linked-object return. Period input begins from applied30; tab pairs preserve30/7/1/4/90.",
+        "limitations": [
+          "NO/NR retain independent previous presentation fixtures; money values in NO differ from Payments, common API snapshot not verified.",
+          "Existing linked-object screens retain illustrative lifecycle data; not literal P05 snapshot.",
+          "Actual Figma Present/scroll/focus/keyboard/DOM/ARIA/AT UNVERIFIED."
+        ],
+        "futureImplementationGaps": [
+          "Preserve rows on next-page error and local fetchNextPage retry",
+          "Invalid-continuation reset",
+          "Existing conversation route binding",
+          "Origin period/pages/anchor/focus restoration",
+          "Manual refresh binding; do not assert manual-only behavior"
+        ],
+        "nodeTable": "artifacts/frontend-v2/analytics-payments-states-2026-11-03/states-and-node-ids.md",
+        "manifest": "artifacts/frontend-v2/analytics-payments-states-2026-11-03/manifest.json",
+        "evidence": "docs/frontend-v2/evidence/analytics-payments-states-2026-11-03.md",
+        "runtimeVerification": "NOT_RUN",
+        "implementationAuthorized": false,
+        "implementationAuthorizationNote": "Historical design-only execution scope; current turn prepares a prompt. The linked implementation prompt authorizes development when assigned to an executor."
       }
     },
     {
@@ -2522,8 +2709,16 @@
         "approvedRevision": "R1 + R2",
         "approvalManifest": "artifacts/frontend-v2/integrations-story-update-2026-11-01/manifest.json",
         "approvedFingerprints": [
-          { "id": "403:3265", "nodes": 4019, "fnv1a32": "40a13548" },
-          { "id": "403:3266", "nodes": 845, "fnv1a32": "fd8665b9" }
+          {
+            "id": "403:3265",
+            "nodes": 4019,
+            "fnv1a32": "40a13548"
+          },
+          {
+            "id": "403:3266",
+            "nodes": 845,
+            "fnv1a32": "fd8665b9"
+          }
         ],
         "userStoriesCanvasUpdate": {
           "date": "2026-11-01",

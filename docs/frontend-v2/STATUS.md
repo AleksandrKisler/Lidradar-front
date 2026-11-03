@@ -1,5 +1,209 @@
 # Статус frontend v2
 
+## Codex · Аналитика · передача в stage · 03.11.2026
+
+После завершения US-M13-01–04 владелец отдельно поручил commit и push в
+`stage` без новых тестов и без smoke на stage. К передаче подготовлены
+исходники, тесты и связанная документация макетов/согласования. Принятый
+снимок `analytics-r7`:625/625 inputs сохранены без расхождений; его TEST,
+FUNCTIONAL и UI результаты ниже остаются результатами локального mock-контура.
+Новые проверки приложения и stage smoke не запускались. Штатный GitHub CI
+при push остаётся без изменений; факт push определяется историей `origin/stage`,
+автодеплой и живую stage-приёмку этот отчёт не подтверждает. Полная регрессия
+и общая приёмка frontend по-прежнему отложены. Production не затрагивается.
+
+## Codex · Аналитика · реализация и адресная проверка · 03.11.2026
+
+US-M13-01–04: реализованы три вкладки «Обзор», «Риски и качество», «Оплаты».
+Общий период с draft/applied и URL, точные decimal-суммы, дневной ряд/диалог,
+независимые query families, precision ΣTP/(ΣTP+ΣFP), cursor append/retry/reset,
+переходы и возврат в журнал с фокусом/scroll. Backend/OpenAPI/Figma/production
+не изменялись. Dirty docs/evidence предыдущей работы сохранены.
+
+Рабочая ветка `frontend/v2-implementation`, HEAD
+`2187d5085373865a99c8428c9a14c687134d686f`. Все write sets workers переданы root.
+Последний принятый функционально снимок `analytics-r6`:
+`artifacts/frontend-v2/analytics-implementation-2026-11-03/manifest-r6.json`
+(621 input). QA TEST/FUNCTIONAL PASS:50unit/39filteredE2E/static0, drift0.
+UI R6 desktop/tablet/mobile FAIL: loading заменял композицию крупными
+прямоугольниками, error — красной вложенной карточкой вместо нейтральной.
+Оба прежних R5 findings (длинная сумма и D1) визуально CLOSED.
+Evidence: qa-r6/report.md, ui-r6/report.md, неизменяемый browser-r6/78PNG.
+Референсы S01/S04/L00/E03/LM1 добавлены в approved-reference-images-r7.json
+(37точныхэкспортов). Исходные design evidence/exports Claude неизменны.
+
+Текущий freeze `analytics-r7`, manifest-r7.json:625inputs. Worker передал
+владение AnalyticsLoading.vue и analytics-loading.test.ts root. Новый pure UI
+сохраняет структуруS01/L00,5вариантов, staticlabels ималыеskeleton безdummydata.
+AnalyticsError: нейтральная surface,embeddedбезвторойcard,retry240,safe recovery
+403/404/429 безrawservermessage. Rootизменилтолькоanalytics sourcefamilystates,
+ошибкиqualityподписаны«риски/оценки»,journal«журнал», какapproved.
+
+Root адресно:52widgetunitPASS (66unitпо8specsполныйanalyticsнабор),8affected
+E2EPASS. ПервыйrootR7E2E exit1 былERR_CONNECTION_REFUSED (Viteпроцессзавершился),
+послеrestartтотженабор8/8PASS. НовыйVite4173 session82200. КадрыR7отдельно
+browser-r7/; R6immutable78PNGсохранены. 37sourcehashesapproved-reference-images-r7.
+
+Независимый QA R7 завершён: **TEST PASS / FUNCTIONAL PASS** локальной
+mock-аналитики:8 unit specs,66 tests;39/39 filtered E2E,44.2s; typecheck,
+scoped ESLint/Prettier exit0.625/625 hashes совпали, drift0, unlisted0.
+QA-report: qa-r7/report.md; команды/логи/metadata и78browser hashes рядом.
+Manifest SHA:7cf4652636df63ff26bf3268738f3964c04cd5c77a749853a9de6690fd73bcb4.
+
+Независимый UI R7 завершён: **desktop PASS / tablet PASS / mobile PASS**.
+Все R5/R6 findings CLOSED, новых не обнаружено. Реально просмотрены base
+full-document/viewport, loading/error/focus/busy, daily/period и stress widths;
+37 источников и78browser hashes совпали,625inputs drift0. Снимок остаётся
+финальным analytics-r7; после приёмки runtime/tests не менялись.
+
+Работа **US-M13-01–04 завершена** в границах локального frontend/mock QA.
+Итог: docs/frontend-v2/evidence/analytics-implementation-2026-11-03.md;
+QA: artifacts/frontend-v2/analytics-implementation-2026-11-03/qa-r7/report.md;
+UI: artifacts/frontend-v2/analytics-implementation-2026-11-03/ui-r7/report.md.
+Открытых analytics findings нет. Владение файлов — root. Commit/push/deploy
+не выполнялись. Следующий шаг — продолжение frontend по следующему поручению;
+общая регрессия после завершения frontend отдельным этапом, не релизный PASS.
+Полная регрессия и общая приёмка приложения **DEFERRED до завершения frontend**
+по прямому указанию владельца. Stage QA NOT RUN; локальные mocks отдельно.
+
+## Codex · Аналитика · все три вкладки согласованы · 03.11.2026
+
+Владелец согласовал «Обзор», «Риски и качество» и «Оплаты» на desktop/tablet/
+mobile, включая новую desktop-базу Оплат, синхронизацию C и решения P1/P2.
+Текущие эталоны — области `1636:7923`, `1656:14471`, `1690:31301` и их карты
+в `design-index.json`. Предыдущие записи «на согласование» ниже — история;
+решение: [analytics-design-approval](evidence/analytics-design-approval-2026-11-03.md).
+
+Подготовлен [промпт разработки трёх вкладок](prompts/analytics-implementation-2026-11-03.md),
+US-M13-01–04. Прямое указание владельца: тестировать только выполненную работу
+в аналитике, включая её переходы/возврат. Полные тесты приложения и итоговая
+приёмка frontend — DEFERRED до завершения frontend. Это ограничение имеет
+приоритет над общими финальными gates WORKFLOW и распространяется на QA.
+Не ослаблять проверки/CI; выбирать конкретные аналитические тесты.
+
+В этом ходе изменены только approval/index/документация и промпт. Runtime,
+tests, API/backend, Figma и production не менялись; TEST/FUNCTIONAL/browser UI
+NOT RUN. HEAD `2187d5085373865a99c8428c9a14c687134d686f`, ветка
+`frontend/v2-implementation`; dirty tree сохранён. Владение — root.
+Следующий шаг: исполнить подготовленный промпт по отдельному поручению;
+согласование дизайна не равно runtime PASS.
+
+## Codex · Оплаты · состояния готовы к согласованию · 03.11.2026
+
+US-M13-02/03 + применимые US-M13-01, только дизайн. Область1690:31301:
+66состояний×3адаптива =198 документов в отдельных viewport1440×1000/
+834×1194/390×844. Desktop — новая база на согласование, оригиналы сохранены.
+Новые локальные row8/pager6 вариантов; общие период/refresh/errors/guards и
+существующие назначения переиспользованы.619 записанных реакций,324/324
+проверок цепочек; actual NODE616/204unique targets/missing0. Все198 геометрии/
+данных сверены, первые4строки сохраняют позиции, nextCursor=null безMore.
+
+Независимо просмотрены198/198 fullPNG (132D/T+66M),27/27 nativeviewportproofs
+и specimen14вариантов; SHA before/after совпали. Исправлены новые экземпляры
+summary-error и локальный focus-ring; R1 сохранён. Пустые выгрузки пересняты;
+PNG сигнатуры/IEND/размеры/decode проверены.30/30 protected FNV совпали.
+Figma snapshot4de28eb6,37958nodes/14327TEXT/Inter/rasterfills0,clipping198
+восстановлен. HEAD2187d5085373865a99c8428c9a14c687134d686f,
+branch frontend/v2-implementation. Артефакты:
+artifacts/frontend-v2/analytics-payments-states-2026-11-03/ — manifest,
+state-map,states-and-node-ids,fixtures,prototypes,reviews,previews.
+Отчёт: docs/frontend-v2/evidence/analytics-payments-states-2026-11-03.md.
+
+Открытых layout/copy/overflow findings нет. Ограничение storyboard: NO/NR и
+существующие risk/conversation destinations сохраняют отдельные presentation
+fixtures, не единый денежный/lifecycle snapshot с Payments. Явно аннотировано.
+Будущая реализация: preserve pages при next error/local retry, invalid continuation
+reset, conversation binding, back period/pages/anchor/focus, manual refresh.
+Frontend/backend/tests/API/prod не менялись; TEST/FUNCTIONAL/browser UI NOTRUN.
+Figma Present попытка не загрузила экран; actual playback/scroll/focus/DOM/AT/
+keyboard UNVERIFIED. Макеты не утверждены. Следующий шаг — согласование владельцем
+новой Desktop-базы, состояний и минимальной синхронизации C; реализация отдельно.
+Владение файлами/Figma — root.
+
+## Codex · Риски и качество · состояния готовы к согласованию · 03.11.2026
+
+Дизайн-only US-M13-04 + общие US-M13-01/03. Область Figma1656:14471:
+53 сценария ×3 адаптива =159 редактируемых документов внутри отдельных viewport
+1440×1000/834×1194/390×844; полная высота документа хранится отдельно.
+Связан601 переход; подготовлены независимые ошибки/повторы,14 числовых
+профилей, период, навигационные копии Обзора, access recovery без редизайна.
+Исходники1606:7777/1622:7834/1622:8555, Обзор1636:7923 и shared masters
+защищены baseline12FNV; финальная сверка12/12 unchanged. Общий KPI P1 предложен
+как ΣTP/(ΣTP+ΣFP),R00=9/11≈82%; P2«По дате действия». Исходные79% сохранены.
+Артефакты: artifacts/frontend-v2/analytics-risk-quality-states-2026-11-03/ —
+node-ledger,state-map,design-samples,prototype,manifest,final-review и previews.
+Независимые reviewers просмотрели159/159 полных PNG:106Desktop/Tablet и53Mobile.
+ТриLow (маскаRetry,basiscolor,QLATEselected30) исправлены; повторно просмотрены
+54/54 изменённыхPNG и21/21 nativeviewportproofs. Открытых visual findings нет.
+R1сохранён вexports-r1/,105PNGunchanged; размеры180PNG и SHA сверены.
+Clipping159viewport восстановлен; полные документы сохранены. Цепочки231/231,
+назначения601/601 существуют. Общий период демонстрируется из исходных30дней,
+включая применение7/90/1/4; другие полученные результаты — данные и парная
+навигация. Независимые числовые профили статичны; границы явно аннотированы.
+Snapshot HEAD2187d5085373865a99c8428c9a14c687134d686f,
+branchfrontend/v2-implementation. Отчёт:
+docs/frontend-v2/evidence/analytics-risk-quality-states-2026-11-03.md.
+Frontend/backend/tests/API/production не менялись. TEST/FUNCTIONAL/browser UI
+NOT RUN; playback/DOM/AT/реальная прокрутка и клавиатура UNVERIFIED.
+Макеты не утверждены. Следующий шаг — согласование владельцем P1/P2 и состояний;
+реализация требует отдельного поручения. Владение файлами и Figma — root.
+
+## Codex · Аналитика / Обзор · состояния готовы к согласованию · 02–03.11.2026
+
+US-M13-01/02/03, только дизайн. Область Figma `1636:7923` содержит123 кадра
+(41 сценарий ×1440/834/390), карту и два локальных набора вариантов. Исходные
+1606:7507/1622:7517/1622:8245, диалог1603:55698 и masters664:3935/256:2529
+сохранены:6/6 контрольных FNV подписей совпали. Все649 назначения существуют,
+48 проверок цепочек/возвратов прототипа прошли. Два независимых design-only
+reviewers реально просмотрели82Desktop/Tablet и41MobilePNG; последние C1/A30
+перепроверены после исправлений. Открытых visual findings нет. Все123 финальных
+PNG сохранены, размеры сверены; SHA-256 зафиксированы в manifest. Сбои batch
+экспорта закрыты адресной повторной выгрузкой, старые PNG не являются финальными.
+Артефакты: `artifacts/frontend-v2/analytics-states-2026-11-02/` — state-map,
+node-ledger/final-structure, compose/prototype scripts, design-samples, exports.
+Frontend/backend/API/tests/production не менялись, runtime TEST/FUNCTIONAL/UI
+NOT RUN. Реальные DOM/focus/ARIA/клавиатура/abort/auth и Figma playback UNVERIFIED.
+Таблица всех IDs:states-and-node-ids.md; отчёт:
+docs/frontend-v2/evidence/analytics-overview-states-2026-11-03.md. Snapshot:
+HEAD2187d5085373865a99c8428c9a14c687134d686f, branchfrontend/v2-implementation.
+Макеты не утверждены. Следующий шаг — согласование владельцем; реализация
+требует отдельного поручения.
+
+## Codex · Аналитика · исправление фона6frames · 02.11.2026
+
+По замечанию владельца root fills6 новых макетов заменены с transparent на
+canonical Radar C canvas#F5F5F7 (эталон27:2765). IDs1606:7507/1606:7777,
+1622:7517/1622:7834/1622:8245/1622:8555 прежние. Layout, размеры, тексты,
+карточки, меню и все вложенные properties сохранены: protected digests6/6 equal,
+root fills исключены из digest. Ведущий просмотрел6nativePNG на3 адаптивах,
+background-only CANVAS принят. Explorer независимо подтвердил причину по двум
+compose.js: source fills копировались без canvas. Shared masters/tokens прежние.
+Попытка привязки старого token остановлена до записи: обаcanvas aliases отличаются
+от эталона; скопирован точный paint27:2765. Runtime/API/tests/prod не менялись,
+TEST/FUNCTIONAL/browser UI/independent visual NOTRUN; новый owner approval layouts
+не присваивается. HEAD2187d5085373865a99c8428c9a14c687134d686f, branch прежняя.
+Manifest:artifacts/frontend-v2/analytics-background-2026-11-02/manifest.json;
+[evidence](evidence/analytics-background-2026-11-02.md). Предыдущие manifests/PNG
+сохранены, backgroundCorrection имеет приоритет только для root fills.
+
+## Codex · Аналитика · планшет и телефон · 02.11.2026
+
+US-M13-01–04 references: подготовлены4 editable адаптации текущих desktop C:
+tablet Обзор1622:7517(834×2543), Риски1622:7834(834×2536);
+mobile Обзор1622:8245(390×3767), Риски1622:8555(390×4488).
+Сетка рисков2колонки tablet/1 mobile, сводки mobile2×2, compact appbar C,
+responsive chart variants, период mobile2строки, операции/оценки mobile1колонка.
+Все4 финальных native PNG просмотрены ведущим. Видимый overflow0; тексты/числа
+12/12 аналитических блоков равны desktop. Fingerprints4источников unchanged.
+Desktop/старые compact/shared masters не менялись; только новые frames и размер
+секции4800×13200. Исходные328:17122/328:17325 уже отсутствовали до работы,
+использованы действующие1606:7542/1606:7812. Runtime/tests/API/prod не затронуты.
+Snapshot HEAD2187d5085373865a99c8428c9a14c687134d686f, branchfrontend/v2-implementation.
+Manifest:artifacts/frontend-v2/analytics-adaptives-2026-11-02/manifest.json;
+[evidence](evidence/analytics-adaptives-2026-11-02.md). Runtime TEST/FUNCTIONAL/browser
+UI/independent UI не запускались. Макеты pending owner approval; следующий шаг —
+согласование владельцем четырёх адаптаций.
+
 ## Codex · Settings Privacy · stage delivery · 02.11.2026 · CI blockers
 
 Владелец поручил commit/push/stage без новых локальных tests и устранение blockers.

@@ -103,6 +103,8 @@ const props = withDefaults(
     initialFocus?: string | undefined
     descriptionHidden?: boolean | undefined
     returnFocus?: (() => HTMLElement | null) | undefined
+    /** Approved analytics daily table: full mobile, 640px sheet from tablet. */
+    analyticsDaily?: boolean | undefined
   }>(),
   {
     description: '',
@@ -112,6 +114,7 @@ const props = withDefaults(
     initialFocus: undefined,
     descriptionHidden: false,
     returnFocus: undefined,
+    analyticsDaily: false,
   },
 )
 
@@ -163,12 +166,16 @@ const restoreFocus = useDialogReturnFocus(open, props.returnFocus)
 <template>
   <DialogRoot v-model:open="open">
     <DialogPortal>
-      <DialogOverlay class="fixed inset-0 z-40 bg-nav/60" />
+      <DialogOverlay
+        :class="['fixed inset-0 z-40', analyticsDaily ? 'bg-black/28' : 'bg-nav/60']"
+      />
       <DialogContent
         :class="[
           'fixed z-50',
           size === 'drawer' ? 'overflow-hidden' : 'overflow-y-auto',
-          contentClasses[size],
+          analyticsDaily
+            ? 'top-0 left-0 h-dvh w-full p-6 md:top-[100px] md:left-1/2 md:h-auto md:max-h-[calc(100dvh-132px)] md:w-[640px] md:max-w-[calc(100%-48px)] md:-translate-x-1/2 md:rounded-2xl'
+            : contentClasses[size],
           toneClasses[tone].surface,
         ]"
         @escape-key-down="guard"
@@ -205,11 +212,15 @@ const restoreFocus = useDialogReturnFocus(open, props.returnFocus)
               size === 'full' ? 'min-h-12' : 'items-start',
             ]"
           >
-            <DialogTitle :class="['text-xl font-medium', toneClasses[tone].title]">{{
-              title
-            }}</DialogTitle>
+            <DialogTitle
+              :class="[
+                analyticsDaily ? 'text-xl leading-7 font-semibold' : 'text-xl font-medium',
+                toneClasses[tone].title,
+              ]"
+              >{{ title }}</DialogTitle
+            >
             <DialogClose
-              v-if="dismissible"
+              v-if="dismissible && !analyticsDaily"
               :class="[
                 'flex size-10 shrink-0 items-center justify-center rounded-full',
                 size === 'full' ? '-mr-2' : '-mt-1 -mr-2',
@@ -222,10 +233,16 @@ const restoreFocus = useDialogReturnFocus(open, props.returnFocus)
           </div>
           <DialogDescription
             v-if="description"
-            :class="descriptionHidden ? 'sr-only' : 'mt-2 text-sm text-muted'"
+            :class="
+              descriptionHidden
+                ? 'sr-only'
+                : analyticsDaily
+                  ? 'mt-4 text-sm text-ink'
+                  : 'mt-2 text-sm text-muted'
+            "
             >{{ description }}</DialogDescription
           >
-          <div :class="size === 'full' ? 'mt-4' : 'mt-5'"><slot /></div>
+          <div :class="analyticsDaily || size === 'full' ? 'mt-4' : 'mt-5'"><slot /></div>
           <div v-if="$slots.footer" class="mt-6 flex flex-wrap justify-end gap-3">
             <slot name="footer" />
           </div>

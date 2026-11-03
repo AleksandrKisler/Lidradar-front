@@ -29,7 +29,8 @@ test.describe('общая оболочка C четырёх разделов', (
           module.suffix ? `Студия «Блик» / ${module.suffix}` : 'Студия «Блик»',
         )
         const date = context.getByText(/2026 · .*МСК/)
-        if (module.date) await expect(date).toBeVisible()
+        if (module.path === '/analytics' && width < 768) await expect(date).toBeHidden()
+        else if (module.date) await expect(date).toBeVisible()
         else await expect(date).toHaveCount(0)
         const gear = page.getByRole('link', { name: 'Настройки', exact: true })
         await expect(gear).toBeVisible()
@@ -52,7 +53,12 @@ test.describe('общая оболочка C четырёх разделов', (
               (element) =>
                 innerHeight - element.closest('aside > div')!.getBoundingClientRect().bottom,
             )
-          expect(bottom).toBe(24)
+          if (module.path === '/analytics') {
+            const workspace = await aside
+              .getByText('Рабочее пространство', { exact: true })
+              .boundingBox()
+            expect(workspace!.y).toBeLessThan(400)
+          } else expect(bottom).toBe(24)
         } else {
           const trigger = page.getByRole('button', { name: 'Меню', exact: true })
           const bar = page.locator('header').filter({ has: trigger })

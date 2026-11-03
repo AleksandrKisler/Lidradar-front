@@ -26,3 +26,9 @@ describe('окно аналитики в адресе', () => {
     })
   })
 })
+
+it('смена окна сохраняет вкладку и остальные query-параметры', () => {
+  expect(
+    rangeToQuery({ from: '2026-11-01', to: '2026-11-01' }, { tab: 'payments', source: 'revenue' }),
+  ).toEqual({ from: '2026-11-01', to: '2026-11-01', tab: 'payments', source: 'revenue' })
+})

@@ -234,3 +234,11 @@ describe('запросы аналитики', () => {
     expect(new URL(fetchMock.mock.calls[3]![0].url).searchParams.has('cursor')).toBe(false)
   })
 })
+
+it('один день допускает будущее, осенний DST даёт 25 часов и исключительный конец', () => {
+  expect(validateRange({ from: '2027-01-01', to: '2027-01-01' })).toBeNull()
+  expect(rangeToInstants({ from: '2026-11-01', to: '2026-11-01' }, 'America/New_York')).toEqual({
+    from: '2026-11-01T04:00:00.000Z',
+    to: '2026-11-02T05:00:00.000Z',
+  })
+})

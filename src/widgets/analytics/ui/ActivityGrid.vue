@@ -1,243 +1,176 @@
 <script setup lang="ts">
-/**
- * Остальные счётчики сводки: сообщения, сделки, исходы и деньги. `potential` —
- * оценка ещё открытых сделок, не выручка, и подписывается именно так.
- *
- * Где величины складываются в целое, рядом с легендой рисуются кольца:
- * сообщения и исходы — одно кольцо из сегментов, сделки — по кольцу на стадию
- * от открытых, деньги — доля возвращённого и доля сделок с известной суммой.
- * В центре колец — только число; его пара в легенде: «Всего» у сообщений и
- * исходов, «Открыто» у сделок, доля в строке «Из них возвращено» у денег.
- * Если целого нет (знаменатель нулевой) или значение в него не помещается
- * (например, сделок выиграно больше, чем открыто в окне), кольцо не рисуется,
- * а строка остаётся обычным числом: карточка выглядит как прежний список.
- */
 import { computed } from 'vue'
-import { formatMoney } from '@/shared/lib'
-import type { Ring } from '@/shared/ui'
-import { formatPercent, ratio, type AnalyticsSummary } from '@/entities/report'
-import StatCard, { type StatCenter, type StatRow } from './StatCard.vue'
+import { formatMoney, plural } from '@/shared/lib'
+import { UiCard, UiGlyph } from '@/shared/ui'
+import type { AnalyticsSummary } from '@/entities/report'
+import StatCard from './StatCard.vue'
 
 const props = defineProps<{ summary: AnalyticsSummary }>()
-
-const money = (amount: string) => formatMoney(amount, props.summary.revenue.currency) ?? '—'
-
-/** Есть целое, и значение в нём помещается: кольцо можно построить. */
-function fits(value: number, max: number): boolean {
-  return Number.isFinite(value) && Number.isFinite(max) && max > 0 && value >= 0 && value <= max
-}
-
-/** Доля как «50 %»; без знаменателя или вне целого — `undefined`. */
-function shareOf(value: number, max: number): string | undefined {
-  const part = fits(value, max) ? ratio(value, max) : null
-  return part === null ? undefined : formatPercent(part)
-}
-
-const atRiskPotential = computed(() => {
-  const { atRiskPotential, atRiskOpportunities, atRiskUnknownAmountOpportunities } =
-    props.summary.revenue
-  const known = atRiskOpportunities - atRiskUnknownAmountOpportunities
-  const amount =
-    known > 0 || atRiskOpportunities === 0 ? money(atRiskPotential) : 'Сумма не определена'
-  return atRiskUnknownAmountOpportunities > 0
-    ? `${amount} · ${atRiskUnknownAmountOpportunities} без суммы`
-    : amount
-})
-
-interface Group {
-  key: string
-  title: string
-  rows: StatRow[]
-  rings: Ring[]
-  center?: StatCenter | undefined
-}
-
-const messages = computed<Group>(() => {
-  const { total, incoming, outgoing, conversations } = props.summary.messages
-  const ok = fits(incoming + outgoing, total)
-  return {
-    key: 'messages',
+const number = (value: number) => value.toLocaleString('ru-RU')
+const groups = computed(() => [
+  {
     title: 'Сообщения',
-    rings: ok
-      ? [
-          {
-            key: 'direction',
-            max: total,
-            segments: [
-              { value: incoming, tone: 'info', title: `Входящие: ${incoming} из ${total}` },
-              { value: outgoing, tone: 'brand', title: `Исходящие: ${outgoing} из ${total}` },
-            ],
-          },
-        ]
-      : [],
-    center: ok ? { value: String(total) } : undefined,
     rows: [
-      { label: 'Всего', value: String(total) },
-      {
-        label: 'Входящие',
-        value: String(incoming),
-        share: ok ? shareOf(incoming, total) : undefined,
-        tone: ok ? 'info' : undefined,
-      },
-      {
-        label: 'Исходящие',
-        value: String(outgoing),
-        share: ok ? shareOf(outgoing, total) : undefined,
-        tone: ok ? 'brand' : undefined,
-      },
-      { label: 'Новые переписки', value: String(conversations) },
+      { label: 'Всего', value: number(props.summary.messages.total) },
+      { label: 'Входящие', value: number(props.summary.messages.incoming) },
+      { label: 'Исходящие', value: number(props.summary.messages.outgoing) },
+      { label: 'Новые переписки', value: number(props.summary.messages.conversations) },
     ],
-  }
-})
-
-const opportunities = computed<Group>(() => {
-  const { created, booked, won, lost } = props.summary.opportunities
-  const stages = [
-    { key: 'booked', label: 'Записались', value: booked, tone: 'brand' },
-    { key: 'won', label: 'Выиграно', value: won, tone: 'success' },
-    { key: 'lost', label: 'Потеряно', value: lost, tone: 'danger' },
-  ] as const
-  const drawn = stages.filter((stage) => fits(stage.value, created))
-  return {
-    key: 'opportunities',
+    hint: 'Сообщения — по дате отправки. Новые переписки — по первому сообщению.',
+  },
+  {
     title: 'Сделки',
-    rings: drawn.map((stage) => ({
-      key: stage.key,
-      max: created,
-      segments: [
-        {
-          value: stage.value,
-          tone: stage.tone,
-          title: `${stage.label}: ${stage.value} из ${created}`,
-        },
-      ],
-    })),
-    center: drawn.length ? { value: String(created) } : undefined,
     rows: [
-      { label: 'Открыто', value: String(created) },
-      ...stages.map((stage) => ({
-        label: stage.label,
-        value: String(stage.value),
-        share: shareOf(stage.value, created),
-        tone: drawn.includes(stage) ? stage.tone : undefined,
-      })),
+      { label: 'Создано', value: number(props.summary.opportunities.created) },
+      { label: 'Переход в запись', value: number(props.summary.opportunities.booked) },
+      { label: 'Выиграно', value: number(props.summary.opportunities.won) },
+      { label: 'Потеряно', value: number(props.summary.opportunities.lost) },
     ],
-  }
-})
-
-const outcomes = computed<Group>(() => {
-  const { booked, paid, lost } = props.summary.outcomes
-  const total = booked + paid + lost
-  const drawn = total > 0
-  return {
-    key: 'outcomes',
-    title: 'Исходы',
-    rings: drawn
-      ? [
-          {
-            key: 'outcomes',
-            max: total,
-            segments: [
-              { value: booked, tone: 'brand', title: `Запись: ${booked} из ${total}` },
-              { value: paid, tone: 'success', title: `Оплата: ${paid} из ${total}` },
-              { value: lost, tone: 'danger', title: `Потеря: ${lost} из ${total}` },
-            ],
-          },
-        ]
-      : [],
-    center: drawn ? { value: String(total) } : undefined,
+    hint: 'События за период могут относиться к сделкам, созданным ранее.',
+  },
+  {
+    title: 'Записанные исходы',
     rows: [
-      // Число в центре кольца нужно назвать: сумма трёх исходов — строка «Всего».
-      ...(drawn ? [{ label: 'Всего', value: String(total) }] : []),
-      { label: 'Запись', value: String(booked), share: shareOf(booked, total), tone: 'brand' },
-      { label: 'Оплата', value: String(paid), share: shareOf(paid, total), tone: 'success' },
-      { label: 'Потеря', value: String(lost), share: shareOf(lost, total), tone: 'danger' },
+      { label: 'Запись', value: number(props.summary.outcomes.booked) },
+      { label: 'Оплачено', value: number(props.summary.outcomes.paid) },
+      { label: 'Потеря', value: number(props.summary.outcomes.lost) },
     ],
-  }
+    hint: 'Исход «Оплачено» сам по себе не подтверждает выручку.',
+  },
+])
+const estimates = computed(() => {
+  const revenue = props.summary.revenue
+  const known = revenue.atRiskOpportunities - revenue.atRiskUnknownAmountOpportunities
+  return [
+    {
+      label: 'Открытые сделки, созданные в периоде',
+      value: formatMoney(revenue.potential, revenue.currency) ?? '—',
+    },
+    { label: 'Сделки с активным риском', value: number(revenue.atRiskOpportunities) },
+    {
+      label: 'Известная оценка сделок с риском',
+      value:
+        known === 0 && revenue.atRiskOpportunities > 0
+          ? 'Сумма не определена'
+          : (formatMoney(revenue.atRiskPotential, revenue.currency) ?? '—'),
+    },
+  ]
 })
-
-const revenue = computed<Group>(() => {
-  const r = props.summary.revenue
-  const confirmed = Number(r.confirmed)
-  const recovered = Number(r.confirmedRecovered)
-  const knownAmount = r.atRiskOpportunities - r.atRiskUnknownAmountOpportunities
-  const recoveredOk = fits(recovered, confirmed)
-  const knownOk = fits(knownAmount, r.atRiskOpportunities)
-  const recoveredShare = recoveredOk ? formatPercent(recovered / confirmed) : undefined
-  const knownShare = knownOk ? formatPercent(knownAmount / r.atRiskOpportunities) : undefined
-  const rings: Ring[] = []
-  if (recoveredOk) {
-    rings.push({
-      key: 'recovered',
-      max: confirmed,
-      segments: [
-        {
-          value: recovered,
-          tone: 'success',
-          title: `Возвращено: ${money(r.confirmedRecovered)} из ${money(r.confirmed)}`,
-        },
-      ],
-    })
-  }
-  if (knownOk) {
-    rings.push({
-      key: 'known-amount',
-      max: r.atRiskOpportunities,
-      segments: [
-        {
-          value: knownAmount,
-          tone: 'info',
-          title: `Сумма известна у ${knownAmount} из ${r.atRiskOpportunities} сделок с риском`,
-        },
-      ],
-    })
-  }
-  // В центре — главная доля первого из построенных колец.
-  const center: StatCenter | undefined = recoveredShare
-    ? { value: recoveredShare, tone: 'success' }
-    : knownShare
-      ? { value: knownShare, tone: 'info' }
-      : undefined
-  return {
-    key: 'revenue',
-    title: `Деньги · ${r.currency}`,
-    rings,
-    center,
-    rows: [
-      { label: 'Подтверждено всего', value: money(r.confirmed) },
-      {
-        label: 'Из них возвращено',
-        value: money(r.confirmedRecovered),
-        share: recoveredShare,
-        tone: recoveredOk ? 'success' : undefined,
-      },
-      { label: 'Подтверждённых оплат', value: String(r.confirmedPayments) },
-      { label: 'Известная оценка открытых сделок, не выручка', value: money(r.potential) },
-      {
-        label: 'Сделок с риском',
-        value: String(r.atRiskOpportunities),
-        hint: knownShare ? `${knownShare} с известной суммой` : undefined,
-        tone: knownOk ? 'info' : undefined,
-      },
-      { label: 'Оценка сделок с риском, не выручка', value: atRiskPotential.value },
-    ],
-  }
-})
-
-const groups = computed(() => [messages.value, opportunities.value, outcomes.value, revenue.value])
 </script>
 
 <template>
-  <div class="@container">
-    <div class="grid gap-4 @2xl:grid-cols-2">
-      <StatCard
-        v-for="group in groups"
-        :key="group.key"
-        :title="group.title"
-        :rows="group.rows"
-        :rings="group.rings"
-        :center="group.center"
-      />
-    </div>
+  <div class="activity">
+    <UiCard :padded="false" class="activity-grid">
+      <StatCard v-for="group in groups" :key="group.title" v-bind="group" />
+    </UiCard>
+    <UiCard as="section" :padded="false" class="estimates" aria-label="Оценки сделок">
+      <h3><UiGlyph name="banknote" class="size-[18px] text-muted" />Оценки сделок</h3>
+      <p class="estimates-intro">
+        Оценки не являются выручкой и не входят в подтверждённые оплаты.
+      </p>
+      <dl class="estimate-grid">
+        <div v-for="estimate in estimates" :key="estimate.label">
+          <dt>{{ estimate.label }}</dt>
+          <dd>{{ estimate.value }}</dd>
+        </div>
+      </dl>
+      <p class="note" data-testid="unknown-estimates">
+        <template v-if="summary.revenue.atRiskUnknownAmountOpportunities > 0"
+          >Ещё {{ summary.revenue.atRiskUnknownAmountOpportunities }}
+          {{
+            plural(summary.revenue.atRiskUnknownAmountOpportunities, 'сделка', 'сделки', 'сделок')
+          }}
+          с риском без оценки. Их суммы в итог не включены.</template
+        >
+        <template v-else>Сделок с риском без оценки: 0.</template>
+      </p>
+      <p class="note">
+        Сделка с несколькими рисками учитывается один раз. Оценка — на текущий момент.
+      </p>
+    </UiCard>
   </div>
 </template>
+
+<style scoped>
+.activity {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.activity-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-color: var(--color-analytics-line);
+  overflow: hidden;
+}
+.activity-grid > :deep(section + section) {
+  border-left: 1px solid var(--color-line);
+}
+.estimates {
+  padding: 24px;
+  border-color: var(--color-analytics-line);
+}
+h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+}
+.estimates-intro {
+  margin-top: 16px;
+  color: var(--color-secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+.estimate-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 32px;
+  margin-top: 16px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-line);
+}
+dt {
+  min-height: 44px;
+  color: var(--color-secondary);
+  font-size: 15px;
+  line-height: 22px;
+}
+dd {
+  margin-top: 12px;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 28px;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.note {
+  margin-top: 24px;
+  color: var(--color-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+.note + .note {
+  margin-top: 16px;
+}
+@media (min-width: 1200px) {
+  .activity {
+    gap: 64px;
+  }
+}
+@media (max-width: 599px) {
+  .activity-grid,
+  .estimate-grid {
+    grid-template-columns: 1fr;
+  }
+  .activity-grid > :deep(section + section) {
+    border-left: 0;
+    border-top: 1px solid var(--color-line);
+  }
+  .estimate-grid {
+    gap: 32px;
+  }
+}
+</style>

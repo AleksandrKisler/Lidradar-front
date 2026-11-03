@@ -82,6 +82,10 @@
   --color-action-pale: #edf4fe;
   --color-money: #008257;
   --color-danger-ink: #b42318;
+  /* Approved analytics states, 03.11.2026. */
+  --color-analytics-line: #cdd2db;
+  --color-analytics-accent-surface: #eff5ff;
+  --color-analytics-accent-border: #b6cff2;
 
   /* Важность риска в Radar (Figma 27:2488…27:2730): фон и цвет текста подписи. */
   --color-sev-critical: #b93832;

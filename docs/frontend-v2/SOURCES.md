@@ -1,5 +1,50 @@
 # Источники и приоритеты
 
+**Решение владельца 03.11.2026:** согласованы все три вкладки Аналитики и
+адаптивы: Обзор `1636:7923`, Риски и качество `1656:14471`, Оплаты `1690:31301`.
+Включены новая desktop-база Оплат, синхронизация C, общий KPI `ΣTP/(ΣTP+ΣFP)`
+и подпись «По дате действия». Текущие источники — approved-записи
+`otherAreas[analytics].{overviewStatesDraft,riskQualityStatesDraft,paymentsStatesDraft}`
+и их node tables. Старые pending-пометки ниже и в исторических отчётах
+заменены [согласованием](evidence/analytics-design-approval-2026-11-03.md).
+
+Подготовлен [промпт реализации](prompts/analytics-implementation-2026-11-03.md).
+Для этой разработки владелец прямо ограничил тесты аналитикой и конкретной
+выполненной работой; полный прогон приложения и финальная приёмка frontend
+отложены до завершения frontend. Это уточнение выше общих требований WORKFLOW
+о финальных gates, не требует отключать существующие тесты/CI и не означает
+runtime PASS. Текущее поручение — подготовка промпта, реализация ещё не начата.
+
+Оплаты, состояния03.11.2026: область1690:31301,66сценариев×3адаптива,198 viewport/документов. Pending-owner-approval; Desktop1440 — новая база, исходные328:17743/328:18019 и shared masters сохранены. Переиспользованы период/refresh/errors/guards, существующие назначения. Карта, синхронизацияC и ограничения: otherAreas[analytics].paymentsStatesDraft и [evidence](evidence/analytics-payments-states-2026-11-03.md). NO/NR используют независимые прежние fixtures только для сохранения периода; общего денежного snapshot не утверждают. Frontend не реализуется; runtime и playback UNVERIFIED.
+
+Риски и качество, состояния03.11.2026: новая область1656:14471,53сценария
+на1440/834/390 в отдельных viewport. Статус pending-owner-approval,
+US-M13-04 и общие US-M13-01/03; frontend не реализуется. Карта и ограничения:
+`otherAreas[analytics].riskQualityStatesDraft` и
+[evidence](evidence/analytics-risk-quality-states-2026-11-03.md).
+Оригинальные1606:7777/1622:7834/1622:8555, существующий Обзор1636:7923,
+shared masters/tokens сохранены. Общий KPI ΣTP/(ΣTP+ΣFP) и подпись
+«По дате действия» предложены для согласования, не утверждены.
+
+Обзор Аналитики02–03.11.2026: область состояний `1636:7923`,41сценарий
+×1440/834/390 =123кадра, только US-M13-01/02/03. Статус — на согласование,
+без реализации. `otherAreas[analytics].overviewStatesDraft` содержит карту,
+manifest и [evidence](evidence/analytics-overview-states-2026-11-03.md).
+Основные1606:7507/1622:7517/1622:8245 и shared masters сохранены. Это не
+заменяет source frames как утверждённый эталон и не присваивает runtime PASS.
+
+Фон6 новых макетов Аналитики исправлен02.11.2026 по замечанию владельца:
+canvas#F5F5F7 изRadar C27:2765. `otherAreas[analytics].backgroundCorrection`
+заменяет только root backgrounds в historical desktop/adaptive manifests;
+геометрия/содержимое прежние. [Evidence](evidence/analytics-background-2026-11-02.md).
+
+Адаптации Аналитики02.11.2026: tablet Обзор1622:7517, Риски1622:7834;
+mobile Обзор1622:8245, Риски1622:8555. Pending owner approval, точная карта
+`otherAreas[analytics].adaptiveLayoutComposition`; [evidence](evidence/analytics-adaptives-2026-11-02.md).
+Использованы текущие desktop content1606:7542/1606:7812: прежние content328:17122/
+328:17325 уже отсутствовали в Figma до начала этой итерации. Их historical ссылки
+ниже сохраняются как история. Runtime этой дизайн-задачей не менялся.
+
 Аналитика02.11.2026: два новых содержимых макета328:17122/328:17325 помещены
 в основной desktop layout C. Composed frames Обзор1606:7507(1440×1939),
 Риски и качество1606:7777(1440×2168) подготовлены к согласованию. Точная карта:

@@ -50,6 +50,7 @@ const props = defineProps<{
   riskId: string
   /** Куда ведёт «← Radar»; ссылка и «Обновить» стоят в одной строке над карточкой. */
   backTo?: RouteLocationRaw | undefined
+  backLabel?: string | undefined
 }>()
 
 const session = useSessionStore()
@@ -263,7 +264,7 @@ const unavailableText = computed(() =>
         :to="backTo"
         class="inline-flex items-center gap-1 rounded-field border border-line bg-paper font-medium text-ink hover:bg-canvas max-md:h-[46px] max-md:gap-2 max-md:rounded-button max-md:px-4 max-md:text-field max-md:leading-5 md:h-9 md:px-2.5 md:text-[13px] md:leading-5"
       >
-        <UiIcon name="arrow-back" class="size-4" />К рискам
+        <UiIcon name="arrow-back" class="size-4" />{{ backLabel ?? 'К рискам' }}
       </RouterLink>
       <span v-else />
       <button

@@ -9,6 +9,7 @@
 import { computed } from 'vue'
 import { RouterLink, useRoute, type RouteLocationRaw } from 'vue-router'
 import { UiCard, UiEmptyState, UiIcon } from '@/shared/ui'
+import { sanitizeReturnPath } from '@/shared/lib'
 import { useSessionStore } from '@/entities/session'
 import { RiskWorkspace } from '@/widgets/risk-workspace'
 
@@ -24,9 +25,15 @@ const riskId = computed(() => {
 })
 
 const backTarget = computed<RouteLocationRaw>(() => {
+  const analytics = sanitizeReturnPath(route.query.returnTo)
+  if (session.can('analytics.read') && analytics && /^\/analytics(?:[?#]|$)/.test(analytics))
+    return analytics
   const back: unknown = window.history.state?.back
   return typeof back === 'string' && back.startsWith('/radar') ? back : { name: 'radar' }
 })
+const fromAnalytics = computed(
+  () => typeof backTarget.value === 'string' && backTarget.value.startsWith('/analytics'),
+)
 </script>
 
 <template>
@@ -36,6 +43,7 @@ const backTarget = computed<RouteLocationRaw>(() => {
       :tenant-id="session.tenantId"
       :risk-id="riskId"
       :back-to="backTarget"
+      :back-label="fromAnalytics ? 'К аналитике' : 'К рискам'"
     />
     <template v-else>
       <nav aria-label="Навигация по разделу">
@@ -43,7 +51,7 @@ const backTarget = computed<RouteLocationRaw>(() => {
           :to="backTarget"
           class="inline-flex items-center gap-1 text-sm font-medium text-brand-dark hover:underline"
         >
-          <UiIcon name="arrow-back" class="size-5" />Radar
+          <UiIcon name="arrow-back" class="size-5" />{{ fromAnalytics ? 'К аналитике' : 'Radar' }}
         </RouterLink>
       </nav>
       <UiCard :padded="false">

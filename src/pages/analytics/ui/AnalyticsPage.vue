@@ -1,204 +1,335 @@
 <script setup lang="ts">
-/**
- * Аналитика (макет 07): сводка, точность и оплаты за одно календарное окно.
- * Три запроса независимы — сбой одного показывает ошибку только своего блока.
- * Окно по умолчанию считается по поясу организации, поэтому запросы стартуют
- * после загрузки организации, а не дважды. Подпись периода берётся из ответа.
- */
-import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { formatCalendarDate, formatDateTime } from '@/shared/lib'
-import { UiCard, UiErrorState, UiPageHeader, UiSkeleton } from '@/shared/ui'
+/** Three views share one organization/calendar window and independent query families. */
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { useQueryClient } from '@tanstack/vue-query'
+import { isApiError } from '@/shared/api'
+import { formatCalendarDate } from '@/shared/lib'
+import { UiErrorState, UiGlyph } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
 import { useOrganizationQuery } from '@/entities/organization'
 import {
+  analyticsKeys,
   defaultRange,
   rangeToInstants,
   useAnalyticsSummaryQuery,
   usePaymentsQuery,
   usePrecisionQuery,
   validateRange,
-  type AnalyticsPeriod,
   type DateRange,
+  type Payment,
 } from '@/entities/report'
 import { PeriodPicker } from '@/features/select-analytics-period'
 import {
-  ActivityGrid,
-  AttributionBreakdown,
-  MetricCards,
-  PaymentsTable,
-  PrecisionTable,
-  RevenueChart,
-  RiskTypeTable,
+  OverviewPanel,
+  RiskQualityPanel,
+  PaymentsPanel,
+  AnalyticsLoading,
+  AnalyticsError,
 } from '@/widgets/analytics'
 import { parseRangeQuery, rangeToQuery } from '../model/range-query'
+import { readAnalyticsReturn, saveAnalyticsReturn } from '../model/return-state'
 
 const session = useSessionStore()
 const route = useRoute()
 const router = useRouter()
-
-const tenantId = computed(() => session.tenantId)
+const queryClient = useQueryClient()
+const tenantId = computed(() => (session.can('analytics.read') ? session.tenantId : null))
 const organization = useOrganizationQuery(tenantId)
 const timeZone = computed(() => organization.data.value?.defaultTimezone ?? 'UTC')
-
 const range = computed<DateRange>(
   () => parseRangeQuery(route.query) ?? defaultRange(timeZone.value),
 )
 const rangeError = computed(() => validateRange(range.value))
-/** Окно для запросов: только после организации и только допустимое. */
 const activeRange = computed(() =>
-  organization.data.value && rangeError.value === null ? range.value : null,
+  organization.data.value && !organization.isError.value && !rangeError.value && tenantId.value
+    ? range.value
+    : null,
 )
 const instants = computed(() =>
   activeRange.value ? rangeToInstants(activeRange.value, timeZone.value) : null,
 )
-
+const currency = computed(() => organization.data.value?.defaultCurrency ?? '—')
+const overviewErrorDescription = computed(() => {
+  const { from, to } = range.value
+  const period =
+    from.slice(0, 7) === to.slice(0, 7)
+      ? `${Number(from.slice(8))}–${formatCalendarDate(to, { year: false })}`
+      : `${formatCalendarDate(from, { year: false })} – ${formatCalendarDate(to, { year: false })}`
+  return `Данные за ${period} сейчас недоступны. Проверьте соединение и повторите запрос.`
+})
 const summary = useAnalyticsSummaryQuery(tenantId, activeRange)
 const precision = usePrecisionQuery(tenantId, instants)
 const payments = usePaymentsQuery(tenantId, activeRange)
-
-const paymentRows = computed(() => payments.data.value?.pages.flatMap((page) => page.items) ?? [])
-const currency = computed(() => summary.data.value?.revenue.currency ?? '')
-
-function periodCaption(period: AnalyticsPeriod): string {
-  return `${formatCalendarDate(period.fromDate, { year: false })} – ${formatCalendarDate(period.toDate)} · ${period.timezone}`
-}
-
-function periodBounds(period: AnalyticsPeriod): string {
-  return `UTC с ${formatDateTime(period.from, 'UTC')} до ${formatDateTime(period.to, 'UTC')} (исключительно)`
-}
+const summaryData = computed(() => (!summary.isError.value ? summary.data.value : undefined))
+const precisionData = computed(() => (!precision.isError.value ? precision.data.value : undefined))
+const initialPaymentsError = computed(
+  () => payments.isError.value && !payments.isFetchNextPageError.value,
+)
+const paymentRows = computed(() => {
+  if (initialPaymentsError.value) return []
+  const unique = new Map<string, Payment>()
+  for (const page of payments.data.value?.pages ?? [])
+    for (const item of page.items) if (!unique.has(item.eventId)) unique.set(item.eventId, item)
+  return [...unique.values()]
+})
+const invalidCursor = computed(
+  () =>
+    payments.isFetchNextPageError.value &&
+    isApiError(payments.error.value) &&
+    payments.error.value.httpStatus === 400 &&
+    payments.error.value.code === 'INVALID_ARGUMENT',
+)
+const tabs = [
+  { id: 'overview', label: 'Обзор' },
+  { id: 'quality', label: 'Риски и качество' },
+  { id: 'payments', label: 'Оплаты' },
+] as const
+const activeTab = computed(() =>
+  tabs.some((tab) => tab.id === route.query.tab) ? String(route.query.tab) : 'overview',
+)
+const refreshing = computed(
+  () => summary.isFetching.value || precision.isFetching.value || payments.isFetching.value,
+)
+const identity = computed(
+  () => `${session.user?.id ?? ''}:${tenantId.value ?? ''}:${session.role ?? ''}`,
+)
+const selectedPayment = ref<string | null>(null)
 
 function setRange(next: DateRange): void {
-  void router.replace({ query: rangeToQuery(next) })
+  void router.replace({ query: rangeToQuery(next, route.query) })
 }
+function setTab(tab: string): void {
+  void router.replace({ query: { ...route.query, tab } })
+}
+function tabKey(event: KeyboardEvent, index: number): void {
+  let next: number
+  if (event.key === 'ArrowRight') next = (index + 1) % tabs.length
+  else if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length
+  else if (event.key === 'Home') next = 0
+  else if (event.key === 'End') next = tabs.length - 1
+  else return
+  event.preventDefault()
+  setTab(tabs[next]!.id)
+  document.getElementById(`analytics-tab-${tabs[next]!.id}`)?.focus()
+}
+function refresh(): void {
+  if (!activeRange.value) return
+  void summary.refetch()
+  void precision.refetch()
+  void payments.refetch()
+}
+async function resetPayments(): Promise<void> {
+  if (!tenantId.value || !activeRange.value) return
+  document.getElementById('analytics-payments-journal')?.scrollIntoView({ block: 'start' })
+  await queryClient.resetQueries({
+    queryKey: analyticsKeys.payments(tenantId.value, activeRange.value),
+    exact: true,
+  })
+}
+function rememberPayment({ eventId, link }: { eventId: string; link?: string }): void {
+  selectedPayment.value = `${eventId}:${link ?? 'risk'}`
+}
+onBeforeRouteLeave(() => {
+  saveAnalyticsReturn({
+    identity: identity.value,
+    path: route.fullPath,
+    top: window.scrollY,
+    eventId: selectedPayment.value,
+  })
+})
+watch(identity, () => {
+  selectedPayment.value = null
+})
+onMounted(() => {
+  const saved = readAnalyticsReturn(identity.value, route.fullPath)
+  if (
+    !saved ||
+    !tenantId.value ||
+    !activeRange.value ||
+    !queryClient.getQueryData(analyticsKeys.payments(tenantId.value, activeRange.value))
+  )
+    return
+  const stop = watch(
+    () => payments.data.value,
+    async (data) => {
+      if (!data) return
+      await nextTick()
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (
+            identity.value !== saved.identity ||
+            route.fullPath !== saved.path ||
+            !session.can('analytics.read')
+          )
+            return
+          window.scrollTo({ top: saved.top })
+          if (saved.eventId)
+            document
+              .querySelector<HTMLElement>(`[data-payment-link="${CSS.escape(saved.eventId)}"]`)
+              ?.focus({ preventScroll: true })
+        }),
+      )
+    },
+    { immediate: true, once: true },
+  )
+  void stop
+})
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
-    <UiPageHeader
-      title="От риска — к результату"
-      subtitle="В показателях выручки учитываются подтверждения, а не предположения"
+  <div class="flex min-w-0 flex-col gap-6">
+    <header class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <h1
+          class="text-2xl leading-8 font-semibold md:text-[34px] md:leading-[42px] lg:text-[38px] lg:leading-[46px]"
+        >
+          Аналитика
+        </h1>
+        <p class="mt-1 text-sm leading-[22px] text-secondary md:text-note">
+          Результаты работы с рисками и подтверждённые оплаты
+        </p>
+      </div>
+      <button
+        type="button"
+        class="flex size-[46px] shrink-0 items-center justify-center rounded-full border border-line bg-paper hover:bg-canvas disabled:opacity-50"
+        aria-label="Обновить аналитику"
+        :aria-busy="refreshing"
+        :disabled="refreshing || !activeRange"
+        @click="refresh"
+      >
+        <UiGlyph name="refresh" class="size-5" />
+      </button>
+    </header>
+    <UiErrorState
+      v-if="organization.isError.value"
+      :error="organization.error.value"
+      title="Организация недоступна"
+      @retry="organization.refetch()"
     />
-    <UiCard>
+    <template v-else>
       <PeriodPicker
+        :key="tenantId ?? ''"
         :range="range"
         :time-zone="timeZone"
         :error="rangeError"
         @update:range="setRange"
       />
-      <p
-        v-if="summary.data.value"
-        class="mt-4 border-t border-line pt-4 text-sm text-ink"
-        data-testid="analytics-period"
+      <div
+        class="grid w-full max-w-[516px] grid-cols-[minmax(0,140fr)_minmax(0,220fr)_minmax(0,140fr)] gap-1 rounded-control bg-line p-1"
+        role="tablist"
+        aria-label="Разделы аналитики"
       >
-        Период: {{ periodCaption(summary.data.value.period) }}
-        <span class="block text-xs text-muted">{{ periodBounds(summary.data.value.period) }}</span>
-      </p>
-    </UiCard>
-
-    <section aria-labelledby="summary-title" class="flex flex-col gap-4">
-      <h2 id="summary-title" class="sr-only">Сводка</h2>
-      <div v-if="rangeError" class="text-sm text-muted">
+        <button
+          v-for="(tab, index) in tabs"
+          :id="`analytics-tab-${tab.id}`"
+          :key="tab.id"
+          role="tab"
+          type="button"
+          class="min-h-[46px] min-w-0 rounded-control px-2 text-sm font-medium"
+          :class="activeTab === tab.id ? 'bg-paper text-brand' : 'text-secondary hover:bg-paper/50'"
+          :aria-selected="activeTab === tab.id"
+          :aria-controls="`analytics-panel-${tab.id}`"
+          :tabindex="activeTab === tab.id ? 0 : -1"
+          @click="setTab(tab.id)"
+          @keydown="tabKey($event, index)"
+        >
+          {{ tab.label }}
+        </button>
+      </div>
+      <p v-if="rangeError" class="text-sm text-secondary">
         Исправьте период, чтобы увидеть показатели.
-      </div>
-      <div v-else-if="summary.isPending.value" role="status" aria-label="Загрузка сводки">
-        <UiSkeleton class="h-32 w-full" />
-      </div>
-      <UiErrorState
-        v-else-if="summary.isError.value"
-        :error="summary.error.value"
-        title="Не удалось загрузить сводку"
-        @retry="summary.refetch()"
-      />
-      <template v-else-if="summary.data.value">
-        <MetricCards :summary="summary.data.value" />
-        <div class="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <UiCard as="section" aria-labelledby="chart-title" class="flex flex-col">
-            <h2 id="chart-title" class="text-lg font-bold text-ink">Возвращённая выручка</h2>
-            <p class="mt-1 text-sm text-muted">Только подтверждённые суммы · {{ currency }}</p>
-            <div class="mt-4 flex flex-1 flex-col">
-              <RevenueChart :series="summary.data.value.series" :currency="currency" />
-            </div>
-          </UiCard>
-          <UiCard as="section" aria-labelledby="attribution-title">
-            <h2 id="attribution-title" class="text-lg font-bold text-ink">
-              Разделение подтверждённых оплат
-            </h2>
-            <div class="mt-4">
-              <AttributionBreakdown
-                :attribution="summary.data.value.attribution"
-                :currency="currency"
-              />
-            </div>
-          </UiCard>
-        </div>
-        <ActivityGrid :summary="summary.data.value" />
-        <UiCard as="section" aria-labelledby="by-type-title">
-          <h2 id="by-type-title" class="text-lg font-bold text-ink">Риски по типам</h2>
-          <div class="mt-4">
-            <RiskTypeTable :rows="summary.data.value.risks.byType" />
+      </p>
+      <section
+        v-else
+        :id="`analytics-panel-${activeTab}`"
+        role="tabpanel"
+        :aria-labelledby="`analytics-tab-${activeTab}`"
+        class="min-w-0"
+        tabindex="0"
+      >
+        <template v-if="activeTab === 'overview'">
+          <AnalyticsError
+            v-if="summary.isError.value"
+            :error="summary.error.value"
+            title="Не удалось загрузить сводку"
+            :description="overviewErrorDescription"
+            @retry="summary.refetch()"
+          />
+          <OverviewPanel v-else-if="summaryData" :summary="summaryData" />
+          <div v-else role="status" aria-label="Загрузка сводки">
+            <AnalyticsLoading variant="overview" :currency="currency" :time-zone="timeZone" />
           </div>
-        </UiCard>
-      </template>
-    </section>
-
-    <UiCard as="section" aria-labelledby="precision-title">
-      <h2 id="precision-title" class="text-lg font-bold text-ink">Точность сигналов</h2>
-      <p class="mt-1 text-sm text-muted">
-        По вердиктам команды: каждый риск учитывается один раз по последнему вердикту.
-      </p>
-      <div v-if="rangeError" class="mt-4 text-sm text-muted">Исправьте период.</div>
-      <div
-        v-else-if="precision.isPending.value"
-        class="mt-4"
-        role="status"
-        aria-label="Загрузка точности"
-      >
-        <UiSkeleton class="h-24 w-full" />
-      </div>
-      <UiErrorState
-        v-else-if="precision.isError.value"
-        class="mt-4"
-        :error="precision.error.value"
-        title="Не удалось загрузить точность"
-        @retry="precision.refetch()"
-      />
-      <div v-else-if="precision.data.value" class="mt-4">
-        <PrecisionTable :report="precision.data.value" :time-zone="timeZone" />
-      </div>
-    </UiCard>
-
-    <UiCard as="section" aria-labelledby="payments-title">
-      <h2 id="payments-title" class="text-lg font-bold text-ink">Подтверждённые оплаты</h2>
-      <p class="mt-1 text-sm text-muted">
-        От новых к старым, каждая в своей валюте. Возвращённая выручка связана с риском, действием и
-        результатом.
-      </p>
-      <div v-if="rangeError" class="mt-4 text-sm text-muted">Исправьте период.</div>
-      <div
-        v-else-if="payments.isPending.value"
-        class="mt-4"
-        role="status"
-        aria-label="Загрузка оплат"
-      >
-        <UiSkeleton class="h-24 w-full" />
-      </div>
-      <UiErrorState
-        v-else-if="payments.isError.value"
-        class="mt-4"
-        :error="payments.error.value"
-        title="Не удалось загрузить оплаты"
-        @retry="payments.refetch()"
-      />
-      <div v-else class="mt-4">
-        <PaymentsTable
+        </template>
+        <RiskQualityPanel
+          v-else-if="activeTab === 'quality'"
+          :summary="summaryData"
+          :report="precisionData"
+          :time-zone="timeZone"
+        >
+          <template v-if="!summaryData" #summary-state>
+            <AnalyticsError
+              v-if="summary.isError.value"
+              :error="summary.error.value"
+              title="Не удалось загрузить риски"
+              embedded
+              @retry="summary.refetch()"
+            />
+            <div v-else role="status" aria-label="Загрузка сводки">
+              <AnalyticsLoading variant="risk-events" :currency="currency" />
+            </div>
+          </template>
+          <template v-if="!precisionData" #precision-state>
+            <AnalyticsError
+              v-if="precision.isError.value"
+              :error="precision.error.value"
+              title="Не удалось загрузить оценки"
+              embedded
+              @retry="precision.refetch()"
+            />
+            <div v-else role="status" aria-label="Загрузка точности">
+              <AnalyticsLoading variant="risk-precision" :time-zone="timeZone" />
+            </div>
+          </template>
+        </RiskQualityPanel>
+        <PaymentsPanel
+          v-else
+          :summary="summaryData"
           :items="paymentRows"
           :has-more="payments.hasNextPage.value"
           :loading-more="payments.isFetchingNextPage.value"
           :time-zone="timeZone"
+          :next-error="payments.isFetchNextPageError.value ? payments.error.value : undefined"
+          :invalid-cursor="invalidCursor"
           @more="payments.fetchNextPage()"
-        />
-      </div>
-    </UiCard>
+          @reset="resetPayments"
+          @navigate="rememberPayment"
+        >
+          <template v-if="!summaryData" #summary-state>
+            <AnalyticsError
+              v-if="summary.isError.value"
+              :error="summary.error.value"
+              title="Не удалось загрузить итоги"
+              @retry="summary.refetch()"
+            />
+            <div v-else role="status" aria-label="Загрузка итогов">
+              <AnalyticsLoading variant="payment-totals" :currency="currency" />
+            </div>
+          </template>
+          <template v-if="payments.isPending.value || initialPaymentsError" #payments-state>
+            <AnalyticsError
+              v-if="initialPaymentsError"
+              :error="payments.error.value"
+              title="Не удалось загрузить журнал"
+              embedded
+              @retry="payments.refetch()"
+            />
+            <div v-else role="status" aria-label="Загрузка оплат">
+              <AnalyticsLoading variant="payment-journal" />
+            </div>
+          </template>
+        </PaymentsPanel>
+      </section>
+    </template>
   </div>
 </template>

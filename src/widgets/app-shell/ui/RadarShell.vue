@@ -41,6 +41,7 @@ const session = useSessionStore()
 const route = useRoute()
 const menuOpen = ref(false)
 const privacy = computed(() => route.name === 'settings-privacy')
+const analytics = computed(() => route.name === 'analytics')
 
 const settingsCurrent = computed(() => isSectionCurrent('/settings', false, route.name))
 const redesignedSettings = computed(() =>
@@ -99,10 +100,11 @@ function onSwitched(tenantId: string): void {
     <!-- Правое поле 23 px + рамка 1 px: содержимое 192 px, как в Figma 27:2766. -->
     <aside
       :class="
-        redesignedSettings || route.name === 'settings-privacy'
+        analytics || redesignedSettings || route.name === 'settings-privacy'
           ? 'lg:min-h-dvh lg:self-stretch'
           : 'lg:sticky lg:top-0 lg:h-dvh lg:self-start lg:overflow-y-auto'
       "
+      :style="analytics ? { justifyContent: 'flex-start' } : undefined"
       class="hidden border-r border-hairline bg-panel lg:flex lg:flex-col lg:justify-between lg:gap-6 lg:py-6 lg:pr-[23px] lg:pl-6"
     >
       <div class="flex flex-col gap-6">
@@ -175,7 +177,7 @@ function onSwitched(tenantId: string): void {
         :style="privacy ? { paddingBottom: '32px' } : undefined"
         :class="[
           privacy ? 'md:px-6' : 'md:px-8',
-          redesignedSettings || privacy
+          analytics || redesignedSettings || privacy
             ? 'gap-6 pt-6 lg:pt-8'
             : ['settings-company', 'settings-services'].includes(String(route.name))
               ? 'gap-5 pt-6 lg:py-8'
@@ -200,7 +202,7 @@ function onSwitched(tenantId: string): void {
             >
           </p>
           <div class="ml-auto flex flex-wrap items-center justify-end gap-x-5 gap-y-1">
-            <p v-if="dateLabel">{{ dateLabel }}</p>
+            <p v-if="dateLabel" :class="analytics ? 'hidden md:block' : ''">{{ dateLabel }}</p>
             <div class="hidden items-center gap-5 lg:flex">
               <span v-if="dateLabel" class="h-7 w-px bg-line" aria-hidden="true" />
               <p

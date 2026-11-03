@@ -120,7 +120,7 @@ describe('интеграции', () => {
       botToken: '123456789:AAHf1234567890abcdefghijklmnop',
     })
     expect(dialog().text()).toContain('Подключение создано')
-    expect(dialog().text()).toContain('Работает')
+    expect(dialog().text()).toContain('Активно')
     expect(dialog().text()).not.toContain('Секрет webhook')
     expect(wrapper.emitted('connected')).toHaveLength(1)
     wrapper.unmount()

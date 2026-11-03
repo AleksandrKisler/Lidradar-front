@@ -29,7 +29,8 @@ test.describe('общая оболочка C четырёх разделов', (
           module.suffix ? `Студия «Блик» / ${module.suffix}` : 'Студия «Блик»',
         )
         const date = context.getByText(/2026 · .*МСК/)
-        if (module.path === '/analytics' && width < 768) await expect(date).toBeHidden()
+        if (['/analytics', '/integrations'].includes(module.path) && width < 768)
+          await expect(date).toBeHidden()
         else if (module.date) await expect(date).toBeVisible()
         else await expect(date).toHaveCount(0)
         const gear = page.getByRole('link', { name: 'Настройки', exact: true })
@@ -37,7 +38,12 @@ test.describe('общая оболочка C четырёх разделов', (
         if (module.label === 'Настройки') await expect(gear).toHaveAttribute('aria-current', 'page')
         else await expect(gear).not.toHaveAttribute('aria-current')
         if (width >= 1024) {
-          const aside = page.locator('aside')
+          const aside =
+            module.path === '/integrations'
+              ? page
+                  .locator('aside')
+                  .filter({ has: page.getByRole('navigation', { name: 'Разделы', exact: true }) })
+              : page.locator('aside')
           expect((await aside.boundingBox())!.width).toBe(240)
           const nav = aside.getByRole('navigation', { name: 'Разделы', exact: true })
           await expect(nav.getByRole('link')).toHaveCount(4)

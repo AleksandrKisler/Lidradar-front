@@ -47,11 +47,11 @@ figma-use. Не запускай навыки генерации/редакти�
 Figma: `https://www.figma.com/design/jN8Hhzn6ObIAEi7FoY9kPu/LidRadar`,
 страница `299:12337`. Утверждённые источники:
 
-| Вкладка | Область | Карта и доказательства |
-| --- | --- | --- |
-| Обзор | `1636:7923` | `artifacts/frontend-v2/analytics-states-2026-11-02/` |
+| Вкладка          | Область      | Карта и доказательства                                            |
+| ---------------- | ------------ | ----------------------------------------------------------------- |
+| Обзор            | `1636:7923`  | `artifacts/frontend-v2/analytics-states-2026-11-02/`              |
 | Риски и качество | `1656:14471` | `artifacts/frontend-v2/analytics-risk-quality-states-2026-11-03/` |
-| Оплаты | `1690:31301` | `artifacts/frontend-v2/analytics-payments-states-2026-11-03/` |
+| Оплаты           | `1690:31301` | `artifacts/frontend-v2/analytics-payments-states-2026-11-03/`     |
 
 В каждом пакете используй `states-and-node-ids.md`, карту состояний, manifest
 и реальные экспорты. Отчёты — `docs/frontend-v2/evidence/analytics-{overview,

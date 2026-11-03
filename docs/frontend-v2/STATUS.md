@@ -1,5 +1,51 @@
 # Статус frontend v2
 
+## Codex · Интеграции · подготовка поставки на stage · 03.11.2026
+
+US-M04-01–06: реализованы оболочка C, карточки/состояния источников, команды
+подключения/проверки/отключения, независимые личные уведомления, права и tenant
+контекст, адаптивная инструкция 16 шагов, черновик/zoom/фокус. Backend/API,
+generated, lockfile, Figma и production не менялись. Владение файлами — root.
+
+Delivery candidate `integrations-r6`:734 inputs, manifest SHA
+`7727ef2cf0ac1113ac36b370b630f65efa68ced6de606d1602dbfb2733efd033`.
+R5 независимые TEST/FUNCTIONAL PASS относятся к локальному frontend/mock scope:
+30 затронутых unit/3 matrix23.9s/static4/typecheck0;59 unit/12 E2E/23 static
+унаследованы по проверенным SHA/diff. QA:qa-r5/report.md,734 inputs без drift.
+Browser-r9:180 PNG/117 metadata,16guide×3+6 mobile top;10 R4 metadata/20 PNG
+остаются отдельно с original labels/hashes. История не переписывалась.
+
+UI R5 закрыл overlay/Refreshing. Получены32 полных approved step PNG native
+export(useAbsoluteBounds:true) без Canvas writes; ledger SHA
+`86dd7a27493101dc0a9c377f5a9ebe1290c412505a9ea47953120ee5f0e1129a`.
+Дополнительное сравнение:desktop PASS/mobile PASS/tablet FAIL только по Low
+radius02–08. Root исправил native radius12 (16.292при706px) только для02–08,
+соседи остаются квадратными. R6 прошёл typecheck/scoped ESLint2files exit0.
+Новая отдельная visual/functional/E2E приёмка не выполнялась по последующему
+указанию владельца; исторический UI FAIL не заменялся заявлением PASS.
+
+Владелец отдельно разрешил commit/push и штатную доставку на stage до успешного
+deployment job и технического подтверждения работающего SHA. Дополнительные
+ручные regression/smoke/E2E/functional/visual проверки не запускать; обязательные
+автоматические CI gates сохраняются. Прочитаны docs/staging-autodeploy.md иci.yml.
+Autodeploy включён, staging environment и имена штатных настроек/ключей проверены.
+Предыдущий stage CI упал на Prettier трёх Markdown аналитики; только таблицы
+этих committed документов отформатированы, содержимое сверено без изменений.
+
+База и origin/stage `d4a30aeafbde93a2b4e2a3eaf03921eedfaa5747`, ветка
+frontend/v2-implementation. Целевой SHA будет зафиксирован после commit;
+run/job/release/running image/served static proof — в
+`artifacts/frontend-v2/integrations-stage-delivery-2026-11-03/`.
+Implementation report:docs/frontend-v2/evidence/integrations-redesign-2026-11-03.md.
+Env/secrets/temporary artifacts в commit не включать; чужие изменения сохранять.
+
+API-LIMITED:username отсутствует (name/provider); DELETE503 marker в JS переживает
+remount и теряется при reload;retry204 не гарантирует remote removal. Живая
+доставка/история/reconnect/backend uniqueness UNVERIFIED. Полная регрессия и
+общая приёмка frontend **DEFERRED до завершения frontend**. Дополнительные
+stage QA/Smoke NOT RUN. Цель поставки — подтверждённая версия, не функциональная
+готовность и не заявление об отсутствии регрессий. Production не разрешён.
+
 ## Codex · Аналитика · передача в stage · 03.11.2026
 
 После завершения US-M13-01–04 владелец отдельно поручил commit и push в

@@ -20,6 +20,7 @@ import { UiDialog, UiGlyph, UiIcon } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
 import { useOrganizationQuery } from '@/entities/organization'
 import { useLocationsQuery } from '@/entities/location'
+import { useConnectionsQuery } from '@/entities/integration'
 import {
   AccountDeletionBanner,
   EmailVerificationBanner,
@@ -42,6 +43,10 @@ const route = useRoute()
 const menuOpen = ref(false)
 const privacy = computed(() => route.name === 'settings-privacy')
 const analytics = computed(() => route.name === 'analytics')
+const integrations = computed(() => route.name === 'integrations')
+const integrationSnapshot = useConnectionsQuery(() =>
+  integrations.value && session.can('integration.manage') ? session.tenantId : null,
+)
 
 const settingsCurrent = computed(() => isSectionCurrent('/settings', false, route.name))
 const redesignedSettings = computed(() =>
@@ -86,7 +91,15 @@ const timer = setInterval(() => {
 onScopeDispose(() => clearInterval(timer))
 const timeZone = computed(() => organization.data.value?.defaultTimezone ?? null)
 const dateLabel = computed(() =>
-  !settingsCurrent.value && timeZone.value ? formatLongDateTime(now.value, timeZone.value) : null,
+  integrations.value &&
+  session.can('integration.manage') &&
+  integrationSnapshot.data.value === undefined
+    ? integrationSnapshot.isError.value
+      ? 'Данные не получены'
+      : 'Загружаем…'
+    : !settingsCurrent.value && timeZone.value
+      ? formatLongDateTime(now.value, timeZone.value)
+      : null,
 )
 
 function onSwitched(tenantId: string): void {
@@ -202,7 +215,9 @@ function onSwitched(tenantId: string): void {
             >
           </p>
           <div class="ml-auto flex flex-wrap items-center justify-end gap-x-5 gap-y-1">
-            <p v-if="dateLabel" :class="analytics ? 'hidden md:block' : ''">{{ dateLabel }}</p>
+            <p v-if="dateLabel" :class="analytics || integrations ? 'hidden md:block' : ''">
+              {{ dateLabel }}
+            </p>
             <div class="hidden items-center gap-5 lg:flex">
               <span v-if="dateLabel" class="h-7 w-px bg-line" aria-hidden="true" />
               <p

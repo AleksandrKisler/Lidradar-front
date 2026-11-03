@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** Подключение Telegram. Токен очищается после отправки и закрытия диалога. */
-import { computed, defineAsyncComponent, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { describeError, isApiError } from '@/shared/api'
@@ -22,7 +22,6 @@ import type { Location } from '@/entities/location'
 import {
   connectionErrorLabel,
   connectionStatusView,
-  providerLabel,
   type ConnectChannelRequest,
   type ConnectedChannel,
 } from '@/entities/integration'
@@ -33,6 +32,7 @@ const props = defineProps<{
   tenantId: string
   locations: Location[]
   loading?: boolean | undefined
+  adaptiveInstruction?: boolean | undefined
 }>()
 const emit = defineEmits<{ connected: [connection: ConnectedChannel] }>()
 const open = defineModel<boolean>('open', { default: false })
@@ -62,7 +62,11 @@ const [locationId] = defineField('locationId')
 const [botToken] = defineField('botToken')
 const result = ref<ConnectedChannel | null>(null)
 const resultStatus = computed(() =>
-  result.value ? connectionStatusView(result.value.provider, result.value) : null,
+  result.value?.status === 'ACTIVE'
+    ? { label: 'Активно', tone: 'success' as const }
+    : result.value
+      ? connectionStatusView(result.value.provider, result.value)
+      : null,
 )
 const errorView = computed(() => (connect.error.value ? describeError(connect.error.value) : null))
 const traceId = computed(() => (isApiError(connect.error.value) ? connect.error.value.traceId : ''))
@@ -91,26 +95,37 @@ function clearToken(): void {
  * два подключения: `isPending` запроса обновляется позже, чем нужно.
  */
 let inFlight = false
+let formGeneration = 0
+let submissionGeneration = 0
+let disposed = false
 
-const onSubmit = handleSubmit(async (formValues) => {
-  if (inFlight) return
+const submitValidated = handleSubmit(async (formValues) => {
+  if (submissionGeneration !== formGeneration || !open.value || !connect.canSubmit.value) return
+  await submitValues(formValues, submissionGeneration)
+})
+
+async function onSubmit(event?: Event): Promise<void> {
+  if (inFlight || !open.value || !connect.canSubmit.value) return
   inFlight = true
+  submissionGeneration = formGeneration
   try {
-    await submitValues(formValues)
+    await submitValidated(event)
   } finally {
     inFlight = false
   }
-})
+}
 
-async function submitValues(formValues: ConnectChannelValues): Promise<void> {
+async function submitValues(formValues: ConnectChannelValues, generation: number): Promise<void> {
   connect.reset()
   const body: ConnectChannelRequest = {
     name: formValues.name,
     locationId: formValues.locationId || null,
     botToken: formValues.botToken,
   }
-  const created = await connect.mutateAsync(body).catch(() => null)
+  // После начала отправки токен больше не нужен ни форме, ни её черновику.
   clearToken()
+  const created = await connect.mutateAsync(body).catch(() => null)
+  if (disposed || generation !== formGeneration || !open.value) return
   if (created) {
     result.value = created
     emit('connected', created)
@@ -132,6 +147,7 @@ const TOKEN_STEPS = [
 ] as const
 
 const instructionOpen = ref(false)
+const instructionTrigger = ref<HTMLButtonElement | null>(null)
 const TelegramInstructionDialog = defineAsyncComponent(
   () => import('./TelegramInstructionDialog.vue'),
 )
@@ -140,19 +156,26 @@ function finish(): void {
   open.value = false
 }
 
-// Закрытие уничтожает черновик и токен.
-watch(open, (isOpen) => {
-  if (isOpen) return
+// Закрытие и смена контекста уничтожают черновик, включая скрытую форму инструкции.
+function resetContext(): void {
+  formGeneration++
   connect.reset()
   result.value = null
   instructionOpen.value = false
-  resetForm({
-    values: {
-      name: '',
-      locationId: '',
-      botToken: '',
-    },
-  })
+  resetForm({ values: { name: '', locationId: '', botToken: '' } })
+}
+
+watch(
+  open,
+  (isOpen) => {
+    if (!isOpen) resetContext()
+  },
+  { flush: 'sync' },
+)
+watch(connect.contextKey, resetContext, { flush: 'sync' })
+onBeforeUnmount(() => {
+  disposed = true
+  resetContext()
 })
 </script>
 
@@ -160,7 +183,7 @@ watch(open, (isOpen) => {
   <UiSheetDialog
     v-model:open="open"
     title="Подключить Telegram"
-    description="Подключите переписку бизнес-аккаунта Telegram через своего бота."
+    description="Подключите переписку Telegram через своего бота."
     size="lg"
     :dismissible="!(connect.isPending.value || isSubmitting)"
     :concealed="instructionOpen"
@@ -173,7 +196,7 @@ watch(open, (isOpen) => {
         title="Подключение создано"
       >
         <span class="flex flex-wrap items-center gap-2">
-          {{ result.name }} · {{ providerLabel(result.provider) }}
+          {{ result.name }} · Telegram
           <UiBadge v-if="resultStatus" :tone="resultStatus.tone">
             {{ resultStatus.label }}
           </UiBadge>
@@ -296,6 +319,7 @@ watch(open, (isOpen) => {
           </li>
         </ol>
         <button
+          ref="instructionTrigger"
           type="button"
           class="self-start text-sm text-link underline"
           @click="instructionOpen = true"
@@ -309,7 +333,12 @@ watch(open, (isOpen) => {
       </section>
     </div>
 
-    <TelegramInstructionDialog v-if="instructionOpen" v-model:open="instructionOpen" />
+    <TelegramInstructionDialog
+      v-if="instructionOpen"
+      v-model:open="instructionOpen"
+      :adaptive="adaptiveInstruction"
+      :return-focus="() => instructionTrigger"
+    />
 
     <template #footer>
       <UiButton v-if="result" @click="finish">Готово</UiButton>
@@ -325,7 +354,7 @@ watch(open, (isOpen) => {
           type="submit"
           class="md:min-w-[196px]"
           form="connect-channel-form"
-          :disabled="loading"
+          :disabled="loading || !connect.canSubmit.value"
           :loading="connect.isPending.value || isSubmitting"
         >
           {{ connect.isPending.value || isSubmitting ? 'Подключаем…' : 'Подключить' }}

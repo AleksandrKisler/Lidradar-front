@@ -1267,7 +1267,7 @@ test.describe('владелец организации', () => {
   test('интеграции: только Telegram, проверка связи и отключение', async ({ page }) => {
     await page.goto('/integrations')
     await expect(page.getByRole('heading', { name: 'Интеграции' })).toBeVisible()
-    await expect(page.getByText('Источников пока нет')).toBeVisible()
+    await expect(page.getByText('Подключите первый источник')).toBeVisible()
     await expectNoAxeViolations(page)
 
     // Telegram: токен проверяется по формату и уходит один раз.
@@ -1290,7 +1290,7 @@ test.describe('владелец организации', () => {
     const cards = list.locator(':scope > li')
     await expect(cards).toHaveCount(1)
     await expect(list).toContainText('Telegram · переписка клиентов')
-    await expect(list).toContainText('Работает')
+    await expect(list).toContainText('Активно')
 
     // Повторное открытие даёт чистую форму Telegram без других способов подключения.
     await page.getByRole('button', { name: 'Подключить Telegram' }).click()
@@ -1310,7 +1310,7 @@ test.describe('владелец организации', () => {
       .getByRole('listitem')
       .filter({ hasText: 'Telegram · переписка клиентов' })
     await telegramCard.getByRole('button', { name: 'Проверить связь' }).click()
-    await expect(telegramCard.getByRole('status')).toContainText('провайдер опрошен')
+    await expect(telegramCard.getByRole('status')).toContainText('Регистрация подтверждена')
     await page.reload()
     await expect(list).not.toContainText(/webhook|CRM|Для разработчика/i)
     expect(
@@ -1322,9 +1322,10 @@ test.describe('владелец организации', () => {
     const secondCard = cards.filter({ hasText: 'Telegram · вторая точка' })
     await secondCard.getByRole('button', { name: 'Отключить' }).click()
     const confirm = page.getByRole('dialog', { name: 'Отключить источник?' })
-    await expect(confirm).toContainText('Telegram · вторая точка · Telegram · бизнес-бот')
+    await expect(confirm).toContainText('Telegram · вторая точка')
+    await expect(confirm).toContainText('Сохранённые диалоги и риски останутся доступны')
     await confirm.getByRole('button', { name: 'Отключить' }).click()
-    await expect(secondCard).toContainText('Отключён')
+    await expect(secondCard).toContainText('Отключено')
     await expect(secondCard.getByRole('button', { name: 'Отключить' })).toHaveCount(0)
 
     // Шаг онбординга «Источник сообщений» закрыт подключением.

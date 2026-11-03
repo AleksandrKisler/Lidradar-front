@@ -771,6 +771,38 @@ test('Chromium native mobile pinch: visual scale, focus and cancellation remain 
   const session = await context.newCDPSession(page)
   try {
     await ready(page)
+    // Retain native input evidence even when the compositor does not change scale in CI.
+    // These passive observers neither synthesize input nor alter the page's zoom policy.
+    const inputs = await page.evaluateHandle(() => {
+      const events: {
+        type: string
+        trusted: boolean
+        prevented: boolean
+        touches: { x: number; y: number }[]
+        scale: number
+      }[] = []
+      for (const type of ['touchstart', 'touchmove', 'touchend', 'touchcancel'] as const)
+        document.addEventListener(
+          type,
+          (event) => {
+            const value = {
+              type,
+              trusted: event.isTrusted,
+              prevented: event.defaultPrevented,
+              touches: Array.from(event.touches, (touch) => ({
+                x: touch.clientX,
+                y: touch.clientY,
+              })),
+              scale: visualViewport?.scale ?? 1,
+            }
+            events.push(value)
+            queueMicrotask(() => (value.prevented = event.defaultPrevented))
+          },
+          { capture: true, passive: true },
+        )
+      return events
+    })
+    const beforeGesture = await session.send('Page.getLayoutMetrics')
     // CDP Input.pdl: this emits touch events; scaleFactor is relative to the current visual scale.
     await session.send('Input.synthesizePinchGesture', {
       x: 195,
@@ -778,6 +810,16 @@ test('Chromium native mobile pinch: visual scale, focus and cancellation remain 
       scaleFactor: 2,
       relativeSpeed: 800,
       gestureSourceType: 'touch',
+    })
+    await info.attach('native-pinch-input-delivery', {
+      body: JSON.stringify({
+        browser: await session.send('Browser.getVersion'),
+        beforeGesture,
+        afterGesture: await session.send('Page.getLayoutMetrics'),
+        maxTouchPoints: await page.evaluate(() => navigator.maxTouchPoints),
+        events: await inputs.jsonValue(),
+      }),
+      contentType: 'application/json',
     })
     await expect.poll(() => page.evaluate(() => visualViewport?.scale ?? 1)).toBeGreaterThan(1.5)
     await noOverflow(page)

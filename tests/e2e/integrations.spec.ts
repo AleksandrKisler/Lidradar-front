@@ -572,7 +572,11 @@ async function guideStepProof(step: Locator, stepStart = false) {
     }
     const fullStepFits = element.getBoundingClientRect().height <= body.clientHeight
     const target = stepStart || fullStepFits ? element : illustration
-    body.scrollTop += target.getBoundingClientRect().top - body.getBoundingClientRect().top
+    // WebKit truncates fractional scroll offsets. Request the nearest CSS pixel so
+    // the selected edge stays within the existing half-pixel alignment assertion.
+    body.scrollTop = Math.round(
+      body.scrollTop + target.getBoundingClientRect().top - body.getBoundingClientRect().top,
+    )
     const bodyRect = body.getBoundingClientRect()
     const imageRect = illustration.getBoundingClientRect()
     return {

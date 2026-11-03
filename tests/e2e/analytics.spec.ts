@@ -545,7 +545,11 @@ test('аналитика: смена организации игнорирует
   await started
   await page.getByRole('button', { name: 'Показать ещё' }).click()
   await expect(page.locator('[data-payment-id]')).toHaveCount(3)
-  await page.getByLabel('Рабочее пространство', { exact: true }).selectOption(second)
+  const menu = page.getByRole('button', { name: 'Меню', exact: true })
+  if (await menu.isVisible()) await menu.click()
+  await page
+    .getByRole('combobox', { name: 'Рабочее пространство', exact: true })
+    .selectOption(second)
   await expect(page).toHaveURL(/\/radar$/)
   await page.goto(path + '&tab=payments')
   await expect(page.getByRole('tabpanel')).toContainText('123,45')
@@ -582,6 +586,8 @@ test('аналитика: 401 при refresh закрывает данные и 
   page,
 }) => {
   await page.goto('/radar')
+  const menu = page.getByRole('button', { name: 'Меню', exact: true })
+  if (await menu.isVisible()) await menu.click()
   await page.getByRole('link', { name: 'Аналитика', exact: true }).click()
   await page.getByRole('tab', { name: 'Оплаты', exact: true }).click()
   await expect(page.getByRole('tabpanel')).toContainText('59 000')

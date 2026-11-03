@@ -1,5 +1,57 @@
 # Статус frontend v2
 
+## Codex · Интеграции · пересмотр бюджета владельцем · 04.11.2026
+
+Владелец разрешил общую оптимизацию frontend, затем явно выбрал поднять
+бюджет. Установлены CSS125000 и totalJs1010000 bytes: около5% запаса к
+измеренному CI118694/959952. Обоснование и прежние значения сохранены в
+bundle-budgets.json; исторический baseline и остальные thresholds не менялись.
+Runtime frontend не изменялся. Дальше — статическая сборка/release audit и
+штатный CI; native-pinch и shard2 timeout остаются открытыми blockers.
+Production build и release audit exit0: CSS118694/125000, JS959952/1010000;
+entry80369, largest108693, initial226442 в прежних лимитах. Report2 прошлого
+CI выявил mobile analytics попытки использовать скрытые sidebar controls и
+WebKit guide scroll offset216.609375 вместо216. Тесты теперь открывают
+реальное mobile меню; guide helper запрашивает ближайший целый CSS pixel,
+сохраняя прежний допуск <0.5px. Native-pinch assertion и setup сохранены;
+добавлен только passive input/layout diagnostic artifact для штатного CI.
+Дополнительные ручные browser/E2E/smoke/regression/functional/visual прогоны
+не разрешены и не запускаются. Evidence нового круга:
+artifacts/frontend-v2/frontend-stage-optimization-2026-11-04/.
+Предыдущие checkpoint и evidence сохранены как история, включая STATUS dirty.
+
+## Codex · Интеграции · итог доставки BLOCKED · 03.11.2026
+
+Целевой commit `3b742a4ab714acf8fdd71bacd2dc8ac285bea49b` содержит все
+изменения интеграций и исправления CI helpers; HEAD и origin/stage совпадают.
+Штатный run41669295147 завершён failure:
+https://github.com/AleksandrKisler/Lidradar-front/actions/runs/41669295147.
+Quality/container/dev success; pre-prod cancelled после публикации dist;
+prod release audit failure: CSS118694/72000 и JS959952/905600. E2E1:747passed,
+один неизменённый privacy native-pinch failure; E2E2 cancelled у лимита25min.
+Все четыре прежних integration/helper failures закрыты повторным CI.
+Stage-deploy126050553360 skipped, нового rollout нет. CI/budgets не ослаблялись.
+
+Read-only техническая проверка после конечного результата подтверждает старый
+stage frontend: revision `e7940037e6a15ff6a4e7e2e07b99b981a234e442`, release
+`ed577f84e992-we7940037`, running/healthy, image digest
+`sha256:a90fee9153fcab221b2e3e9c393e0ff80980e3db2576541286ba1ee8299bc86e`.
+OCI labels и реальные static HTTP bytes контейнера lidradar-staging сверены:
+served index SHA256 e2306f1d0eaa9ddbf6ffcba6764d60b7d0c058fbe7ce742285c95b24b12df06e
+не совпадает с точным target CI artifact
+ad3ce20abbe53c20739cbb97e9aa03d38f1baf5bec397b5ff421f4ee2ad675c3.
+Stage не обслуживает целевую поставку. Production не затрагивался.
+
+Полный отчёт, terminal run/job JSON, logs, artifact ledger и runtime/static
+proof: artifacts/frontend-v2/integrations-stage-delivery-2026-11-03/report.md.
+Базовые CSS/JS превышения воспроизведены статической сборкой до интеграций;
+требуется расширение scope на общую оптимизацию и расследование CI baseline
+без изменения обязательных gates. Async вопрос владельцу остаётся без ответа;
+широкие правки не начинать до разрешения. Дополнительные локальные/ручные
+regression/smoke/E2E/functional/visual проверки не запускались; штатный CI
+выполнялся неизменённым. Этот checkpoint после CI оставлен локально, чтобы
+docs-only push не запускал третий заведомо заблокированный workflow.
+
 ## Codex · Интеграции · stage CI блокирует доставку · 03.11.2026
 
 Commit `79565053765c3d583d1d55cf7d7a2f3f6a11c657` (69 файлов) отправлен

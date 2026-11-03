@@ -7,8 +7,9 @@ fast-forward в origin/stage. Env/secrets/ignored artifacts не включен�
 на момент push дерево было чистым. Снимок исходников integrations-r6/734inputs.
 Run41662627084: https://github.com/AleksandrKisler/Lidradar-front/actions/runs/41662627084.
 Quality/container/dev/pre-prod PASS; production build завершён, но обязательный
-Release audit FAIL: CSS118694/72000 и JS959952/905600. E2E shards ещё выполняются;
-stage-deploy не выполнен. Не считать push/build/publication успешной доставкой.
+Release audit FAIL: CSS118694/72000 и JS959952/905600. Первый workflow завершён:
+E2E1 FAIL (743 PASS/5 FAIL), E2E2 cancelled по timeout25min, stage-deploy skipped.
+Не считать push/build/publication успешной доставкой.
 
 Read-only статическая сборка исходной базы d4a30ae в изолированном temp checkout
 с тем же package-lock показала уже CSS98169/72000 и JS925249/905600. Компилятор
@@ -16,7 +17,14 @@ Read-only статическая сборка исходной базы d4a30ae 
 не найдено. Точечное исправление только интеграций не устранит прежнее превышение.
 Пороги/CI/assertions/baselines не менять. Владельцу задан async вопрос о расширении
 scope на оптимизацию общего frontend при сохранённых лимитах; ответа пока нет.
-Зависимые широкие правки не начинать, текущий workflow дождаться до terminal result.
+Зависимые широкие правки не начинать до ответа владельца. В пределах интеграций
+исправлены CI helper: точный CSS16px вместо bbox вращения, полный Top coverage
+по фактическим oversized шагам, а также проверка compact notification region и
+unlinked state вместо удалённого heading. Assertions не ослаблены; manual E2E и
+browser не запускались, scoped lint/format/typecheck exit0. Исправления сохранены
+отдельным commit0b0acc5; следующий push повторит штатный CI. Native pinch privacy
+failure не затронут интеграциями, причина по статике не установлена; scale>1.5
+assertion сохранён. Повтор CI не снимает блокировку прежних CSS/JS budgets.
 
 Stage read-only SSH доступен штатным existing key, StrictHostKeyChecking/BatchMode.
 До выпуска stage web healthy с revisione7940037e6a15ff6a4e7e2e07b99b981a234e442,

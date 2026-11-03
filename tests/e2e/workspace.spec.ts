@@ -1426,8 +1426,17 @@ test.describe('владелец организации', () => {
     await unlink.getByRole('button', { name: 'Отключить', exact: true }).click()
     await expect(telegram).toContainText('Не подключён')
     await page.goto('/integrations')
+    const personalNotifications = page.getByRole('region', {
+      name: 'Личные уведомления в Telegram',
+      exact: true,
+    })
+    await expect(personalNotifications).toBeVisible()
+    await expect(personalNotifications).toContainText('Не подключены')
     await expect(
-      page.getByRole('heading', { name: 'Ваши уведомления в Telegram', exact: true }),
+      personalNotifications.getByRole('button', {
+        name: 'Подключить уведомления в Telegram',
+        exact: true,
+      }),
     ).toBeVisible()
   })
 

@@ -614,6 +614,36 @@ async function captureGuideSteps(page: Page, guide: Locator, device: string, wid
         .boundingBox())!.width,
     ).toBeGreaterThan(520)
   }
+  // Measure every step independently before scrolling/capturing. CI font/scrollbar geometry
+  // can make additional steps oversized, and each of them needs a real top proof.
+  const mobileStepMeasurements =
+    width < 768
+      ? await guide.locator('ol > li').evaluateAll((steps) =>
+          steps.map((step) => {
+            const body = step.closest('.sheet-body')
+            if (!(body instanceof HTMLElement)) throw new Error('Guide step scroller missing')
+            return {
+              stepNo: Number(step.id.replace('guide-step-', '')),
+              height: step.getBoundingClientRect().height,
+              bodyHeight: body.clientHeight,
+            }
+          }),
+        )
+      : []
+  const oversizedMobileSteps = mobileStepMeasurements
+    .filter((step) => step.height > step.bodyHeight)
+    .map((step) => step.stepNo)
+  if (width < 768) {
+    expect(mobileStepMeasurements.map((step) => step.stepNo)).toEqual(
+      Array.from({ length: 16 }, (_, index) => index + 1),
+    )
+    for (const step of mobileStepMeasurements) {
+      expect(step.height).toBeGreaterThan(0)
+      expect(step.bodyHeight).toBeGreaterThan(0)
+    }
+    for (const mandatoryStep of [2, 5, 6, 14, 15, 16])
+      expect(oversizedMobileSteps).toContain(mandatoryStep)
+  }
   const mobileTopSteps: number[] = []
   for (let stepNo = 1; stepNo <= 16; stepNo++) {
     const step = guide.locator(`#guide-step-${stepNo}`)
@@ -644,7 +674,7 @@ async function captureGuideSteps(page: Page, guide: Locator, device: string, wid
       mobileTopSteps.push(stepNo)
     }
   }
-  if (width < 768) expect(mobileTopSteps).toEqual([2, 5, 6, 14, 15, 16])
+  if (width < 768) expect(mobileTopSteps).toEqual(oversizedMobileSteps)
 }
 async function confirm(page: Page): Promise<Locator> {
   await card(page).getByRole('button', { name: 'Отключить', exact: true }).click()
@@ -845,8 +875,8 @@ for (const [device, width, height] of viewports) {
     await expect(refreshingCaption).toHaveCSS('line-height', '18px')
     const refreshingSpinner = page.locator('.integration-refreshing svg')
     await expect(refreshingSpinner).toHaveCount(1)
-    expect((await refreshingSpinner.boundingBox())!.width).toBe(16)
-    expect((await refreshingSpinner.boundingBox())!.height).toBe(16)
+    await expect(refreshingSpinner).toHaveCSS('width', '16px')
+    await expect(refreshingSpinner).toHaveCSS('height', '16px')
     await expect(refreshingSpinner).toHaveCSS('color', 'rgb(0, 113, 227)')
     await capture(page, 'Refreshing', device)
     state.listGate.release()

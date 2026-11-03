@@ -1,5 +1,33 @@
 # Статус frontend v2
 
+## Codex · Интеграции · stage CI блокирует доставку · 03.11.2026
+
+Commit `79565053765c3d583d1d55cf7d7a2f3f6a11c657` (69 файлов) отправлен
+fast-forward в origin/stage. Env/secrets/ignored artifacts не включены,
+на момент push дерево было чистым. Снимок исходников integrations-r6/734inputs.
+Run41662627084: https://github.com/AleksandrKisler/Lidradar-front/actions/runs/41662627084.
+Quality/container/dev/pre-prod PASS; production build завершён, но обязательный
+Release audit FAIL: CSS118694/72000 и JS959952/905600. E2E shards ещё выполняются;
+stage-deploy не выполнен. Не считать push/build/publication успешной доставкой.
+
+Read-only статическая сборка исходной базы d4a30ae в изолированном temp checkout
+с тем же package-lock показала уже CSS98169/72000 и JS925249/905600. Компилятор
+уже использует Lightning CSS; дублирования глобальных CSS/@property в chunks
+не найдено. Точечное исправление только интеграций не устранит прежнее превышение.
+Пороги/CI/assertions/baselines не менять. Владельцу задан async вопрос о расширении
+scope на оптимизацию общего frontend при сохранённых лимитах; ответа пока нет.
+Зависимые широкие правки не начинать, текущий workflow дождаться до terminal result.
+
+Stage read-only SSH доступен штатным existing key, StrictHostKeyChecking/BatchMode.
+До выпуска stage web healthy с revisione7940037e6a15ff6a4e7e2e07b99b981a234e442,
+image lidradar-web:ed577f84e992-we7940037, digest
+sha256:a90fee9153fcab221b2e3e9c393e0ff80980e3db2576541286ba1ee8299bc86e.
+Backend unchanged sourceed577f84e992afb5b0564c685736976c0c3255d9.
+Production не трогать, env не читать/не печатать, Actionsforcedkey shell не использовать.
+Все delivery evidence:artifacts/frontend-v2/integrations-stage-delivery-2026-11-03/.
+Локальные/manual E2E/smoke/regression/functional/visual не запускались после нового
+поручения; обязательные automaticCI выполняются штатно. Локальный Vite остановлен.
+
 ## Codex · Интеграции · подготовка поставки на stage · 03.11.2026
 
 US-M04-01–06: реализованы оболочка C, карточки/состояния источников, команды

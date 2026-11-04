@@ -65,11 +65,14 @@ const confirmationBlocked = computed(
 const title = computed(() =>
   granting.value ? 'Дать согласие на использование данных?' : 'Отозвать согласие?',
 )
-const busyStyle = computed(() =>
-  pending.value
+const buttonStyle = computed(() => ({
+  // При снятии busy включённая кнопка сразу получает контрастные цвета,
+  // без промежуточного перехода от серой палитры заблокированного состояния.
+  transitionProperty: 'none',
+  ...(pending.value
     ? { backgroundColor: 'var(--color-line)', color: 'var(--color-muted)', opacity: 0.6 }
-    : undefined,
-)
+    : {}),
+}))
 const command = computed(() => (granting.value ? 'Дать согласие' : 'Отозвать'))
 const returnFocus = () => {
   const root = controls.value
@@ -212,14 +215,18 @@ async function confirm() {
         </UiAlert>
       </div>
       <template #footer>
-        <UiButton variant="secondary" :disabled="pending" :style="busyStyle" @click="dialog = null"
+        <UiButton
+          variant="secondary"
+          :disabled="pending"
+          :style="buttonStyle"
+          @click="dialog = null"
           >Отмена</UiButton
         >
         <UiButton
           :variant="granting ? 'primary' : 'danger'"
           :disabled="confirmationBlocked"
           :loading="pending"
-          :style="busyStyle"
+          :style="buttonStyle"
           :aria-label="failure ? 'Повторить' : command"
           @click="confirm"
           >{{

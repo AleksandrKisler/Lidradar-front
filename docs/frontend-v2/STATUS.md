@@ -1,5 +1,23 @@
 # Статус frontend v2
 
+## Codex · R7 consent contrast · 04.11.2026 · в работе
+
+После разрешённого workflow scope R6 `9307996` успешно отправлен в stage.
+CI `41849540316`: все1495cases завершены,1454PASS/40skip/1FLAKY;
+три шарда уложились в лимит. Stage-deploy skipped из-за сохранённого
+flaky gate: mobile privacy-tablet517, axe533, retrybutton contrast1.6:1.
+Локальные check1377/builds×3/audit PASS,905inputs без drift.
+
+Диагноз PR-QA-07: pending снимает disabled и серый inline-style, но общий
+transition-colors интерполирует цвета уже включённой кнопки. В trace
+primary/style-empty при axe дал fg#959599/bg#a2c1e3; retry позже PASS.
+R7 убирает только цветовой переход двух footer-кнопок ConsentControls;
+busy/disabled/aria-busy, тексты, контракты и все axe assertions сохранены.
+Shared UiButton/Access/Figma не меняются. Новый snapshot требует адресного
+повтора, обязательных gates/CI, затем FUNCTIONAL и UI трёх адаптивов.
+Видео пользователя разбирается для проверки фактической Telegram ссылки.
+R03 BOOK/FOLLOW/REFUSAL findings остаются; main/production не затрагивать.
+
 ## Codex · R6 CI balance · 04.11.2026 · в работе
 
 R5 `e7f8bfd` отправлен в stage, но фактический frontend ещё `c20f083`:

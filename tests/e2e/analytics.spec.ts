@@ -15,7 +15,9 @@ type RiskPrecisionReport = components['schemas']['RiskPrecisionReport']
 test.use({ locale: 'ru-RU' })
 
 const path = '/analytics?from=2026-10-19&to=2026-10-25'
-const artifact = 'artifacts/frontend-v2/analytics-implementation-2026-11-03/browser-r7'
+const artifact =
+  process.env.ANALYTICS_ARTIFACT_DIR ??
+  `artifacts/frontend-v2/analytics-implementation-2026-11-03/browser-run-${new Date().toISOString().replace(/[:.]/g, '-')}-${process.pid}`
 const kinds = [
   'NO_RESPONSE',
   'CUSTOMER_SILENT_AFTER_PRICE',

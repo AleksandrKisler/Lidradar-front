@@ -1,5 +1,46 @@
 # Статус frontend v2
 
+## Codex · R9 визуальная регрессия · 04.11.2026 · в работе
+
+R8 `1ff8b1e` независимо прошёл TEST и FUNCTIONAL frontend/mock:
+check1378, builds×3, audit и полная CI-матрица1455PASS/40SKIP,
+1495unique/attempts, без retry/flaky. REST metadata отставали; доказательства —
+завершённые actual job logs. После UI handoff905inputs/drift0.
+
+Независимый UI R8: Analytics FAIL на всех адаптивах. PR-UI-01:
+period должен быть640px/black28%, mobile padding24/header44/круглый close;
+runtime использовал общий672px/nav60% и другие mobile отступы.
+PR-UI-02: initial-loading и quality/payments E03 сохраняли generic subtitle.
+Дополнительно нужны refresh-busy и Integrations NoPermission/zoom/nested captures.
+Просмотрено130browser/96reference PNG; Privacy traceID разрешён error contract,
+Company background-refresh defect больше не виден. Отсутствующие кадры не PASS.
+
+R9 добавляет только opt-in analyticsPeriod в UiDialog и включает его в PeriodPicker;
+default и analyticsDaily ветви сохраняются. Заголовок Analytics получает copy
+подтверждённых loading/error/refresh состояний, без смены API/денег/бизнес-правил.
+Shared primitive требует smoke ключевых потребителей и полной матрицы;
+Доступ визуально не перерабатывается. Figma не меняется.
+
+Локальная итерация R9: typecheck/ESLint0,46unit/6Chromium casesPASS без retries,
+pre-prod bundle CSS119368/125000, JS962383/1010000, largest108722/110100.
+Исходный sandbox listenEPERM остановил server до тестов; разрешённый повтор PASS,
+оба лога сохранены. Это preflight, не независимые финальные gates R9.
+QA подготовил только artifact harness для21missing states/51PNG и151refs;
+запуск после нового immutable snapshot и TEST/FUNCTIONAL PASS.
+
+Stage-deploy R8 job126698530600 отказал16:25UTC с exit2 до сборки:
+свободно4ГБ при минимуме5ГБ. Только stage composeproject подтверждён.
+Очистка unused build cache older24h освободила1.18ГБ: теперь5703884800байт,
+images158/containers8/volumes4 сохранены. Новый deploy должен подтвердить R9;
+R8 не rerun, пока UI FAIL. Actual frontend покаC20, backend/worker/schedulered577.
+
+Root владеет inputs; QA готовит только artifact capture-gaps без запуска до snapshot.
+Требуются новый commit/manifest, адресные проверки, все gates/CI, независимые
+FUNCTIONAL и полный UI с недостающими состояниями. R03 BOOK/FOLLOW/REFUSAL
+и Telegram business gaps держат mainNO_GO. Telegram video+callback exactrisk PASS.
+Mac снова locked/browser hidden; async unlock/show-chat request pending только
+для будущего видимого Radar freshness. Независимые проверки продолжаются.
+
 ## Codex · R8 company background refresh · 04.11.2026 · в работе
 
 R7 `5af2591` прошёл local check1377/builds×3/audit и privacy15/no-retry.

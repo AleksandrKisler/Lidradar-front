@@ -95,6 +95,7 @@ function openPicker(event: MouseEvent): void {
     v-model:open="open"
     title="Период аналитики"
     :size="mobile ? 'full' : 'lg'"
+    analytics-period
     initial-focus="input[name=from]"
     :description="`Сейчас применено: ${caption}. Изменения вступят в силу после «Применить».`"
   >
@@ -140,7 +141,7 @@ function openPicker(event: MouseEvent): void {
           />
         </label>
       </div>
-      <p :id="`${id}-hint`" class="text-sm text-secondary">
+      <p :id="`${id}-hint`" class="min-h-10 text-sm text-secondary">
         Даты включительно · {{ timeZone }}. До 366 дней.
       </p>
       <p

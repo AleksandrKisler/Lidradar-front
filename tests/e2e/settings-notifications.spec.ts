@@ -443,6 +443,16 @@ test('R47 Telegram issuing/pending/manual check/expiry/reissue and disconnect ar
     expect(initialProbe.lastPollTimer).not.toBeNull()
     expect(initialProbe.activePollTimers).toBe(0)
     await expect.poll(async () => (await telegramCleanupProbe(page)).inFlight).toBe(0)
+    // Disconnect invalidates the link query independently of preferences. Let
+    // the first tenant-wide safety refresh finish before comparing paired reads;
+    // otherwise a coalesced status read can straddle the counter baseline.
+    await page.clock.runFor(15_000)
+    await expect.poll(async () => (await telegramCleanupProbe(page)).inFlight).toBe(0)
+    const settledProbe = await telegramCleanupProbe(page)
+    expect(settledProbe.safetyTicksAfterClose).toBe(1)
+    expect(settledProbe.activePollTimers).toBe(0)
+    expect(settledProbe.firedAfterClose).toBe(0)
+    expect(settledProbe.timeoutsAfterClose).toBe(0)
     const readCount = fixture.calls.filter((call) => call.endpoint === 'status').length
     const preferenceReads = fixture.calls.filter((call) => call.endpoint === 'preferences').length
     // Complete real HTTP before advancing fake time again. Natural safety/SSE
@@ -464,7 +474,7 @@ test('R47 Telegram issuing/pending/manual check/expiry/reissue and disconnect ar
         )
         .toBe(0)
     }
-    expect((await telegramCleanupProbe(page)).safetyTicksAfterClose).toBe(2)
+    expect((await telegramCleanupProbe(page)).safetyTicksAfterClose).toBe(3)
   } finally {
     fixture.dispose()
   }

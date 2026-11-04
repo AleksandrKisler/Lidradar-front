@@ -22,6 +22,12 @@ shared primitives/Access не менялись. R3 закрыл все 14 слу
 pauseAt(NOW) мог уйти назад до проверки поведения. Готовится R4: три setup
 устанавливают часы на минуту раньше и останавливают строго на прежнем NOW;
 assertions, таймауты, coverage, budgets и browser projects сохранены.
+R4 адресно 8/9 PASS, WebKit cleanup equality FAIL (повтор PASS): поздний
+preferences refresh пересёк baseline после disconnect, status delta−prefs delta
+стал −1. Исходный FAIL сохранён. R5 даёт первому полному safety refresh
+завершиться до baseline, затем сохраняет прежние 30с и точное равенство reads;
+нулевые poll timers/callbacks/timeouts проверяются и в settling интервале.
+Новый независимый TEST готовится; inputs замораживаются новым manifest.
 R3 unit timeouts при 7 workers сохранены как исходный FAIL; адресные 263
 и полные 1377 тестов прошли при поддержанном VITEST_MAX_WORKERS=2. Builds и
 release audit PASS, CSS118694/125000, JS960391/1010000.

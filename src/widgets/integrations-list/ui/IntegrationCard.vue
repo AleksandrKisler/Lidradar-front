@@ -48,6 +48,15 @@ const disconnect = useDisconnectChannel(
 const instructionOpen = ref(false)
 const confirmOpen = ref(false)
 const cardElement = ref<HTMLLIElement | null>(null)
+const returnFromInstruction = () =>
+  permitted.value
+    ? (cardElement.value?.querySelector<HTMLElement>('.source-instruction:not(:disabled)') ?? null)
+    : null
+function openInstruction(event: MouseEvent): void {
+  // WebKit pointer activation must retain the same opener as keyboard activation.
+  if (event.currentTarget instanceof HTMLElement) event.currentTarget.focus({ preventScroll: true })
+  instructionOpen.value = true
+}
 const returnFromConfirmation = () =>
   permitted.value
     ? (cardElement.value?.querySelector<HTMLElement>(
@@ -300,7 +309,7 @@ watch(
         v-if="telegramSource"
         variant="ghost"
         class="source-instruction"
-        @click="instructionOpen = true"
+        @click="openInstruction"
         >Инструкция</UiButton
       >
       <UiButton
@@ -327,6 +336,7 @@ watch(
       v-model:open="instructionOpen"
       adaptive
       overlay
+      :return-focus="returnFromInstruction"
     />
     <UiSheetDialog
       v-model:open="confirmOpen"

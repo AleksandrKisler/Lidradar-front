@@ -22,6 +22,11 @@ const selectedId = useId()
 const daysOpen = ref(false)
 const daysTrigger = ref<HTMLButtonElement | null>(null)
 const rows = ref<HTMLElement | null>(null)
+function openDays(event: MouseEvent): void {
+  // Retain the invoking button even when WebKit leaves focus on the chart.
+  if (event.currentTarget instanceof HTMLElement) event.currentTarget.focus({ preventScroll: true })
+  daysOpen.value = true
+}
 let observer: ResizeObserver | null = null
 onMounted(() => {
   if (!plot.value) return
@@ -200,7 +205,7 @@ function lastDay() {
         {{ formatMoney(selected.confirmedRecovered, currency) ?? '—' }}
       </p>
       <p v-else>{{ chartRange }} · по дням</p>
-      <button ref="daysTrigger" type="button" class="days-button" @click="daysOpen = true">
+      <button ref="daysTrigger" type="button" class="days-button" @click="openDays">
         Данные по дням
       </button>
     </div>

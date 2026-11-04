@@ -45,6 +45,11 @@ function apply(): void {
   emit('update:range', { ...draft.value })
   open.value = false
 }
+function openPicker(event: MouseEvent): void {
+  // WebKit pointer activation does not focus buttons; retain the actual opener.
+  if (event.currentTarget instanceof HTMLElement) event.currentTarget.focus({ preventScroll: true })
+  open.value = true
+}
 </script>
 
 <template>
@@ -55,7 +60,7 @@ function apply(): void {
         class="h-auto! min-h-input w-full px-3! py-3 whitespace-normal! sm:w-[280px]"
         aria-haspopup="dialog"
         :aria-expanded="open"
-        @click="open = true"
+        @click="openPicker"
       >
         {{ caption }}
       </UiButton>

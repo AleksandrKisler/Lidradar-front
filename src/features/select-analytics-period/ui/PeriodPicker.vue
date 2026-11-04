@@ -117,7 +117,7 @@ function openPicker(event: MouseEvent): void {
           {{ days }} дней
         </button>
       </div>
-      <div class="grid min-w-0 grid-cols-1 gap-3 min-[375px]:grid-cols-2">
+      <div class="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
         <label class="flex min-w-0 flex-col gap-2 text-base"
           >С
           <UiInput

@@ -1,5 +1,32 @@
 # Статус frontend v2
 
+## Codex · R10 узкая сетка периода и Analytics PNG · 04.11.2026 · в работе
+
+R9 `176597c` TEST FAIL: CI41876368773 дал1142PASS/2FAIL/1FLAKY/5SKIP,
+345cases не завершены после долгой установки apt dependencies. Полный gate
+не пройден, stage-deploy skipped. QA afterhash905inputs/drift0/untracked0
+вернул владение root17:51:46UTC; FUNCTIONAL BLOCKED/UI UNVERIFIED.
+
+PR-QA-09: на375px Chromium/WebKit поля дат156.5px вместо минимум160px,
+три попытки одинаковы, локальный red воспроизведён. R9 padding24 выявил
+старый breakpoint375. R10 использует auto-fit/minmax160: поля переносятся
+при нехватке места по принятому R2-02; font17/height46/padding24 сохранены.
+
+PR-QA-10: mobile project/desktop viewport завершил12 screenshot calls за20.413s
+перед global30s timeout. R10 оставляет diagnostic PNG этого visual-state helper
+в Chromium для UI трёх адаптивов; fonts-ready и все state/API/focus assertions
+выполняются во всех проектах. Failure PNG/trace,30s,retries и1495cases сохранены.
+Системные зависимости shard3 скачивались21min50s; лимиты/матрица CI не меняются.
+
+Root preflight R10:36/36 E2E без retries/flaky (27 N-ML-02 на320–1440px,
+9 Analytics state cases, все3projects), exit0/50.7s; buildpreprod/typecheck,
+Prettier и ESLint0. Первоначальные R9 failures сохранены отдельно.
+
+Нужны адресный all-project narrow+Analytics, новый immutable snapshot, полные
+gates/CI, независимые FUNCTIONAL и UI с недостающими состояниями. Actual stage
+покаC20; R03 BOOK/FOLLOW/REFUSAL и внешние пробелы по-прежнему mainNO_GO.
+Root владеет inputs, QA завершает только immutable R9 report/artifacts.
+
 ## Codex · R9 визуальная регрессия · 04.11.2026 · в работе
 
 R8 `1ff8b1e` независимо прошёл TEST и FUNCTIONAL frontend/mock:

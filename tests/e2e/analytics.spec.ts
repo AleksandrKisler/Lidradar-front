@@ -669,7 +669,7 @@ for (const [device, width, height] of [
   ['Tablet', 834, 1194],
   ['Mobile', 390, 844],
 ] as const) {
-  test(`аналитика: визуальные loading/error/busy/focus ${device}`, async ({ page }) => {
+  test(`аналитика: визуальные loading/error/busy/focus ${device}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height })
     let mode: 'loading' | 'success' | 'busy' | 'error' = 'loading'
     let releaseInitial!: () => void, releaseBusy!: () => void
@@ -695,6 +695,9 @@ for (const [device, width, height] of [
     }
     const capture = async (name: string) => {
       await page.evaluate(() => document.fonts.ready)
+      // The three viewport artifacts are reviewed in Chromium. Keep state and
+      // keyboard checks in every project without duplicating large PNG writes.
+      if (testInfo.project.name !== 'chromium') return
       await page.screenshot({ path: `${artifact}/${name}-${device}.png`, fullPage: true })
       await page.screenshot({ path: `${artifact}/${name}-${device}-viewport.png`, fullPage: false })
     }

@@ -50,14 +50,16 @@ const instants = computed(() =>
   activeRange.value ? rangeToInstants(activeRange.value, timeZone.value) : null,
 )
 const currency = computed(() => organization.data.value?.defaultCurrency ?? '—')
-const overviewErrorDescription = computed(() => {
+const periodDescription = computed(() => {
   const { from, to } = range.value
-  const period =
-    from.slice(0, 7) === to.slice(0, 7)
-      ? `${Number(from.slice(8))}–${formatCalendarDate(to, { year: false })}`
-      : `${formatCalendarDate(from, { year: false })} – ${formatCalendarDate(to, { year: false })}`
-  return `Данные за ${period} сейчас недоступны. Проверьте соединение и повторите запрос.`
+  return from.slice(0, 7) === to.slice(0, 7)
+    ? `${Number(from.slice(8))}–${formatCalendarDate(to, { year: false })}`
+    : `${formatCalendarDate(from, { year: false })} – ${formatCalendarDate(to, { year: false })}`
 })
+const overviewErrorDescription = computed(
+  () =>
+    `Данные за ${periodDescription.value} сейчас недоступны. Проверьте соединение и повторите запрос.`,
+)
 const summary = useAnalyticsSummaryQuery(tenantId, activeRange)
 const precision = usePrecisionQuery(tenantId, instants)
 const payments = usePaymentsQuery(tenantId, activeRange)
@@ -91,6 +93,40 @@ const activeTab = computed(() =>
 const refreshing = computed(
   () => summary.isFetching.value || precision.isFetching.value || payments.isFetching.value,
 )
+const pageDescription = computed(() => {
+  const ready = 'Результаты работы с рисками и подтверждённые оплаты'
+  if (!tenantId.value || rangeError.value || organization.isError.value) return ready
+  if (activeTab.value === 'overview') {
+    if (summary.isPending.value) return 'Загружаем сводку за выбранный период…'
+    if (summary.data.value && summary.isFetching.value)
+      return `Обновляем сводку за ${periodDescription.value}…`
+  } else if (activeTab.value === 'quality') {
+    if (summary.isPending.value && precision.isPending.value)
+      return 'Загружаем риски и оценки за выбранный период…'
+    if (summary.isError.value && precision.isError.value) return 'Данные блоков пока недоступны.'
+    if (
+      !summary.isPending.value &&
+      !precision.isPending.value &&
+      (summary.data.value || precision.data.value) &&
+      (summary.isFetching.value || precision.isFetching.value)
+    )
+      return 'Обновляем риски и оценки текущего периода…'
+  } else {
+    if (summary.isPending.value && payments.isPending.value)
+      return 'Загружаем итоги и журнал за выбранный период…'
+    if (summary.isError.value && initialPaymentsError.value)
+      return 'Итоги и журнал пока недоступны.'
+    if (
+      !summary.isPending.value &&
+      !payments.isPending.value &&
+      (summary.data.value || payments.data.value) &&
+      (summary.isFetching.value ||
+        (payments.isFetching.value && !payments.isFetchingNextPage.value))
+    )
+      return 'Обновляем итоги и журнал текущего периода…'
+  }
+  return ready
+})
 const identity = computed(
   () => `${session.user?.id ?? ''}:${tenantId.value ?? ''}:${session.role ?? ''}`,
 )
@@ -187,7 +223,7 @@ onMounted(() => {
           Аналитика
         </h1>
         <p class="mt-1 text-sm leading-[22px] text-secondary md:text-note">
-          Результаты работы с рисками и подтверждённые оплаты
+          {{ pageDescription }}
         </p>
       </div>
       <button

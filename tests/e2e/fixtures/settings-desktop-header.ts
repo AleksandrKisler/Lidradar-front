@@ -141,14 +141,23 @@ export async function readySettingsHeader(page: Page) {
       }),
     )
     if (!document.fonts.check('16px Inter')) throw new Error('Inter not ready')
+    // CSS asset decoding yields to Vue/API rendering. Decode the final DOM image
+    // snapshot too, and report those same elements instead of a fresh, unready list.
+    const imageElements = [...document.images]
+    await Promise.all(imageElements.map((image) => image.decode()))
+    const images = imageElements.map((image) => {
+      const source = image.currentSrc || image.src
+      if (!source) throw new Error('Header evidence image has no source after decoding')
+      return {
+        path: new URL(source, document.baseURI).pathname,
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+      }
+    })
     return {
       assets,
       fonts: [...document.fonts].map((font) => ({ family: font.family, status: font.status })),
-      images: [...document.images].map((image) => ({
-        path: new URL(image.currentSrc).pathname,
-        width: image.naturalWidth,
-        height: image.naturalHeight,
-      })),
+      images,
     }
   })
 }

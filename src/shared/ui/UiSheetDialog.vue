@@ -260,6 +260,7 @@ function guard(event: Event): void {
         </div>
         <div
           class="sheet-body"
+          :style="privacyDesktop ? { scrollPaddingBlock: '4px' } : undefined"
           :class="[
             'min-h-0 flex-1 overflow-y-auto',
             settingsRedesign

@@ -1,5 +1,60 @@
 # Статус frontend v2
 
+## Codex · stage · native pinch PASS, новые CI findings · 04.11.2026
+
+Commit `aa84d5c34cdad4b63d8178cc659458652bed5adb` отправлен в stage обычным
+fast-forward push. Run `41739069467` завершён с failure; `stage-deploy`
+`126288779549` — skipped. Quality, container и все три builds успешны,
+бюджеты CSS 125000 / JavaScript 1010000 соблюдены.
+
+Native pinch прошёл с первой попытки за 1.7 s: настоящий масштаб вырос с 1 до
+1.790209412574768, доставлены доверенные события с двумя контактами. Исходные
+проверки фокуса, отмены и отсутствия записей сохранились и прошли. Diagnostic
+JSON сохранён рядом с manifest-r10.json: 734 inputs, SHA
+`d3518239f267f25ccd2c22560a7af6c7255f11822fa848644dc73c137c0a4d9a`.
+
+Первый shard: 746 passed / 2 flaky в header metadata (`Invalid URL`). Root
+исправил только `tests/e2e/fixtures/settings-desktop-header.ts`: финальный список
+DOM images декодируется и используется в той же metadata map; currentSrc/src
+разрешаются относительно document.baseURI. Пустой источник явно даёт ошибку,
+изображения не фильтруются. Раньше decode и итоговая map читали разные списки
+по обе стороны асинхронного CSS decode. ESLint и typecheck завершились с exit 0.
+
+Второй shard отменён по лимиту job (25m40s, последний ID 667 из 747). В нём
+также были две неуспешные попытки WebKit short390 keyboard-ring; retry 2 прошёл.
+Trace показал реальную обрезку кольца: box ссылки доходил до края 311px,
+outline 2px + offset 2px выступали до 315px. Root добавил scrollPaddingBlock
+4px только при существующем privacyDesktop opt-in в UiSheetDialog. Единственный
+consumer этого opt-in — ConsentControls на SettingsPrivacyPage; остальные окна
+и Доступ сохраняют прежнее поведение. Обычная геометрия не меняется, исходные
+ring assertions сохранены. Для повторного таймаута root настроил
+`PWTEST_SHARD_WEIGHTS=6:4` в существующих двух jobs. Playwright 1.63 выбирает
+непересекающиеся диапазоны групп; каждый test остаётся ровно в одном shard.
+Число jobs, browser projects, workers, retries, assertions, coverage, baselines,
+`--fail-on-flaky-tests` и лимит 25 минут сохраняются. Внутренний параметр runner
+и ограничения оценки времени описаны в docs/staging-autodeploy.md.
+
+Перед следующим commit scoped ESLint/Prettier, typecheck в build:prod и release
+audit завершились с exit 0. CSS 118694 / 125000, JS 960012 / 1010000;
+entry 80369, largest 108693, initialLoad 226442 остаются в прежних лимитах.
+
+CI завершён; следующий candidate включает header metadata readiness, приватный
+запас для кольца фокуса и балансировку прежних двух shard. Он ещё не принят CI. Владение всеми исходниками,
+CI и STATUS у root; агенты пишут только отчёты в ignored artifacts. Дополнительные
+ручные browser/E2E/smoke/regression/functional/visual проверки не запускались.
+
+Для версии aa84d5c сохранён точный dist-prod artifact `13280887621`, digest
+`sha256:641b591ca947d8b6e8bbc53c9f66d3b3b9150f0dde7349092b7e641d3111e31f`.
+Stage собирается в production mode; pre-prod artifact не подходит для сверки.
+Технические proof helpers подготовлены, но ещё не запускались: сначала требуется
+успешный stage-deploy. Публичная сверка ограничена HTTPS stage и статическими
+байтами; существующая Basic Auth используется только в памяти. Cookies, JS,
+API и бизнес-действия не используются. Проверяются 31 статический ресурс.
+Checkpoint: artifacts/frontend-v2/frontend-stage-optimization-2026-11-04/CURRENT.md.
+Production и backend/API не менялись. Единственная runtime-правка текущего
+круга — privacy-only scroll padding для полного кольца фокуса. Новая доставка
+ещё не подтверждена.
+
 ## Codex · Интеграции · пересмотр бюджета владельцем · 04.11.2026
 
 Владелец разрешил общую оптимизацию frontend, затем явно выбрал поднять

@@ -54,6 +54,10 @@ jobs:
     needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      # Playwright 1.63: keep both shards and every case, move some slower WebKit
+      # cases to shard 1. Equal counts left shard 2 at the 25-minute job limit.
+      PWTEST_SHARD_WEIGHTS: '6:4'
     strategy:
       fail-fast: false
       matrix:

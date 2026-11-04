@@ -1,5 +1,100 @@
 # Статус frontend v2
 
+## Codex · Предрелизная приёмка R03/R04 · 04.11.2026 · в работе
+
+Основание — поручение владельца на совместную приёмку Аналитики, Интеграций
+и R03/LIDRADAR-17. Разрешены frontend fixes, commits и push stage; stage→main
+только после обязательных PASS. Production deploy исключён.
+
+На входе HEAD/origin/stage `c20f083`, origin/main `f26c0d9`. Сверка HTTPS/image,
+CI run `41744466010` и stage Docker labels подтвердила фактический frontend;
+API/worker/scheduler `ed577f84e992afb5b0564c685736976c0c3255d9`, readiness ready,
+OpenAPI SHA `9f9766cc4d23e398268aabc68d8adae6db9bf3358bf14953b151f36c617e3027`,
+миграция `000032_registration_invitation_check`. Detached worktree c59bce8
+сохранён отдельно с архивом 46 файлов: 37 уже равны кандидату, остальные
+9 сохранены без переноса старых вариантов поверх новых исправлений.
+
+Независимый R2 TEST: check/build×3/audit PASS; полная матрица 1441 passed,
+14 failed, 40 skipped. Все failures — возврат фокуса в окнах периода, данных
+по дням и инструкции Telegram. Точечно исправлены три consumer компонента;
+shared primitives/Access не менялись. R3 закрыл все 14 случаев, но полная
+матрица дала 1454 passed/1 failed/40 skipped: setup clock.install(NOW) →
+pauseAt(NOW) мог уйти назад до проверки поведения. Готовится R4: три setup
+устанавливают часы на минуту раньше и останавливают строго на прежнем NOW;
+assertions, таймауты, coverage, budgets и browser projects сохранены.
+R3 unit timeouts при 7 workers сохранены как исходный FAIL; адресные 263
+и полные 1377 тестов прошли при поддержанном VITEST_MAX_WORKERS=2. Builds и
+release audit PASS, CSS118694/125000, JS960391/1010000.
+
+Живой QA1: raw→message→AI APPLIED→PROMISE risk→Radar→Telegram SUCCEEDED;
+сообщение 13:47 фактически просмотрено в тестовом Telegram. Проверка кнопки
+на точный risk ID ожидает ручного снятия блокировки Mac. PRICE risk:
+появление в выбранном видимом Radar ≤3.902с; закрытие после ответа клиента
+11.611с. Это два scenario PASS, не весь RG-SSE. Отдельная тестовая оплата
+111RUB дала подтверждено133111/39 и возвращено66611/20; TP изменил38/57 на39/58,
+журнал догружен20→39 уникальных строк. Конфигурация/ID/evidence обезличены.
+
+R03 не принят: BOOK-P2 получил trusted BOOKING_INTENT .99, но AI agreement
+RESOLVED/CUSTOMER без подтверждения бизнеса; BOOKING risk/check отсутствует.
+Finding AI-BOOK-01 передан backend/AI+QA в существующую LIDRADAR-17,
+comment `c3e1d270-d857-4b6d-9847-087cec566266`. FOLLOW и граница графика
+ещё проверяются. У отдельного кабинета «Тмыв» AI не разрешён, его проба
+сохранена BLOCKED и не смешана с QA1. Allowlist не менялся.
+
+После отдельного разрешения владельца прочитаны метаданные общего GPU:
+weights/build/context совпали с v9r5, staging agent source34/34 selection;
+API source33/34, отличается domain/ai.go. Полный технический tuple PASS
+не заявлен. LIDRADAR-9 Confirmed, LIDRADAR-16 Verified с принятыми исключениями,
+LIDRADAR-10 Ready for Retest. Исторические FAIL не заменены успешными повторами.
+
+Evidence: `artifacts/frontend-v2/prerelease-2026-11-04/`, manifests R1/R2/R3,
+qa/report.md, qa-r3/report.md, chain-*.json, radar-measurements.json и CURRENT.md.
+Текущий владелец всех inputs — root; QA пишет только свои artifacts. Следом:
+R4 frozen snapshot → адресные и обязательные gates/CI → FUNCTIONAL → UI
+трёх адаптивов; завершить независимые live сценарии. Пока обязательный R03
+не пройден, main не продвигать. Итоговый release SHA фиксируется после stage CI.
+
+## Codex · Интеграции доставлены на stage · 04.11.2026
+
+Техническая доставка подтверждена: `https://stage.app-lid-radar.ru` обслуживает
+commit `c20f083f5dbd88b5e98e430b72e756d575d6f093`. HEAD и origin/stage совпадают.
+Run `41744466010` завершён с success; обязательная job `stage-deploy`
+`126305646634` — success. GitHub deployment `7534518436` относится к staging,
+ref stage и тому же commit. Все quality/build/container/E2E jobs успешны.
+
+Фактический release `ed577f84e992-wc20f083f`, image digest
+`sha256:59f0f7cdc62ab7377999dee6ea19a160510b43e62ad2753fd7b9f4d584206a7e`.
+Новый web container стартовал внутри delivery job; rollout завершён, web/API
+running и healthy. OCI frontend revision совпадает с целевым SHA. Backend
+source revision остался `ed577f84e992afb5b0564c685736976c0c3255d9`.
+
+Публичный HTTPS stage отдал 33 статических ресурса с точными SHA-256 артефакта
+`dist-prod-c20f083f5dbd88b5e98e430b72e756d575d6f093` (ID `13283410947`).
+SHA-256 index.html:
+`169e1980b79bc22178c5083651e9e7758e18bc545fbf7f1693c3cf91a8c1b859`.
+В контейнере также подтверждены все 42 guide manifest files и соответствие
+HTTP-байтов файлам image. Выполнена только техническая проверка доставки.
+
+По прямому поручению владельца бюджеты повышены: CSS 125000, total JS 1010000.
+Остальные limits и исторический baseline сохранены. Причины прежних CI failures
+исправлены без отключения обязательных gates; подробности в итоговом отчёте.
+Snapshot R11: 737 inputs, SHA-256
+`d3f8d96c5ce6696884777167ef8094cd474a30c8d46426ae77e7f58a677c754e`, drift 0
+до этого итогового документального checkpoint. Runtime/tests/CI доставлены
+в указанном commit; этот checkpoint остаётся локальным, без нового docs-only push.
+
+Регрессионные и smoke-тесты не выполнялись по поручению пользователя.
+Это относится к дополнительным ручным/локальным прогонам; штатные автоматические
+проверки CI/CD выполнялись. Отдельная функциональная и визуальная приёмка
+не проводилась. Функциональная готовность и отсутствие регрессий не утверждаются.
+Production и данные stage не затрагивались. Следующий этап — отдельная приёмка
+frontend по поручению владельца; работа по текущей доставке завершена.
+
+Отчёт и evidence:
+`artifacts/frontend-v2/frontend-stage-optimization-2026-11-04/report.md`.
+Ниже сохранены предыдущие checkpoint как история; их pending/failure состояния
+заменены подтверждённым результатом выше.
+
 ## Codex · stage · native pinch PASS, новые CI findings · 04.11.2026
 
 Commit `aa84d5c34cdad4b63d8178cc659458652bed5adb` отправлен в stage обычным

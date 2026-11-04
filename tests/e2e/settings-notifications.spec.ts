@@ -388,7 +388,8 @@ test('R47 Telegram issuing/pending/manual check/expiry/reissue and disconnect ar
   page,
 }) => {
   const fixture = await settingsNotificationsFixture(page, { linked: false })
-  await page.clock.install({ time: new Date(NOTIFICATIONS_NOW) })
+  // Install before the target so real elapsed time between awaits cannot make pauseAt go backwards.
+  await page.clock.install({ time: new Date(Date.parse(NOTIFICATIONS_NOW) - 60_000) })
   await page.clock.pauseAt(new Date(NOTIFICATIONS_NOW))
   await installTelegramCleanupProbe(page)
   try {
@@ -473,7 +474,7 @@ test('R47 Telegram rejects unsafe URL, preserves error/retry and stops polling a
   page,
 }) => {
   const fixture = await settingsNotificationsFixture(page, { linked: false })
-  await page.clock.install({ time: new Date(NOTIFICATIONS_NOW) })
+  await page.clock.install({ time: new Date(Date.parse(NOTIFICATIONS_NOW) - 60_000) })
   await page.clock.pauseAt(new Date(NOTIFICATIONS_NOW))
   try {
     fixture.failures.set('issue', { status: 500, code: 'INTERNAL_ERROR' })
@@ -669,7 +670,7 @@ test('R47 late Telegram issuance after tenant switch cannot reopen an old token 
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   const fixture = await settingsNotificationsFixture(page, { linked: false, multiTenant: true })
-  await page.clock.install({ time: new Date(NOTIFICATIONS_NOW) })
+  await page.clock.install({ time: new Date(Date.parse(NOTIFICATIONS_NOW) - 60_000) })
   await page.clock.pauseAt(new Date(NOTIFICATIONS_NOW))
   try {
     await page.goto('/settings/notifications')

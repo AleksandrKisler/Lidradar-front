@@ -1,5 +1,30 @@
 # Статус frontend v2
 
+## Codex · R6 CI balance · 04.11.2026 · в работе
+
+R5 `e7f8bfd` отправлен в stage, но фактический frontend ещё `c20f083`:
+CI `41825018402` отменил второй E2E job по лимиту25мин, deploy skipped.
+Первый шард:894PASS/3skip; во втором552PASS/7skip,39не завершены
+(9реальных mobile integration cases и30stand opt-in). Assertions/retry failures
+в завершённых cases не наблюдались; незавершённые не считаются PASS.
+Локальные R5 check1377/3builds/audit и targeted9+repeat15 прошли,
+905inputs без drift. Старые FAIL и отменённый CI сохранены в evidence.
+
+R6 меняет только CI YAML и этот checkpoint: те же1495cases распределены
+на3шарда690/460/345 с weights6:4:3 вместо2шардов897/598. Два workers
+на runner, job25мин, testtimeouts, browser coverage, retries и
+`--fail-on-flaky-tests` сохранены; stage-deploy ждёт весь E2E matrix.
+Независимая collection proof: exact union1495, overlap0, changedsettings0.
+Runtime/tests/package-lock не меняются. Предстоят новый frozen manifest,
+обязательные gates и exact-SHA CI, затем frontend FUNCTIONAL и UI3адаптивов.
+
+R03 остаётся NO_GO: AI-BOOK-01 и AI-FOLLOW-01 (положительные сценарии),
+дополнительно AI-REFUSAL-01 (отказ классифицирован как BOOKING_INTENT).
+Три воспроизведения переданы backend/AI+QA в LIDRADAR-17; точный Telegram
+business/редактирование и risk-link фактического уведомления UNVERIFIED.
+Основной отчёт: `artifacts/frontend-v2/prerelease-2026-11-04/report.md`.
+Main/production не затрагивать. Старые checkpoints ниже сохранены.
+
 ## Codex · Предрелизная приёмка R03/R04 · 04.11.2026 · в работе
 
 Основание — поручение владельца на совместную приёмку Аналитики, Интеграций

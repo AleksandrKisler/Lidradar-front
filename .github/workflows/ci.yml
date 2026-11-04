@@ -55,13 +55,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      # Playwright 1.63: keep both shards and every case, move some slower WebKit
-      # cases to shard 1. Equal counts left shard 2 at the 25-minute job limit.
-      PWTEST_SHARD_WEIGHTS: '6:4'
+      # Keep every case and the existing timeouts. Two shards exceeded the job
+      # limit; balance Chromium, WebKit and mobile across three isolated runners.
+      PWTEST_SHARD_WEIGHTS: '6:4:3'
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -70,7 +70,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps
-      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/2 --fail-on-flaky-tests
+      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/3 --fail-on-flaky-tests
       - uses: actions/upload-artifact@v4
         if: always()
         with:

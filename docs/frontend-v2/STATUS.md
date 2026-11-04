@@ -1,5 +1,29 @@
 # Статус frontend v2
 
+## Codex · R8 company background refresh · 04.11.2026 · в работе
+
+R7 `5af2591` прошёл local check1377/builds×3/audit и privacy15/no-retry.
+CI41856930137:1454PASS/40SKIP/1FLAKY, deploy skipped. PR-QA-08:
+WebKit company201→refresh503→reload(multiple) остался на шаге1; retryPASS.
+QA afterhash905inputs drift0 передал владение15:43:26UTC.
+
+Root уточнил диагноз по trace: PATCH отсутствует; click97488–97547 совпал
+с фоновым GET/auth+organization, snapshot97555 содержит skeleton вместоform.
+Уже загруженная requestedcompany заменялась skeleton на каждый refetch.
+R8 сохраняет форму при backgroundrefetch только если data.id=requested,
+selectedtenant=requested и organization.manage подтверждено. Первичная загрузка,
+проверка членства, ошибки и серверные права остаются. SharedUI/Figma/API не меняются.
+Точечное исправление воспроизводимого дефекта разрешено CODE-FREEZE.
+
+Новый deterministic unit regression: backgroundquery удерживается, проверяются
+те же DOMform/input/button, dirtyvalue, затем ровноPATCH нужногоtenant и шаг2.
+На исходномruntime:1FAIL/18PASS; послеfix19PASS. E2E assertions/timeouts/retries
+не менялись; штатныхcases по-прежнему1495. R8 требует нового immutable snapshot,
+адресных повторов, всех gates/CI, FUNCTIONAL и UI трёх адаптивов с affectedCompany.
+Видео + read-onlycallback подтвердили фактическую Telegramдоставку того жеPROMrisk
+на C20/B; R03 BOOK/FOLLOW/REFUSAL и businesssourcegaps держат mainNO_GO.
+Production/main не затрагивать.
+
 ## Codex · R7 consent contrast · 04.11.2026 · в работе
 
 После разрешённого workflow scope R6 `9307996` успешно отправлен в stage.

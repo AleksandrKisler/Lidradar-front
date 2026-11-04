@@ -6,7 +6,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { routes } from '@/app/router/routes'
 import { ApiError } from '@/shared/api'
 import { fetchMe, useSessionStore } from '@/entities/session'
-import { timeZoneOptions } from '@/entities/organization'
+import { organizationKeys, timeZoneOptions } from '@/entities/organization'
 import { CompanyPage } from '@/pages/onboarding'
 
 vi.mock('@/entities/session/api/auth-api', () => ({
@@ -58,22 +58,17 @@ describe('страница «Компания» (шаг 1)', () => {
 
   async function mountPage(props: { loading?: boolean } = {}, path = '/onboarding/company') {
     const router = createRouter({ history: createMemoryHistory(), routes })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     await router.push(path)
     await router.isReady()
     const wrapper = mount(CompanyPage, {
       props,
       attachTo: document.body,
       global: {
-        plugins: [
-          router,
-          [
-            VueQueryPlugin,
-            { queryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
-          ],
-        ],
+        plugins: [router, [VueQueryPlugin, { queryClient }]],
       },
     })
-    return { wrapper, router }
+    return { wrapper, router, queryClient }
   }
 
   async function existingOwner(canCreateOrganization = false) {
@@ -132,6 +127,66 @@ describe('страница «Компания» (шаг 1)', () => {
     expect(fetchMock.mock.calls.every(([request]) => request.method === 'GET')).toBe(true)
     expect(router.currentRoute.value.name).toBe('onboarding-location')
     wrapper.unmount()
+  })
+
+  it('фоновое обновление восстановленной компании сохраняет форму, черновик и кнопку отправки', async () => {
+    await existingOwner()
+    const identity = {
+      user,
+      memberships: [
+        { tenantId: 'older', organizationName: 'Прежняя компания', role: 'OWNER' as const },
+        { tenantId: company.id, organizationName: company.name, role: 'OWNER' as const },
+      ],
+      canCreateOrganization: true,
+    }
+    vi.mocked(fetchMe).mockResolvedValue(identity)
+    await useSessionStore().refresh()
+    useSessionStore().selectTenant('older')
+    const { wrapper, router, queryClient } = await mountPage(
+      {},
+      `/onboarding/company?company=${company.id}`,
+    )
+    try {
+      await settle()
+      const input = wrapper.get('input[name="organization"]')
+      await input.setValue('Новая вывеска')
+      const form = wrapper.get('form').element
+      const button = wrapper.get('button[type="submit"]').element
+      let releaseRefresh: ((value: typeof identity) => void) | undefined
+      vi.mocked(fetchMe).mockImplementationOnce(
+        () => new Promise((resolve) => (releaseRefresh = resolve)),
+      )
+      const refreshing = queryClient.invalidateQueries({
+        queryKey: organizationKeys.detail(company.id),
+      })
+      try {
+        await vi.waitFor(() => expect(releaseRefresh).toBeTypeOf('function'))
+        await flushPromises()
+        expect(wrapper.find('form').element).toBe(form)
+        expect(wrapper.get('input[name="organization"]').element).toBe(input.element)
+        expect(wrapper.get('button[type="submit"]').element).toBe(button)
+        expect(input.element).toHaveProperty('value', 'Новая вывеска')
+      } finally {
+        releaseRefresh?.(identity)
+        await refreshing
+        await settle()
+      }
+      expect(wrapper.get('input[name="organization"]').element).toHaveProperty(
+        'value',
+        'Новая вывеска',
+      )
+      await wrapper.get('form').trigger('submit')
+      await settle()
+      const writes = fetchMock.mock.calls
+        .map(([request]) => request)
+        .filter((request) => request.method !== 'GET')
+      expect(writes.map((request) => request.method)).toEqual(['PATCH'])
+      expect(writes[0]!.headers.get('X-Tenant-ID')).toBe(company.id)
+      expect(await writes[0]!.json()).toEqual({ name: 'Новая вывеска' })
+      expect(router.currentRoute.value.name).toBe('onboarding-location')
+    } finally {
+      wrapper.unmount()
+    }
   })
 
   it('ошибка PATCH оставляет название в форме и на шаге 1; повтор обновляет ту же компанию', async () => {

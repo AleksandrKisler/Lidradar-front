@@ -60,11 +60,20 @@ const organization = useQuery({
   },
 })
 const editing = computed(() => editingTenant.value !== null)
+// Фоновый refetch уже проверенной компании не должен удалять форму и кнопку
+// между началом и завершением клика. Первичная проверка company query остаётся.
+const requestedCompanyReady = computed(
+  () =>
+    requested !== null &&
+    organization.data.value?.id === requested &&
+    session.tenantId === requested &&
+    session.can('organization.manage'),
+)
 const formLoading = computed(
   () =>
     props.loading ||
     (editing.value && organization.isPending.value) ||
-    (requested !== null && organization.isFetching.value),
+    (requested !== null && organization.isFetching.value && !requestedCompanyReady.value),
 )
 const actionLabel = computed(() =>
   editing.value || confirmed.value ? 'Сохранить и продолжить' : 'Создать компанию',

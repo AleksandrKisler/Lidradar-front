@@ -82,6 +82,16 @@ describe('RecordActionForm', () => {
     wrapper.unmount()
   })
 
+  it('кнопка записи недоступна, пока не выбрано действие, и поясняет условие (Figma 212:2607)', async () => {
+    const wrapper = mountForm()
+    const button = wrapper.get('button[type="submit"]')
+    expect(button.attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('Только после выполненного действия.')
+    await wrapper.get('select[name="actionType"]').setValue('CALL')
+    expect(button.attributes('disabled')).toBeUndefined()
+    wrapper.unmount()
+  })
+
   it('успех: ключ идемпотентности, инвалидация, объявление и сброс формы', async () => {
     vi.mocked(createAction).mockResolvedValue({ action, replayed: false })
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue()

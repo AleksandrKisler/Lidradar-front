@@ -3,6 +3,9 @@ import {
   addDays,
   daysBetween,
   formatCalendarDate,
+  formatDayTime,
+  formatElapsed,
+  formatLongDateTime,
   isCalendarDate,
   zonedDayStart,
 } from '@/shared/lib'
@@ -62,5 +65,25 @@ describe('календарные даты', () => {
   it('подписывает календарную дату без сдвига по поясу', () => {
     expect(formatCalendarDate('2026-08-15')).toBe('15 августа 2026 г.')
     expect(formatCalendarDate('2026-08-15', { month: 'short', year: false })).toBe('15 авг.')
+  })
+})
+
+describe('контекст страницы: полная дата и время', () => {
+  it('показывает дату, время и пояс организации; неизвестный пояс не роняет экран', () => {
+    const moment = new Date('2026-10-23T12:40:00Z')
+    expect(formatLongDateTime(moment, 'Europe/Moscow')).toBe('23 октября 2026 · 15:40 МСК')
+    expect(formatLongDateTime(moment, 'Not/AZone')).toContain('23 октября 2026 · 12:40')
+  })
+})
+
+describe('карточка риска: длительность и дата', () => {
+  it('считает календарное ожидание и форматирует дату без года', () => {
+    const now = new Date('2026-10-23T12:40:00Z')
+    expect(formatElapsed('2026-10-23T10:22:00Z', now)).toBe('2 ч 18 мин')
+    expect(formatElapsed('2026-10-23T12:10:00Z', now)).toBe('30 мин')
+    expect(formatElapsed('2026-10-20T08:40:00Z', now)).toBe('3 дн 4 ч')
+    expect(formatElapsed('2026-10-23T12:40:00Z', now)).toBe('менее минуты')
+    expect(formatElapsed('мусор', now)).toBeNull()
+    expect(formatDayTime('2026-10-23T11:22:00Z', 'Europe/Moscow')).toBe('23 октября, 14:22')
   })
 })

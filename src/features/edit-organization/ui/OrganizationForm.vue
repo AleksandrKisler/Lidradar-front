@@ -8,16 +8,18 @@
  * После сохранения перечитываются организация, аналитика и `/auth/me`
  * (название видно в переключателе пространств).
  */
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { describeError, isApiError, tenantScope } from '@/shared/api'
-import { UiAlert, UiButton, UiDialog, UiField, UiInput, UiSelect } from '@/shared/ui'
+import { UiAlert, UiGlyph, UiButton, UiField, UiInput, UiSelect, UiSheetDialog } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
 import {
-  CURRENCY_OPTIONS,
+  CURRENCY_CODE_OPTIONS,
   organizationKeys,
+  organizationChanges,
+  organizationValues,
   timeZoneOptions,
   updateOrganization,
   type Organization,
@@ -26,195 +28,268 @@ import {
 import { organizationSchema } from '../model/schema'
 
 const props = defineProps<{ tenantId: string; organization: Organization }>()
-const emit = defineEmits<{ saved: [organization: Organization] }>()
+const emit = defineEmits<{
+  saved: [organization: Organization]
+  status: [value: 'saving' | 'saved' | 'error' | 'dirty' | 'idle']
+}>()
 
 const session = useSessionStore()
 const queryClient = useQueryClient()
 const zones = timeZoneOptions()
+/** Валюта в макете подписана кодом и знаком: «RUB · ₽». */
 
-const { defineField, handleSubmit, errors, resetForm, values, meta } = useForm({
+const { defineField, handleSubmit, errors, resetForm, setFieldValue, values, meta } = useForm({
   validationSchema: toTypedSchema(organizationSchema),
-  initialValues: {
-    name: props.organization.name,
-    defaultTimezone: props.organization.defaultTimezone,
-    defaultCurrency: props.organization.defaultCurrency,
-  },
+  initialValues: organizationValues(props.organization),
 })
 const [name] = defineField('name')
 const [defaultTimezone] = defineField('defaultTimezone')
 const [defaultCurrency] = defineField('defaultCurrency')
-
-// Организация обновилась извне (другой владелец): форма следует за сервером,
-// пока пользователь её не трогал, чтобы не перезаписать чужие изменения.
-watch(
-  () => props.organization,
-  (organization) => {
-    if (!meta.value.dirty) {
-      resetForm({
-        values: {
-          name: organization.name,
-          defaultTimezone: organization.defaultTimezone,
-          defaultCurrency: organization.defaultCurrency,
-        },
-      })
-    }
+const fields = reactive([
+  {
+    key: 'name' as const,
+    label: 'Название компании',
+    value: name,
+    attrs: { name: 'organizationName', maxlength: 200 },
   },
-)
+  {
+    key: 'defaultCurrency' as const,
+    label: 'Основная валюта',
+    value: defaultCurrency,
+    attrs: { name: 'organizationCurrency', class: 'min-w-0', options: CURRENCY_CODE_OPTIONS },
+  },
+  {
+    key: 'defaultTimezone' as const,
+    label: 'Часовой пояс',
+    value: defaultTimezone,
+    attrs: { name: 'organizationTimezone', class: 'min-w-0', options: zones },
+  },
+])
+
+type Command = { tenantId: string; generation: number; body: UpdateOrganizationRequest }
+let generation = 0
+onBeforeUnmount(() => {
+  generation += 1
+  clearFeedback()
+})
+const isSubmitting = ref(false)
+const confirmOpen = ref(false)
+const pendingCommand = ref<Command | null>(null)
+const saved = ref(false)
+const feedback = ref<'saved' | 'error' | null>(null)
+let feedbackTimer: ReturnType<typeof setTimeout> | undefined
+function clearFeedback(): void {
+  clearTimeout(feedbackTimer)
+  feedback.value = null
+}
+function showFeedback(value: 'saved' | 'error'): void {
+  clearFeedback()
+  feedback.value = value
+  feedbackTimer = setTimeout(() => {
+    feedback.value = null
+  }, 2000)
+}
+const requestError = ref<unknown>(null)
+const sameContext = (command: Command) =>
+  command.tenantId === props.tenantId && command.generation === generation
+
+function resetOrganization(organization: Organization) {
+  resetForm({
+    values: organizationValues(organization),
+  })
+}
 
 const mutation = useMutation({
-  mutationFn: (body: UpdateOrganizationRequest) => updateOrganization(props.tenantId, body),
-  onSuccess: async (organization, body) => {
-    const scope = tenantScope(props.tenantId)
+  mutationFn: ({ tenantId, body }: Command) => updateOrganization(tenantId, body),
+  onSuccess: async (organization, command) => {
+    const { tenantId, body } = command
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: organizationKeys.detail(props.tenantId) }),
+      queryClient.invalidateQueries({ queryKey: organizationKeys.detail(tenantId) }),
       ...(body.defaultTimezone || body.defaultCurrency
-        ? [queryClient.invalidateQueries({ queryKey: [...scope, 'analytics'] })]
+        ? [queryClient.invalidateQueries({ queryKey: [...tenantScope(tenantId), 'analytics'] })]
         : []),
     ])
+    if (!sameContext(command)) return
     if (body.name) await session.refresh().catch(() => undefined)
-    resetForm({
-      values: {
-        name: organization.name,
-        defaultTimezone: organization.defaultTimezone,
-        defaultCurrency: organization.defaultCurrency,
-      },
-    })
+    if (!sameContext(command)) return
+    resetOrganization(organization)
     emit('saved', organization)
   },
 })
 
-const confirmOpen = ref(false)
-const pendingBody = ref<UpdateOrganizationRequest | null>(null)
-const saved = ref(false)
-
-const errorView = computed(() =>
-  mutation.error.value ? describeError(mutation.error.value) : null,
+// В новом пространстве даже dirty-форма следует новым props. Поколение также
+// защищает от старого ответа после A → B → A.
+watch(
+  () => [props.tenantId, props.organization] as const,
+  ([tenantId, organization], [previousTenant]) => {
+    if (tenantId !== previousTenant) {
+      generation += 1
+      isSubmitting.value = false
+      confirmOpen.value = false
+      pendingCommand.value = null
+      requestError.value = null
+      saved.value = false
+      clearFeedback()
+      mutation.reset()
+      resetOrganization(organization)
+    } else if (!meta.value.dirty) {
+      resetOrganization(organization)
+    }
+  },
 )
-const traceId = computed(() =>
-  isApiError(mutation.error.value) ? mutation.error.value.traceId : '',
-)
-const consequences = computed(() => {
-  const list: string[] = []
-  if (pendingBody.value?.defaultTimezone) {
-    list.push('Календарные окна аналитики и часы уведомлений будут считаться в новом поясе.')
-  }
-  if (pendingBody.value?.defaultCurrency) {
-    list.push('Исторические суммы не конвертируются: они останутся в прежней валюте.')
-  }
-  return list
-})
 
-/** Тело PATCH из изменённых полей; пустое — сохранять нечего. */
-function diff(formValues: { name: string; defaultTimezone: string; defaultCurrency: string }) {
-  const body: UpdateOrganizationRequest = {}
-  if (formValues.name !== props.organization.name) body.name = formValues.name
-  if (formValues.defaultTimezone !== props.organization.defaultTimezone) {
-    body.defaultTimezone = formValues.defaultTimezone
-  }
-  const currency = formValues.defaultCurrency.toUpperCase()
-  if (currency !== props.organization.defaultCurrency) body.defaultCurrency = currency
-  return body
+const errorView = computed(() => (requestError.value ? describeError(requestError.value) : null))
+const traceId = computed(() => (isApiError(requestError.value) ? requestError.value.traceId : ''))
+/** «Оставить прежние»: пояс и валюта возвращаются к сохранённым значениям, название остаётся как набрано. */
+function keepPrevious(): void {
+  setFieldValue('defaultTimezone', props.organization.defaultTimezone)
+  setFieldValue('defaultCurrency', props.organization.defaultCurrency)
+  pendingCommand.value = null
+  requestError.value = null
+  confirmOpen.value = false
 }
 
-const onSubmit = handleSubmit(async (formValues) => {
-  saved.value = false
-  mutation.reset()
-  const body = diff(formValues)
-  if (Object.keys(body).length === 0) return
-  if (body.defaultTimezone || body.defaultCurrency) {
-    pendingBody.value = body
-    confirmOpen.value = true
-    return
+async function onSubmit(event: Event): Promise<void> {
+  if (isSubmitting.value || confirmOpen.value) return
+  isSubmitting.value = true
+  const context = { tenantId: props.tenantId, generation }
+  try {
+    await handleSubmit(async (formValues) => {
+      const command: Command = {
+        ...context,
+        body: organizationChanges(props.organization, formValues),
+      }
+      if (!sameContext(command)) return
+      saved.value = false
+      requestError.value = null
+      if (Object.keys(command.body).length === 0) return
+      if (command.body.defaultTimezone || command.body.defaultCurrency) {
+        pendingCommand.value = command
+        confirmOpen.value = true
+        return
+      }
+      await send(command)
+    })(event)
+  } finally {
+    if (context.generation === generation) isSubmitting.value = false
   }
-  await send(body)
-})
+}
 
-async function send(body: UpdateOrganizationRequest): Promise<void> {
-  const result = await mutation.mutateAsync(body).catch(() => null)
-  if (result) {
+async function confirmChanges(): Promise<void> {
+  const command = pendingCommand.value
+  if (isSubmitting.value || !command || !sameContext(command)) return
+  isSubmitting.value = true
+  try {
+    await send(command)
+  } finally {
+    if (sameContext(command)) isSubmitting.value = false
+  }
+}
+
+async function send(command: Command): Promise<void> {
+  requestError.value = null
+  clearFeedback()
+  try {
+    await mutation.mutateAsync(command)
+    if (!sameContext(command)) return
     saved.value = true
+    showFeedback('saved')
     confirmOpen.value = false
-    pendingBody.value = null
+    pendingCommand.value = null
+  } catch (error) {
+    if (sameContext(command)) {
+      requestError.value = error
+      showFeedback('error')
+    }
   }
 }
 
 const hasChanges = computed(() => {
-  const current = values
-  return (
-    current.name !== props.organization.name ||
-    current.defaultTimezone !== props.organization.defaultTimezone ||
-    (current.defaultCurrency ?? '').toUpperCase() !== props.organization.defaultCurrency
-  )
+  return meta.value.dirty && Object.keys(organizationChanges(props.organization, values)).length > 0
 })
+const status = computed(() =>
+  isSubmitting.value ? 'saving' : (feedback.value ?? (hasChanges.value ? 'dirty' : 'idle')),
+)
+watch(status, (value) => emit('status', value), { immediate: true })
+watch(
+  () => JSON.stringify(values),
+  () => {
+    if (meta.value.dirty && feedback.value === 'saved') clearFeedback()
+  },
+)
 </script>
 
 <template>
-  <form class="flex flex-col gap-5" novalidate @submit.prevent="onSubmit">
-    <UiField v-slot="{ id, describedBy, invalid }" label="Название компании" :error="errors.name">
-      <UiInput
-        :id="id"
-        v-model="name"
-        name="organizationName"
-        :maxlength="200"
-        :described-by="describedBy"
-        :invalid="invalid"
-        :disabled="mutation.isPending.value"
-      />
-    </UiField>
-    <div class="grid gap-5 sm:grid-cols-2">
+  <form class="lr-of flex flex-col gap-4" novalidate @submit.prevent="onSubmit">
+    <div
+      class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-[1.875fr_minmax(0,1fr)_minmax(192px,1fr)] [&>div]:min-w-0"
+    >
       <UiField
+        v-for="field in fields"
+        :key="field.key"
         v-slot="{ id, describedBy, invalid }"
-        label="Основная валюта"
-        :error="errors.defaultCurrency"
+        :class="field.key === 'name' ? 'md:col-span-2 lg:col-span-1' : ''"
+        :label="field.label"
+        label-style="compact"
+        :error="errors[field.key]"
       >
-        <UiSelect
+        <component
+          :is="field.key === 'name' ? UiInput : UiSelect"
           :id="id"
-          v-model="defaultCurrency"
-          name="organizationCurrency"
-          :options="CURRENCY_OPTIONS"
+          v-model="field.value"
+          v-bind="field.attrs"
           :described-by="describedBy"
           :invalid="invalid"
-          :disabled="mutation.isPending.value"
-        />
-      </UiField>
-      <UiField
-        v-slot="{ id, describedBy, invalid }"
-        label="Часовой пояс"
-        :error="errors.defaultTimezone"
-      >
-        <UiSelect
-          :id="id"
-          v-model="defaultTimezone"
-          name="organizationTimezone"
-          :options="zones"
-          :described-by="describedBy"
-          :invalid="invalid"
-          :disabled="mutation.isPending.value"
+          :disabled="isSubmitting"
         />
       </UiField>
     </div>
-
-    <UiAlert v-if="saved" tone="success">Настройки компании сохранены.</UiAlert>
-    <UiAlert v-if="errorView" tone="danger" :title="errorView.title" :trace-id="traceId">
-      {{ errorView.description }}
+    <UiAlert
+      v-if="errorView"
+      tone="danger"
+      title="Не удалось сохранить компанию"
+      :trace-id="traceId"
+    >
+      Введённые данные остались в форме. Повторите сохранение.
+      <template #icon><UiGlyph name="circle-alert" class="size-5" /></template>
     </UiAlert>
-
-    <div class="flex items-center justify-between gap-4">
-      <p class="text-xs text-muted">Изменения применяются к новым проверкам риска.</p>
-      <UiButton type="submit" :disabled="!hasChanges" :loading="mutation.isPending.value">
-        Сохранить
+    <div class="flex flex-col gap-4 md:flex-row md:items-center">
+      <p class="min-w-0 flex-1 text-xs leading-[18px] text-muted max-md:leading-4">
+        Валюта не пересчитывает прежние суммы. Часовой<br class="hidden md:block lg:hidden" />
+        пояс используется в отчётах и уведомлениях.
+      </p>
+      <UiButton
+        type="submit"
+        class="w-full md:w-[220px] md:shrink-0"
+        :class="!isSubmitting ? 'disabled:bg-line disabled:text-muted disabled:opacity-100' : ''"
+        :disabled="!hasChanges || confirmOpen"
+        :loading="isSubmitting"
+      >
+        {{
+          isSubmitting ? 'Сохраняем…' : errorView ? 'Повторить сохранение' : 'Сохранить компанию'
+        }}
       </UiButton>
     </div>
 
-    <UiDialog
+    <p v-if="saved" class="sr-only" role="status">Настройки компании сохранены.</p>
+
+    <UiSheetDialog
       v-model:open="confirmOpen"
-      title="Изменить пояс или валюту?"
-      description="Это влияет на расчёты, а не только на подписи."
-      :dismissible="!mutation.isPending.value"
+      title="Изменить валюту и часовой пояс?"
+      description="Эти параметры общие для всей компании."
+      description-in-body
+      settings-form
+      description-strong
+      size="sm"
+      footer-fill
+      :dismissible="!isSubmitting"
     >
-      <ul class="list-disc space-y-1 pl-5 text-sm text-ink">
-        <li v-for="line in consequences" :key="line">{{ line }}</li>
-      </ul>
+      <p
+        class="text-base leading-6 font-semibold text-ink lg:text-sm lg:leading-5 lg:font-normal lg:text-ink"
+      >
+        Новая валюта не пересчитывает прежние суммы. Часовой пояс компании влияет на отчёты, сводки
+        и тихие часы; часовые пояса точек задаются отдельно.
+      </p>
       <UiAlert
         v-if="errorView"
         tone="danger"
@@ -225,17 +300,17 @@ const hasChanges = computed(() => {
         {{ errorView.description }}
       </UiAlert>
       <template #footer>
-        <UiButton
-          variant="secondary"
-          :disabled="mutation.isPending.value"
-          @click="confirmOpen = false"
-        >
-          Отмена
+        <UiButton variant="secondary" :disabled="isSubmitting" @click="keepPrevious">
+          Оставить прежние
         </UiButton>
-        <UiButton :loading="mutation.isPending.value" @click="pendingBody && send(pendingBody)">
-          Сохранить изменения
-        </UiButton>
+        <UiButton :loading="isSubmitting" @click="confirmChanges"> Сохранить изменения </UiButton>
       </template>
-    </UiDialog>
+    </UiSheetDialog>
   </form>
 </template>
+
+<style>
+.lr-of :is(input, select):disabled {
+  opacity: 0.5;
+}
+</style>

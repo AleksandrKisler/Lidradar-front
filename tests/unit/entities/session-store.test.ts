@@ -166,6 +166,74 @@ describe('загрузка сессии', () => {
 })
 
 describe('выбор организации и выход', () => {
+  it('поздний auth/me после logout не восстанавливает прежнего пользователя', async () => {
+    vi.mocked(fetchMe).mockResolvedValueOnce(one)
+    const session = useSessionStore()
+    await session.bootstrap()
+    let release!: (value: AuthMeResponse) => void
+    vi.mocked(fetchMe).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve
+        }),
+    )
+    const pending = session.refresh()
+    vi.mocked(logout).mockResolvedValue(undefined)
+    await session.logout()
+    release(one)
+    await pending
+    expect(session.status).toBe('guest')
+    expect(session.user).toBeNull()
+    expect(session.memberships).toEqual([])
+  })
+
+  it('более старый auth/me не затирает новую авторизованную identity', async () => {
+    vi.mocked(fetchMe).mockResolvedValueOnce(one)
+    const session = useSessionStore()
+    await session.bootstrap()
+    let release!: (value: AuthMeResponse) => void
+    vi.mocked(fetchMe).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve
+        }),
+    )
+    const pending = session.refresh()
+    session.markSessionsEnded()
+    const next = {
+      ...one,
+      user: { ...user, id: 'user-2' },
+      memberships: [{ tenantId: 'tenant-b', organizationName: 'B', role: 'MANAGER' as const }],
+    }
+    vi.mocked(fetchMe).mockResolvedValueOnce(next)
+    await session.refresh()
+    release(one)
+    await pending
+    expect(session.user?.id).toBe('user-2')
+    expect(session.tenantId).toBe('tenant-b')
+    expect(session.role).toBe('MANAGER')
+  })
+
+  it('смена tenant делает прежний auth/me недействительным до явного нового чтения', async () => {
+    vi.mocked(fetchMe).mockResolvedValueOnce(many)
+    const session = useSessionStore()
+    await session.bootstrap()
+    session.selectTenant('tenant-a')
+    let release!: (value: AuthMeResponse) => void
+    vi.mocked(fetchMe).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve
+        }),
+    )
+    const pending = session.refresh()
+    session.selectTenant('tenant-b')
+    release(one)
+    await pending
+    expect(session.tenantId).toBe('tenant-b')
+    expect(session.role).toBe('MANAGER')
+  })
+
   it('отклоняет идентификатор вне членств', async () => {
     vi.mocked(fetchMe).mockResolvedValue(many)
     const session = useSessionStore()
@@ -279,5 +347,27 @@ describe('назначенное закрытие аккаунта (ADR 0059)', 
     vi.mocked(fetchMe).mockRejectedValue(unauthenticated())
     await session.refresh()
     expect(session.deletionDueAt).toBeNull()
+  })
+})
+
+describe('песочница (ADR 0066)', () => {
+  it('доступна по явному флагу API и сбрасывается при выходе', async () => {
+    vi.mocked(fetchMe).mockResolvedValue({ ...one, sandbox: true })
+    vi.mocked(logout).mockResolvedValue(undefined)
+    const session = useSessionStore()
+    await session.bootstrap()
+    expect(session.sandboxEnabled).toBe(true)
+    await session.logout()
+    expect(session.sandboxEnabled).toBe(false)
+  })
+  it('отсутствие флага после refresh закрывает доступ', async () => {
+    vi.mocked(fetchMe)
+      .mockResolvedValueOnce({ ...one, sandbox: true })
+      .mockResolvedValueOnce(one)
+    const session = useSessionStore()
+    await session.bootstrap()
+    expect(session.sandboxEnabled).toBe(true)
+    await session.refresh()
+    expect(session.sandboxEnabled).toBe(false)
   })
 })

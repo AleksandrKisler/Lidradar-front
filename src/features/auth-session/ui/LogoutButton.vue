@@ -8,11 +8,12 @@ import { ref } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { UiButton } from '@/shared/ui'
 import { useSessionStore } from '@/entities/session'
+import { clearInvitationContext } from '../model/invitation-context'
 
-withDefaults(defineProps<{ variant?: 'secondary' | 'ghost'; block?: boolean }>(), {
-  variant: 'ghost',
-  block: false,
-})
+withDefaults(
+  defineProps<{ variant?: 'secondary' | 'ghost' | 'plain'; block?: boolean; size?: 'sm' | 'md' }>(),
+  { variant: 'ghost', block: false, size: 'sm' },
+)
 
 const emit = defineEmits<{ loggedOut: [result: { confirmed: boolean }] }>()
 
@@ -26,6 +27,8 @@ async function onClick(): Promise<void> {
   try {
     const result = await session.logout()
     queryClient.clear()
+    // Контекст проверенного приглашения вкладки не переживает выход (US-M01-01 AC-B14/B15).
+    clearInvitationContext()
     emit('loggedOut', result)
   } finally {
     pending.value = false
@@ -34,7 +37,7 @@ async function onClick(): Promise<void> {
 </script>
 
 <template>
-  <UiButton :variant="variant" size="sm" :block="block" :loading="pending" @click="onClick"
-    >Выйти</UiButton
+  <UiButton :variant="variant" :size="size" :block="block" :loading="pending" @click="onClick"
+    ><slot>Выйти</slot></UiButton
   >
 </template>

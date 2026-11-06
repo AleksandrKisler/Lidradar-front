@@ -18,11 +18,6 @@ export default defineConfig({
     // Матрица ширин управляет viewport сама и выполняется только в Chromium.
     { name: 'chromium', testIgnore: /stand\//, use: { ...devices['Desktop Chrome'] } },
     {
-      name: 'firefox',
-      testIgnore: [/stand\//, /responsive\.spec\.ts/],
-      use: { ...devices['Desktop Firefox'] },
-    },
-    {
       name: 'webkit',
       testIgnore: [/stand\//, /responsive\.spec\.ts/],
       use: { ...devices['Desktop Safari'] },

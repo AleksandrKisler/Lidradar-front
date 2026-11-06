@@ -2,22 +2,36 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
+import { createStageProxy } from './tooling/vite/stage-proxy.ts'
+import { treeShakingFixes } from './tooling/vite/tree-shaking-fixes.ts'
+import { classStrings } from './tooling/vite/class-strings.ts'
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command, isPreview }) => {
   // Третий аргумент '' даёт доступ ко всем переменным, включая DEV_API_TARGET
   // без префикса VITE_: она нужна только dev-серверу и в бандл не попадает.
   const env = loadEnv(mode, process.cwd(), '')
+  const stage = mode === 'stage'
+  if (stage && (command !== 'serve' || isPreview)) {
+    throw new Error(
+      'Режим stage предназначен только для npm run dev:stage, не для сборки или preview.',
+    )
+  }
   return {
-    plugins: [vue(), tailwindcss()],
+    plugins: [vue(), tailwindcss(), treeShakingFixes(), classStrings()],
+    // Options API в приложении и зависимостях не используется (только Composition API):
+    // флаг Vue убирает его из runtime-core, около 4 KB.
+    define: { __VUE_OPTIONS_API__: 'false' },
     resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
     server: {
       host: '127.0.0.1',
       port: 5173,
       strictPort: true,
-      // Только локальная разработка: /api уходит на учебный стенд бэкенда
-      // (docs/runbooks/frontend-development.md). В production проксирует ingress.
+      // Обычный dev использует локальный backend; dev:stage — отдельный прокси на VPS.
+      // В production проксирует ingress.
       proxy: {
-        '/api': { target: env.DEV_API_TARGET || 'http://127.0.0.1:8081', changeOrigin: true },
+        '/api': stage
+          ? createStageProxy(env)
+          : { target: env.DEV_API_TARGET || 'http://127.0.0.1:8081', changeOrigin: true },
       },
     },
     build: {

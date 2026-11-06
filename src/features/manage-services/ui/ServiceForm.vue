@@ -1,20 +1,25 @@
 <script setup lang="ts">
-/**
- * Форма услуги: название, точка (или вся организация), диапазон цен и
- * валюта. Пустая цена уходит как `null`; при изменении отправляются все
- * редактируемые поля, чтобы PATCH был однозначен.
- */
-import { computed, ref } from 'vue'
+/** One field/validation pipeline for onboarding and the settings dialog. */
+import { computed, nextTick, onBeforeUnmount, reactive, ref, useTemplateRef, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
-import { describeError, isApiError } from '@/shared/api'
-import { parseAmount } from '@/shared/lib'
-import { UiAlert, UiButton, UiField, UiInput, UiSelect, type UiSelectOption } from '@/shared/ui'
-import { CURRENCY_OPTIONS } from '@/entities/organization'
+import { describeError, isApiError, isUnknownResult } from '@/shared/api'
+import { formatAmount, parseAmount } from '@/shared/lib'
+import {
+  UiAlert,
+  UiButton,
+  UiField,
+  UiGlyph,
+  UiInput,
+  UiSelect,
+  type UiSelectOption,
+} from '@/shared/ui'
+import { UNKNOWN_PRICE, SERVICE_NAME_MAX_LENGTH, type ServiceCatalogItem } from '@/entities/service'
+import { CURRENCY_OPTIONS, CURRENCY_CODE_OPTIONS } from '@/entities/organization'
 import type { Location } from '@/entities/location'
-import { SERVICE_NAME_MAX_LENGTH, type ServiceCatalogItem } from '@/entities/service'
-import { serviceSchema } from '../model/schema'
+import { serviceSchema, type ServiceValues } from '../model/schema'
 import { useServiceCommands } from '../model/use-services-commands'
+import serviceChevron from './assets/service-chevron.svg?no-inline'
 
 const props = defineProps<{
   tenantId: string
@@ -22,11 +27,20 @@ const props = defineProps<{
   locations: Location[]
   defaultCurrency: string
   submitLabel?: string | undefined
+  wizard?: boolean | undefined
+  dialog?: boolean | undefined
+  formId?: string | undefined
+  operationKey?: number | undefined
+  draft?: ServiceValues | undefined
 }>()
-const emit = defineEmits<{ saved: [service: ServiceCatalogItem]; cancel: [] }>()
-
+const emit = defineEmits<{
+  saved: [service: ServiceCatalogItem, operationKey?: number]
+  cancel: []
+  draft: [values: ServiceValues]
+  busy: [busy: boolean, operationKey?: number]
+  failed: [error: unknown, operationKey?: number]
+}>()
 const commands = useServiceCommands(() => props.tenantId)
-
 const locationOptions = computed<UiSelectOption[]>(() => [
   { value: '', label: 'Все точки' },
   ...props.locations.map((location) => ({
@@ -34,32 +48,73 @@ const locationOptions = computed<UiSelectOption[]>(() => [
     label: location.active ? location.name : `${location.name} (неактивна)`,
   })),
 ])
-
-const { defineField, handleSubmit, errors, resetForm } = useForm({
+const currencyOptions = computed(() => (props.dialog ? CURRENCY_CODE_OPTIONS : CURRENCY_OPTIONS))
+const { defineField, handleSubmit, errors, resetForm, values } = useForm({
   validationSchema: toTypedSchema(serviceSchema),
-  initialValues: {
+  initialValues: props.draft ?? {
     name: props.service?.name ?? '',
     locationId: props.service?.locationId ?? '',
-    priceFrom: props.service?.priceFrom ?? '',
-    priceTo: props.service?.priceTo ?? '',
+    priceFrom:
+      (props.dialog ? formatAmount(props.service?.priceFrom) : props.service?.priceFrom) ?? '',
+    priceTo: (props.dialog ? formatAmount(props.service?.priceTo) : props.service?.priceTo) ?? '',
     currency: props.service?.currency ?? props.defaultCurrency,
   },
 })
-const [name] = defineField('name')
-const [locationId] = defineField('locationId')
-const [priceFrom] = defineField('priceFrom')
-const [priceTo] = defineField('priceTo')
-const [currency] = defineField('currency')
-
+watch(values, () => emit('draft', { ...values } as ServiceValues), { deep: true, flush: 'sync' })
+const fields = reactive([
+  {
+    key: 'name' as const,
+    label: 'Название услуги',
+    name: 'serviceName',
+    value: defineField('name')[0],
+  },
+  {
+    key: 'locationId' as const,
+    label: 'Точка',
+    name: 'serviceLocation',
+    value: defineField('locationId')[0],
+  },
+  {
+    key: 'priceFrom' as const,
+    label: 'Цена от',
+    name: 'priceFrom',
+    value: defineField('priceFrom')[0],
+  },
+  { key: 'priceTo' as const, label: 'Цена до', name: 'priceTo', value: defineField('priceTo')[0] },
+  {
+    key: 'currency' as const,
+    label: 'Валюта',
+    name: 'serviceCurrency',
+    value: defineField('currency')[0],
+  },
+])
 const errorView = computed(() =>
   commands.error.value ? describeError(commands.error.value) : null,
 )
 const traceId = computed(() =>
   isApiError(commands.error.value) ? commands.error.value.traceId : '',
 )
-
+const uncertainCreate = computed(
+  () =>
+    props.dialog &&
+    !props.service &&
+    Boolean(commands.error.value) &&
+    isUnknownResult(commands.error.value),
+)
 const isSubmitting = ref(false)
+watch(isSubmitting, (busy) => emit('busy', busy, props.operationKey), { flush: 'sync' })
+const formEl = useTemplateRef<HTMLFormElement>('formEl')
+let mounted = true
+onBeforeUnmount(() => {
+  mounted = false
+})
+let command = {
+  tenantId: '',
+  serviceId: undefined as string | undefined,
+  operationKey: undefined as number | undefined,
+}
 const submit = handleSubmit(async (values) => {
+  const context = command
   const body = {
     name: values.name,
     locationId: values.locationId || null,
@@ -67,117 +122,204 @@ const submit = handleSubmit(async (values) => {
     priceTo: parseAmount(values.priceTo),
     currency: values.currency.toUpperCase(),
   }
+  const current = () =>
+    mounted && props.tenantId === context.tenantId && props.service?.id === context.serviceId
   const result = await commands
     .mutateAsync(
-      props.service
-        ? { kind: 'update', serviceId: props.service.id, body }
-        : { kind: 'create', body },
+      context.serviceId
+        ? { tenantId: context.tenantId, kind: 'update', serviceId: context.serviceId, body }
+        : { tenantId: context.tenantId, kind: 'create', body },
     )
-    .catch(() => null)
-  if (result) {
-    if (!props.service) {
-      resetForm({
-        values: { name: '', locationId: '', priceFrom: '', priceTo: '', currency: body.currency },
-      })
-    }
-    emit('saved', result)
+    .catch((error: unknown) => {
+      if (current()) emit('failed', error, context.operationKey)
+      return null
+    })
+  if (!result || !current()) return
+  if (!context.serviceId && !props.dialog) {
+    resetForm({
+      values: { name: '', locationId: '', priceFrom: '', priceTo: '', currency: body.currency },
+    })
   }
+  if (props.dialog) emit('saved', result, context.operationKey)
+  else emit('saved', result)
 })
-
 async function onSubmit(event: Event) {
-  // Блокируем повтор до асинхронной валидации, пока mutation ещё не pending.
-  if (isSubmitting.value) return
+  if (isSubmitting.value || uncertainCreate.value) return
+  command = {
+    tenantId: props.tenantId,
+    serviceId: props.service?.id,
+    operationKey: props.operationKey,
+  }
   isSubmitting.value = true
   try {
     await submit(event)
   } finally {
     isSubmitting.value = false
   }
+  if (props.wizard && mounted) await restoreFocus()
+}
+async function restoreFocus() {
+  await nextTick()
+  const target =
+    formEl.value?.querySelector<HTMLElement>('[aria-invalid="true"]') ??
+    formEl.value?.querySelector<HTMLElement>('input[name="serviceName"]')
+  target?.focus()
+}
+async function onCancel() {
+  if (!props.wizard) return emit('cancel')
+  resetForm({
+    values: {
+      name: '',
+      locationId: '',
+      priceFrom: '',
+      priceTo: '',
+      currency: props.defaultCurrency,
+    },
+  })
+  await restoreFocus()
 }
 </script>
 
 <template>
-  <form class="flex flex-col gap-5" novalidate @submit.prevent="onSubmit">
-    <UiField
-      v-slot="{ id, describedBy, invalid }"
-      label="Название услуги"
-      :description="`До ${SERVICE_NAME_MAX_LENGTH} символов.`"
-      :error="errors.name"
+  <form
+    :id="formId"
+    ref="formEl"
+    class="flex flex-col"
+    :class="dialog ? 'gap-4 md:gap-6' : wizard ? 'gap-4' : 'gap-5'"
+    novalidate
+    @submit.prevent="onSubmit"
+  >
+    <div
+      class="grid"
+      :class="
+        dialog
+          ? 'grid-cols-2 gap-4'
+          : wizard
+            ? 'gap-4 md:grid-cols-[172px_172px_44px_minmax(0,1fr)]'
+            : 'gap-5 sm:grid-cols-3'
+      "
     >
-      <UiInput
-        :id="id"
-        v-model="name"
-        name="serviceName"
-        placeholder="Полировка кузова"
-        :described-by="describedBy"
-        :invalid="invalid"
-        :disabled="isSubmitting"
-      />
-    </UiField>
-    <UiField v-slot="{ id, describedBy, invalid }" label="Точка" :error="errors.locationId">
-      <UiSelect
-        :id="id"
-        v-model="locationId"
-        name="serviceLocation"
-        :options="locationOptions"
-        :described-by="describedBy"
-        :invalid="invalid"
-        :disabled="isSubmitting"
-      />
-    </UiField>
-    <div class="grid gap-5 sm:grid-cols-3">
       <UiField
+        v-for="field in fields"
+        :key="field.key"
         v-slot="{ id, describedBy, invalid }"
-        label="Цена от"
-        description="Пусто — цена неизвестна."
-        :error="errors.priceFrom"
+        class="min-w-0"
+        :class="
+          dialog
+            ? field.key.startsWith('price')
+              ? ''
+              : 'col-span-2'
+            : wizard
+              ? field.key === 'name'
+                ? 'md:col-span-3'
+                : field.key === 'currency'
+                  ? 'md:col-span-2'
+                  : ''
+              : field.key === 'name' || field.key === 'locationId'
+                ? 'sm:col-span-3'
+                : ''
+        "
+        :label="field.label"
+        :label-style="dialog ? 'compact' : 'default'"
+        :description="
+          !wizard && !dialog
+            ? field.key === 'name'
+              ? `До ${SERVICE_NAME_MAX_LENGTH} символов.`
+              : field.key === 'priceFrom'
+                ? 'Пусто — цена неизвестна.'
+                : ''
+            : ''
+        "
+        :error="wizard && field.key.startsWith('price') ? '' : errors[field.key]"
       >
-        <UiInput
-          :id="id"
-          v-model="priceFrom"
-          name="priceFrom"
-          inputmode="decimal"
-          placeholder="0,00"
-          :described-by="describedBy"
-          :invalid="invalid"
-          :disabled="isSubmitting"
-        />
-      </UiField>
-      <UiField v-slot="{ id, describedBy, invalid }" label="Цена до" :error="errors.priceTo">
-        <UiInput
-          :id="id"
-          v-model="priceTo"
-          name="priceTo"
-          inputmode="decimal"
-          placeholder="0,00"
-          :described-by="describedBy"
-          :invalid="invalid"
-          :disabled="isSubmitting"
-        />
-      </UiField>
-      <UiField v-slot="{ id, describedBy, invalid }" label="Валюта" :error="errors.currency">
         <UiSelect
+          v-if="field.key === 'locationId' || field.key === 'currency'"
           :id="id"
-          v-model="currency"
-          name="serviceCurrency"
-          :options="CURRENCY_OPTIONS"
+          v-model="field.value"
+          :name="field.name"
+          :options="field.key === 'locationId' ? locationOptions : currencyOptions"
+          :style="dialog ? { backgroundImage: `url(${serviceChevron})` } : undefined"
           :described-by="describedBy"
           :invalid="invalid"
           :disabled="isSubmitting"
+          :class="dialog ? 'disabled:bg-canvas! disabled:opacity-50!' : ''"
+        />
+        <UiInput
+          v-else
+          :id="id"
+          v-model="field.value"
+          :name="field.name"
+          :inputmode="field.key === 'name' ? undefined : 'decimal'"
+          :placeholder="
+            field.key === 'name'
+              ? dialog
+                ? 'Например, Полировка кузова'
+                : 'Полировка кузова'
+              : wizard || dialog
+                ? UNKNOWN_PRICE
+                : '0,00'
+          "
+          :described-by="
+            wizard && field.key.startsWith('price') ? 'service-price-note' : describedBy
+          "
+          :invalid="
+            invalid ||
+            (wizard && field.key.startsWith('price') && Boolean(errors.priceFrom || errors.priceTo))
+          "
+          :disabled="isSubmitting"
+          :class="dialog ? 'disabled:bg-canvas! disabled:opacity-50!' : ''"
+          :style="dialog ? { '--color-secondary': 'var(--color-muted)' } : undefined"
         />
       </UiField>
+      <p v-if="dialog" class="col-span-2 text-xs leading-[18px] text-muted">
+        Цена «от» не может быть выше цены «до». Неуказанная цена не считается нулевой.
+      </p>
     </div>
-
-    <UiAlert v-if="errorView" tone="danger" :title="errorView.title" :trace-id="traceId">
-      {{ errorView.description }}
+    <p
+      v-if="wizard"
+      id="service-price-note"
+      :class="[
+        '-mt-1.5 text-meta leading-[18px]',
+        errors.priceFrom || errors.priceTo ? 'text-danger' : 'text-secondary',
+      ]"
+      aria-live="polite"
+    >
+      {{ errors.priceFrom || errors.priceTo || 'Пустое поле — цена неизвестна.' }}
+    </p>
+    <UiAlert
+      v-if="errorView"
+      tone="danger"
+      :title="dialog ? 'Не удалось сохранить услугу' : errorView.title"
+      :trace-id="traceId"
+      :text-class="dialog ? 'text-sm leading-5' : undefined"
+    >
+      {{
+        uncertainCreate
+          ? 'Результат сохранения неизвестен. Проверьте каталог перед новой попыткой.'
+          : dialog
+            ? 'Введённые данные остались в форме. Повторите сохранение.'
+            : errorView.description
+      }}
+      <template v-if="dialog" #icon><UiGlyph name="circle-alert" class="size-5" /></template>
     </UiAlert>
-
-    <div class="flex flex-wrap justify-end gap-3">
-      <UiButton variant="secondary" :disabled="isSubmitting" @click="emit('cancel')">
-        Отмена
-      </UiButton>
-      <UiButton type="submit" :loading="isSubmitting">
-        {{ submitLabel ?? (service ? 'Сохранить' : 'Добавить услугу') }}
+    <div
+      v-if="!dialog"
+      :class="wizard ? 'flex items-center justify-end gap-4' : 'flex flex-wrap justify-end gap-3'"
+    >
+      <UiButton :variant="wizard ? 'plain' : 'secondary'" :disabled="isSubmitting" @click="onCancel"
+        >Отмена</UiButton
+      >
+      <UiButton
+        type="submit"
+        :variant="wizard ? 'outline' : 'primary'"
+        :class="wizard ? 'min-w-48' : ''"
+        :loading="isSubmitting"
+      >
+        <template v-if="wizard && isSubmitting"
+          ><span aria-hidden="true">Добавляем…</span
+          ><span class="sr-only">{{ submitLabel ?? 'Добавить услугу' }}</span></template
+        >
+        <template v-else>{{ submitLabel ?? (service ? 'Сохранить' : 'Добавить услугу') }}</template>
       </UiButton>
     </div>
   </form>

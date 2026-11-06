@@ -8,7 +8,7 @@ export default defineConfig({
     environment: 'jsdom',
     // Абсолютный origin: Request в Node не принимает относительные адреса.
     env: { VITE_APP_ENV: 'dev', VITE_API_ORIGIN: 'http://api.test' },
-    include: ['src/**/*.test.ts', 'tests/unit/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'tests/unit/**/*.test.ts', 'tooling/**/*.test.ts'],
     clearMocks: true,
     coverage: {
       provider: 'v8',

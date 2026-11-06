@@ -70,8 +70,12 @@ export function fetchOnboardingStatus(
 }
 
 /** Авторитетный статус начала работы; перечитывается после каждого шага настройки. */
-export function useOnboardingQuery(tenantId: MaybeRefOrGetter<string | null>) {
+export function useOnboardingQuery(
+  tenantId: MaybeRefOrGetter<string | null>,
+  options: { staleTime?: number } = {},
+) {
   return useQuery({
+    ...(options.staleTime !== undefined ? { staleTime: options.staleTime } : {}),
     queryKey: computed(() => organizationKeys.onboarding(toValue(tenantId) ?? '')),
     queryFn: ({ signal }) => fetchOnboardingStatus(toValue(tenantId)!, signal),
     enabled: computed(() => toValue(tenantId) !== null),

@@ -1,10 +1,11 @@
 # Окружения, стенд и контракт API
 
-| Среда    | Vite mode   | Файл             | Сборка                 |
-| -------- | ----------- | ---------------- | ---------------------- |
-| dev      | development | .env.development | npm run build:dev      |
-| pre-prod | preprod     | .env.preprod     | npm run build:pre-prod |
-| prod     | production  | .env.production  | npm run build:prod     |
+| Среда             | Vite mode   | Файл             | Сборка                     |
+| ----------------- | ----------- | ---------------- | -------------------------- |
+| dev               | development | .env.development | npm run build:dev          |
+| dev с VPS staging | stage       | .env.stage       | Только `npm run dev:stage` |
+| pre-prod          | preprod     | .env.preprod     | npm run build:pre-prod     |
+| prod              | production  | .env.production  | npm run build:prod         |
 
 Vite mode и NODE_ENV — разные вещи: `vite build --mode preprod` остаётся production-оптимизированной сборкой.
 
@@ -17,6 +18,36 @@ Vite mode и NODE_ENV — разные вещи: `vite build --mode preprod` о�
 `src/shared/config/env.ts` проверяет переменные valibot-схемой при загрузке модуля; при ошибке приложение не стартует и печатает список проблем. Любые `VITE_*` публичны: секретов во frontend нет и быть не может.
 
 Личные настройки — в `.env.development.local` (исключён из Git). Приоритет Vite: переменные процесса > `.env.[mode].local` > `.env.[mode]` > `.env.local` > `.env`.
+
+## Локальная разработка с VPS staging
+
+`npm run dev:stage` запускает Vite на `http://127.0.0.1:5173` и проксирует `/api`
+на `https://stage.app-lid-radar.ru`. Адрес staging закреплён в dev-прокси;
+`DEV_API_TARGET` на этот режим не влияет. Локальные backend, PostgreSQL и Docker не нужны.
+
+Один раз скопируйте `.env.stage.example` в `.env.stage.local`, установите права `600`
+и заполните `DEV_STAGE_BASIC_AUTH_USER` / `DEV_STAGE_BASIC_AUTH_PASSWORD` — реквизиты
+общего входа staging (Basic Auth). Существующий файл не перезаписывайте. В значениях
+с `$` используйте `\$`, чтобы Vite не подставлял переменную окружения. После изменения
+реквизитов перезапустите Vite. Пустые реквизиты останавливают запуск с подсказкой.
+
+`.env.stage.local` исключён из Git и закрыт для HTTP-раздачи стандартными правилами
+Vite. Переменные не имеют префикса `VITE_`; Basic Auth добавляет только Node.js при
+запросе на VPS. В публичный JS они не встраиваются. `VITE_API_ORIGIN` должен оставаться
+пустым, чтобы браузер обращался только к локальному `/api`.
+
+Прокси проверяет локальный `Host`, `Origin` и Fetch Metadata до замены `Origin` на
+адрес staging. TLS-сертификат VPS проверяется; настройки VPS не изменяются.
+Локальная cookie `lidradar_stage_session` передаётся VPS как `lidradar_session`:
+это отделяет её от сессии обычного `npm run dev`. Только для loopback HTTP в ответе
+прокси снимает `Secure` и `Domain`, сохраняя `HttpOnly` и `SameSite`; cookie на VPS
+остаётся защищённой. Ответы и SSE передаются потоком без буферизации.
+
+В форму входа вводите **учётную запись приложения staging**. Локальные учебные
+кабинеты и файл пароля локального backend здесь не используются. Все действия,
+включая изменение настроек и подключение источников, выполняются на staging.
+Production-сборки и обычный `npm run dev` сохраняют прежнее поведение;
+`vite build --mode stage` и `vite preview --mode stage` не поддерживаются.
 
 ## Сессия и origin
 

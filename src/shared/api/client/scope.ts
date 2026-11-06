@@ -21,6 +21,12 @@ const machinePrefixes = ['/internal/', '/api/v1/webhooks/']
 /** Пути входа, где 401 означает неверные реквизиты, а не истёкшую сессию. */
 const credentialPaths = new Set(['/api/v1/auth/login', '/api/v1/auth/register'])
 
+/**
+ * Гостевые пути без обязательной сессии (ADR 0067): неожиданный 401 на них не означает, что
+ * сессия этой вкладки потеряна, и не должен уводить на вход.
+ */
+const guestPaths = new Set(['/api/v1/auth/registration/invitation/check'])
+
 export function isMachinePath(pathname: string): boolean {
   return machinePrefixes.some((prefix) => pathname.startsWith(prefix))
 }
@@ -34,9 +40,11 @@ export function isTenantScopedPath(pathname: string): boolean {
 
 /**
  * Считать ли 401 на этом пути признаком потерянной сессии. Для форм входа
- * 401 — это ответ на неверные реквизиты, а `/auth/me` сам обрабатывает
- * отсутствие сессии при загрузке.
+ * 401 — это ответ на неверные реквизиты, гостевые проверки сессию не требуют,
+ * а `/auth/me` сам обрабатывает отсутствие сессии при загрузке.
  */
 export function isSessionLossPath(pathname: string): boolean {
-  return !credentialPaths.has(pathname) && pathname !== '/api/v1/auth/me'
+  return (
+    !credentialPaths.has(pathname) && !guestPaths.has(pathname) && pathname !== '/api/v1/auth/me'
+  )
 }

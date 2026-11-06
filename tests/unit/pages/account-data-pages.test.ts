@@ -128,7 +128,7 @@ describe('Настройки → Данные', () => {
   it('владелец видит выгрузку данных организации', async () => {
     await signIn('OWNER')
     const { wrapper } = await mountAt(SettingsPrivacyPage, '/settings/privacy')
-    expect(wrapper.text()).toContain('Выгрузка данных организации')
+    expect(wrapper.text()).toContain('Копия данных компании')
     expect(wrapper.find('[data-testid="export-organization"]').exists()).toBe(true)
     wrapper.unmount()
   })
@@ -136,8 +136,8 @@ describe('Настройки → Данные', () => {
   it('менеджеру выгрузка организации не предлагается', async () => {
     await signIn('MANAGER')
     const { wrapper } = await mountAt(SettingsPrivacyPage, '/settings/privacy')
-    expect(wrapper.text()).toContain('Данные и согласие на обучение')
-    expect(wrapper.text()).not.toContain('Выгрузка данных организации')
+    expect(wrapper.text()).toContain('Данные и конфиденциальность')
+    expect(wrapper.text()).not.toContain('Копия данных компании')
     expect(wrapper.find('[data-testid="export-organization"]').exists()).toBe(false)
     wrapper.unmount()
   })
@@ -171,5 +171,40 @@ describe('каркас без боковой панели', () => {
       '13 ноября 2026, 09:00 (UTC)',
     )
     scheduled.wrapper.unmount()
+  })
+
+  it('шапка по макету: имя, «Аккаунт», «Выйти»; право администратора запрашивается только при известной сессии', async () => {
+    await signIn(null)
+    const known = await mountAt(PlainLayout, '/workspaces')
+    const header = known.wrapper.get('header')
+    expect(header.text()).toContain('Мария')
+    expect(header.text()).toContain('Аккаунт')
+    expect(header.text()).toContain('Выйти')
+    expect(fetchMock.mock.calls.some(([r]) => new URL(r.url).pathname === '/api/v1/admin/me')).toBe(
+      true,
+    )
+    known.wrapper.unmount()
+
+    fetchMock.mockClear()
+    const loading = mount(PlainLayout, {
+      props: { loading: true },
+      slots: { default: '<p data-testid="skeleton">каркас</p>' },
+      global: {
+        plugins: [
+          known.router,
+          [
+            VueQueryPlugin,
+            { queryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+          ],
+        ],
+      },
+    })
+    await flushPromises()
+    // Сессия ещё неизвестна: остаётся бренд и слот, без действий и без запроса к API.
+    expect(loading.find('[data-testid="skeleton"]').exists()).toBe(true)
+    expect(loading.find('[data-testid="account-link"]').exists()).toBe(false)
+    expect(loading.text()).not.toContain('Выйти')
+    expect(fetchMock).not.toHaveBeenCalled()
+    loading.unmount()
   })
 })

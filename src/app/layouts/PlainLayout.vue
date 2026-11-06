@@ -1,56 +1,22 @@
 <script setup lang="ts">
 /**
  * Layout для авторизованного пользователя без выбранной организации:
- * выбор пространства и создание организации. Бокового меню нет — данных
- * организации ещё нет.
+ * выбор пространства, приглашение и создание организации. Бокового меню нет —
+ * данных организации ещё нет. Шапка — `AccountHeader`; `loading` — каркас первой
+ * загрузки, когда сессия ещё неизвестна.
  */
-import { UiIcon } from '@/shared/ui'
-import { RouterLink, useRouter } from 'vue-router'
-import { computed } from 'vue'
-import { useSessionStore } from '@/entities/session'
-import { useAdminMeQuery } from '@/entities/admin'
-import { AccountDeletionBanner, LogoutButton } from '@/features/auth-session'
+import { AccountDeletionBanner } from '@/features/auth-session'
+import { AccountHeader } from '@/widgets/account-header'
 
-const session = useSessionStore()
-const router = useRouter()
-const adminMe = useAdminMeQuery()
-const isPlatformAdmin = computed(() => adminMe.data.value?.platformAdmin === true)
-
-function onLoggedOut({ confirmed }: { confirmed: boolean }): void {
-  void router.replace({ name: 'login', query: confirmed ? {} : { signout: 'unconfirmed' } })
-}
+defineProps<{ loading?: boolean }>()
 </script>
 
 <template>
   <div class="min-h-dvh">
-    <header
-      class="flex items-center justify-between gap-4 border-b border-line bg-paper px-5 py-3 md:px-12"
-    >
-      <p class="flex items-center gap-2 text-lg font-bold tracking-tight text-ink">
-        <UiIcon name="radar" class="size-7" />LidRadar
-      </p>
-      <div class="flex items-center gap-3">
-        <RouterLink
-          v-if="isPlatformAdmin"
-          :to="{ name: 'admin-overview' }"
-          class="text-sm font-semibold text-brand-dark hover:underline"
-        >
-          Администрирование
-        </RouterLink>
-        <RouterLink
-          :to="{ name: 'account' }"
-          class="text-sm font-semibold text-brand-dark hover:underline"
-          data-testid="account-link"
-        >
-          Аккаунт
-        </RouterLink>
-        <p class="hidden text-sm text-muted sm:block">{{ session.user?.displayName }}</p>
-        <LogoutButton variant="secondary" @logged-out="onLoggedOut" />
-      </div>
-    </header>
-    <AccountDeletionBanner />
-    <main id="main" class="mx-auto w-full max-w-xl px-5 py-10 md:px-12">
-      <RouterView />
+    <AccountHeader :loading="loading" />
+    <AccountDeletionBanner v-if="!loading" />
+    <main id="main" class="mx-auto w-full max-w-[760px] px-4 pt-10 pb-10 md:px-0 md:pt-[129px]">
+      <slot><RouterView /></slot>
     </main>
   </div>
 </template>

@@ -1,0 +1,943 @@
+{
+  "schemaVersion": 1,
+  "decisionDate": "2026-10-30",
+  "plannedReleaseDate": "2026-11-01",
+  "validUntil": "actual-release",
+  "captureKind": "Source-index snapshot; existing approval/evidence boundaries retained; no new Figma export or acceptance",
+  "figmaFileKey": "jN8Hhzn6ObIAEi7FoY9kPu",
+  "sourceIndexPath": "docs/frontend-v2/design-index.json",
+  "sourceIndexSHA256AtCapture": "d8f141154835d49f469e2f4de34b6578e87c4c2f47e273e80f7f1b0ad0442f6d",
+  "head": "4e175e914719f380dcadb05ccf28d34e9de08439",
+  "branch": "frontend/v2-implementation",
+  "areas": {
+    "access": {
+      "pageNodeId": "4:77",
+      "policy": "NO_MOCKUP_CHANGES",
+      "indexSectionSHA256": "98d9d3a04128d3b2ec21e7f3cffbcae7d98ad4a46b5168216ae8b0780d450e88",
+      "indexSection": {
+        "status": "approved",
+        "ledger": "access-hig-review-2026-10-25/ledger.json",
+        "approvedAreaId": "461:5453",
+        "selection": "Use pairs[].id; sourceId is the preserved old version. Remaining states from ledger.",
+        "userStoryFlows": {
+          "status": "approved",
+          "approvedAt": "2026-10-30",
+          "pageName": "User Stories & Flows",
+          "scope": "US-M01-03–08: 47 desktop scenes, 11 branches, each scene 1440×1000. Separate tablet/mobile approval is not implied.",
+          "snapshotSha256": "d3155fdca895cf42c2de1122ab439110985aec2e1e92d0fbbbbcd05fc57025e7",
+          "requirementsRepository": "Lidradar",
+          "requirementsPath": "docs/user-stories/10-access.md",
+          "requirementsVersion": "2026-10-30",
+          "runtimeVerification": "REQUIRED_NOT_VERIFIED",
+          "note": "Explicit user approval recorded after capture; pending-approval names in the immutable export describe the capture date, not the later decision. Use these paths for the selected stories; existing adaptive references and unrelated stories remain applicable.",
+          "stories": [
+            {
+              "storyId": "US-M01-03",
+              "nodeId": "954:4907",
+              "navigationCardId": "691:3965",
+              "branches": ["A", "B"],
+              "sceneCount": 8
+            },
+            {
+              "storyId": "US-M01-04",
+              "nodeId": "955:5381",
+              "navigationCardId": "691:3975",
+              "branches": ["A"],
+              "sceneCount": 5
+            },
+            {
+              "storyId": "US-M01-05",
+              "nodeId": "955:6470",
+              "navigationCardId": "691:3984",
+              "branches": ["A", "B"],
+              "sceneCount": 10
+            },
+            {
+              "storyId": "US-M01-06",
+              "nodeId": "955:7889",
+              "navigationCardId": "691:3994",
+              "branches": ["A", "B"],
+              "sceneCount": 10
+            },
+            {
+              "storyId": "US-M01-07",
+              "nodeId": "955:9151",
+              "navigationCardId": "691:4004",
+              "branches": ["A", "B"],
+              "sceneCount": 7
+            },
+            {
+              "storyId": "US-M01-08",
+              "nodeId": "955:9934",
+              "navigationCardId": "691:4013",
+              "branches": ["A", "B"],
+              "sceneCount": 7
+            }
+          ]
+        },
+        "pilotFrames": [
+          {
+            "name": "Login desktop",
+            "nodeId": "462:5453",
+            "legacySourceId": "41:3246",
+            "viewport": {
+              "width": 1440,
+              "height": 1000
+            }
+          },
+          {
+            "name": "Login tablet",
+            "nodeId": "464:6336",
+            "legacySourceId": "60:2526",
+            "viewport": {
+              "width": 834,
+              "height": 1194
+            }
+          },
+          {
+            "name": "Login phone",
+            "nodeId": "464:8980",
+            "legacySourceId": "67:4587",
+            "figmaName": "Актуально · Вход · 390 × 844 · Исходное · Apple HIG",
+            "verifiedAt": "2026-10-26",
+            "verification": "Live Figma metadata and screenshot; see evidence/F01/login-phone-reference-correction.md",
+            "viewport": {
+              "width": 390,
+              "height": 844
+            },
+            "documentNodeId": "464:8981",
+            "documentSize": {
+              "width": 390,
+              "height": 1154
+            },
+            "footerReference": {
+              "instanceId": "464:9020",
+              "masterId": "459:3285",
+              "y": 786,
+              "width": 390,
+              "height": 368,
+              "verifiedAt": "2026-10-27",
+              "verification": "Live instance/master mapping: name-only override; full master screenshot inspected. Child export clips to viewport."
+            }
+          }
+        ]
+      }
+    },
+    "onboarding": {
+      "pageNodeId": "11:324",
+      "policy": "NO_MOCKUP_CHANGES",
+      "indexSectionSHA256": "e1b6710333ad5157072ebd7fac0b57c74b18bbd7d705e9d7c5d67105cd44e6e7",
+      "indexSection": {
+        "status": "approved",
+        "ledger": "onboarding-hig-review-2026-10-25/ledger.json",
+        "correction": "onboarding-hig-review-2026-10-25/correction-validation-2026-10-25.json",
+        "followup": "onboarding-hig-review-2026-10-25/skeleton-followup-verification.json",
+        "selection": "For step 2 use onboarding.step2: its 36 current frames and components supersede the old ledger, correction and skeleton records for this step. For other steps use pairs[].id, latestCorrection and current Figma state; old validation.json is superseded.",
+        "userStoryFlows": {
+          "status": "approved",
+          "approvedAt": "2026-10-30",
+          "pageName": "User Stories & Flows",
+          "scope": "US-M02-01/02/03: 25 desktop scenes and 6 branches; scene widths 1440, heights 1000/1016/1120/1160. No separate new tablet/mobile approval.",
+          "snapshotSha256": "483ca26f1f3085d5062e850dd25d9872be9279882cf521ba9ad20e1cee00bba5",
+          "requirementsRepository": "Lidradar",
+          "requirementsPath": "docs/user-stories/11-onboarding.md",
+          "requirementsVersion": "2026-10-30",
+          "runtimeVerification": "REQUIRED_NOT_VERIFIED",
+          "note": "User explicitly approved these flows after capture; pending names in the immutable export are historical. Existing onboarding.step2 and its accepted behaviorClarification remain authoritative for US-M02-04, its matrix and adaptive references. New flow approval does not close existing runtime findings or approve new API/defaults.",
+          "stories": [
+            {
+              "storyId": "US-M02-01",
+              "nodeId": "1017:7470",
+              "navigationCardId": "691:4052",
+              "branches": ["A", "B"],
+              "sceneCount": 7,
+              "criteriaCount": 12
+            },
+            {
+              "storyId": "US-M02-02",
+              "nodeId": "1017:8375",
+              "navigationCardId": "691:4061",
+              "branches": ["A", "B"],
+              "sceneCount": 11,
+              "criteriaCount": 15
+            },
+            {
+              "storyId": "US-M02-03",
+              "nodeId": "1017:25368",
+              "navigationCardId": "691:4070",
+              "branches": ["A", "B"],
+              "sceneCount": 7,
+              "criteriaCount": 12
+            }
+          ]
+        },
+        "sampleFrames": [
+          {
+            "name": "Компания · Apple HIG · Шаг 1",
+            "nodeId": "477:7927",
+            "legacySourceId": "21:4409",
+            "frameSize": {
+              "width": 1440,
+              "height": 1000
+            }
+          },
+          {
+            "name": "Точки и графики · Шаг 2 · Точек пока нет",
+            "nodeId": "477:8024",
+            "legacySourceId": "21:3646",
+            "frameSize": {
+              "width": 1440,
+              "height": 1016
+            },
+            "figmaName": "Актуально · Точки и графики · Шаг 2 · 01 · Точек пока нет · 1440",
+            "verifiedAt": "2026-10-30",
+            "verification": "Live Figma metadata. This preserved overview ID now shows the empty state; full step-2 matrix is onboarding.step2."
+          },
+          {
+            "name": "Услуги и цены · Apple HIG · Шаг 3",
+            "nodeId": "477:8201",
+            "legacySourceId": "21:3569",
+            "frameSize": {
+              "width": 1440,
+              "height": 1000
+            }
+          },
+          {
+            "name": "Источник сообщений · Apple HIG · Шаг 4",
+            "nodeId": "477:8322",
+            "legacySourceId": "21:3502",
+            "frameSize": {
+              "width": 1440,
+              "height": 1000
+            }
+          },
+          {
+            "name": "Компания · Шаг 1 · 390 × 844 · Исходное · Apple HIG",
+            "nodeId": "477:8822",
+            "legacySourceId": "80:9879",
+            "frameSize": {
+              "width": 390,
+              "height": 844
+            }
+          },
+          {
+            "name": "Компания · Шаг 1 · 834 × 1194 · Исходное · Apple HIG",
+            "nodeId": "479:13232",
+            "legacySourceId": "80:7518",
+            "frameSize": {
+              "width": 834,
+              "height": 1194
+            }
+          }
+        ],
+        "step2": {
+          "status": "approved",
+          "approvedAt": "2026-10-29",
+          "updatedAt": "2026-10-30",
+          "verifiedAt": "2026-10-30",
+          "verification": "Live Figma names, frame bounds and component IDs. Visual approval and prior visual inspection: 2026-10-29; this documentation update does not assert runtime acceptance.",
+          "storyIds": ["US-M02-04", "US-M02-02"],
+          "approvedAreaId": "927:13052",
+          "acceptanceSource": {
+            "repository": "Lidradar",
+            "path": "docs/user-stories/11-onboarding.md",
+            "anchor": "us-m02-04-acceptance",
+            "criteriaIds": [
+              "AC-M02-04-01",
+              "AC-M02-04-02",
+              "AC-M02-04-03",
+              "AC-M02-04-04",
+              "AC-M02-04-05",
+              "AC-M02-04-06",
+              "AC-M02-04-07",
+              "AC-M02-04-08",
+              "AC-M02-04-09",
+              "AC-M02-04-10",
+              "AC-M02-04-11",
+              "AC-M02-04-12",
+              "AC-M02-04-13",
+              "AC-M02-04-14",
+              "AC-M02-04-15",
+              "AC-M02-04-16",
+              "AC-M02-04-17",
+              "AC-M02-04-18",
+              "AC-M02-04-19",
+              "AC-M02-04-20",
+              "AC-M02-04-21",
+              "AC-M02-04-22",
+              "AC-M02-04-23",
+              "AC-M02-04-24"
+            ],
+            "implementationStatus": "REQUIRED_NOT_VERIFIED"
+          },
+          "selection": "Use one of these 12 states for the selected device. Desktop frame height depends on content; use frameSize, not just viewport. Overview IDs are preserved references to the same states. Proposal 879:10208, wireframe 872:10051 and test 938:18756 are history, not alternate canonical screens. Apply behaviorClarification (2026-10-30) to states 03/04; their old unset labels do not override the accepted default initialization.",
+          "states": [
+            {
+              "number": 1,
+              "key": "empty",
+              "name": "Точек пока нет",
+              "acceptanceCriteria": ["AC-M02-04-01", "AC-M02-04-02"]
+            },
+            {
+              "number": 2,
+              "key": "create_location",
+              "name": "Добавить точку",
+              "acceptanceCriteria": ["AC-M02-04-03", "AC-M02-04-04"]
+            },
+            {
+              "number": 3,
+              "key": "schedule_unset",
+              "name": "Точка создана · График не задан",
+              "acceptanceCriteria": ["AC-M02-04-05"],
+              "behaviorNote": "Runtime clarification 2026-10-30: new location has a valid prefilled 10:00–19:00 week; initialization is POST → PUT. Original Figma state name/key retained as metadata."
+            },
+            {
+              "number": 4,
+              "key": "other_schedule_unset",
+              "name": "Первая точка заполнена · Вторая не заполнена",
+              "acceptanceCriteria": ["AC-M02-04-07", "AC-M02-04-14"],
+              "behaviorNote": "Runtime clarification 2026-10-30: a second location also has its own valid default; only invalid input or unconfirmed initialization blocks continuation. Original Figma state name/key retained."
+            },
+            {
+              "number": 5,
+              "key": "all_schedules_valid",
+              "name": "Другая точка · Графики заполнены",
+              "acceptanceCriteria": ["AC-M02-04-07", "AC-M02-04-15"]
+            },
+            {
+              "number": 6,
+              "key": "edit_location",
+              "name": "Изменить точку",
+              "acceptanceCriteria": ["AC-M02-04-06", "AC-M02-04-20"]
+            },
+            {
+              "number": 7,
+              "key": "create_location_error",
+              "name": "Ошибка создания точки",
+              "acceptanceCriteria": ["AC-M02-04-04"],
+              "error": true
+            },
+            {
+              "number": 8,
+              "key": "invalid_schedule",
+              "name": "Ошибка времени",
+              "acceptanceCriteria": [
+                "AC-M02-04-08",
+                "AC-M02-04-09",
+                "AC-M02-04-10",
+                "AC-M02-04-12"
+              ],
+              "error": true
+            },
+            {
+              "number": 9,
+              "key": "save_error",
+              "name": "Ошибка сохранения графиков",
+              "acceptanceCriteria": ["AC-M02-04-16"],
+              "error": true
+            },
+            {
+              "number": 10,
+              "key": "saving",
+              "name": "Сохранение графиков",
+              "acceptanceCriteria": ["AC-M02-04-17"]
+            },
+            {
+              "number": 11,
+              "key": "other_location_error",
+              "name": "Ошибка в другой точке",
+              "acceptanceCriteria": ["AC-M02-04-08", "AC-M02-04-11", "AC-M02-04-14"],
+              "error": true
+            },
+            {
+              "number": 12,
+              "key": "loading",
+              "name": "Первичная загрузка",
+              "acceptanceCriteria": ["AC-M02-04-18"]
+            }
+          ],
+          "devices": {
+            "desktop": {
+              "sectionNodeId": "927:13056",
+              "viewport": {
+                "width": 1440,
+                "height": 1000
+              },
+              "frames": {
+                "empty": {
+                  "nodeId": "928:13058",
+                  "frameSize": {
+                    "width": 1440,
+                    "height": 1016
+                  }
+                },
+                "create_location": {
+                  "nodeId": "928:13221",
+                  "frameSize": {
+                    "width": 1440,
+                    "height": 1016
+                  }
+                },
+                "schedule_unset": {
+                  "nodeId": "928:13420",
+                  "frameSize": {
+                    "width": 1440,
+                    "height": 1016
+                  }
+                },
+                "other_schedule_unset": {
+                  "nodeId": "928:13587",
+                  "frameSize": {
+                    "width": 1440,
+                    "height": 1000
+                  }
+                },
+                "all_schedules_valid": {
+                  "nodeId": "928:13759",
+                  "frameSize": {
+                    "width": 1440,
+                    "height": 1000
+                  }
+                },
+                "edit_location": {
+                  "nodeId": "928:13931",
+                  "frameSize": {
+                    "width": 1440,
+                    "height": 1000
+                  }
+                },
+                "create_location_error": {
+                  "nodeId": "928:14146",
+                  "frameSize": {
+                    "width": 1440,
+                    "height": 1016
+                  }
+                },
+                "invalid_schedule": {
+                  "nodeId": "928:14346",
+                  "frameSize": {
+                    "width": 1440,
+                    "height": 1000
+                  }
+                },
+                "save_error": {
+                  "nodeId": "928:14519",
+                  "frameSize": {
+                    "width": 1440,
+                    "height": 1016
+                  }
+                },
+                "saving": {
+                  "nodeId": "928:14693",
+                  "frameSize": {
+                    "width": 1440,
+                    "height": 1000
+                  }
+                },
+                "other_location_error": {
+                  "nodeId": "928:14869",
+                  "frameSize": {
+                    "width": 1440,
+                    "height": 1000
+                  }
+                },
+                "loading": {
+                  "nodeId": "928:15041",
+                  "frameSize": {
+                    "width": 1440,
+                    "height": 1000
+                  }
+                }
+              }
+            },
+            "tablet": {
+              "sectionNodeId": "927:13058",
+              "viewport": {
+                "width": 834,
+                "height": 1194
+              },
+              "frames": {
+                "empty": {
+                  "nodeId": "928:15205",
+                  "frameSize": {
+                    "width": 834,
+                    "height": 1194
+                  }
+                },
+                "create_location": {
+                  "nodeId": "928:15368",
+                  "frameSize": {
+                    "width": 834,
+                    "height": 1194
+                  }
+                },
+                "schedule_unset": {
+                  "nodeId": "928:15567",
+                  "frameSize": {
+                    "width": 834,
+                    "height": 1194
+                  }
+                },
+                "other_schedule_unset": {
+                  "nodeId": "928:15864",
+                  "frameSize": {
+                    "width": 834,
+                    "height": 1194
+                  }
+                },
+                "all_schedules_valid": {
+                  "nodeId": "928:16171",
+                  "frameSize": {
+                    "width": 834,
+                    "height": 1194
+                  }
+                },
+                "edit_location": {
+                  "nodeId": "928:16343",
+                  "frameSize": {
+                    "width": 834,
+                    "height": 1194
+                  }
+                },
+                "create_location_error": {
+                  "nodeId": "928:16693",
+                  "frameSize": {
+                    "width": 834,
+                    "height": 1194
+                  }
+                },
+                "invalid_schedule": {
+                  "nodeId": "928:16893",
+                  "frameSize": {
+                    "width": 834,
+                    "height": 1194
+                  }
+                },
+                "save_error": {
+                  "nodeId": "928:17201",
+                  "frameSize": {
+                    "width": 834,
+                    "height": 1194
+                  }
+                },
+                "saving": {
+                  "nodeId": "928:17510",
+                  "frameSize": {
+                    "width": 834,
+                    "height": 1194
+                  }
+                },
+                "other_location_error": {
+                  "nodeId": "928:17821",
+                  "frameSize": {
+                    "width": 834,
+                    "height": 1194
+                  }
+                },
+                "loading": {
+                  "nodeId": "928:17993",
+                  "frameSize": {
+                    "width": 834,
+                    "height": 1194
+                  }
+                }
+              }
+            },
+            "phone": {
+              "sectionNodeId": "927:13060",
+              "viewport": {
+                "width": 390,
+                "height": 844
+              },
+              "frames": {
+                "empty": {
+                  "nodeId": "928:18157",
+                  "frameSize": {
+                    "width": 390,
+                    "height": 844
+                  }
+                },
+                "create_location": {
+                  "nodeId": "928:18327",
+                  "frameSize": {
+                    "width": 390,
+                    "height": 844
+                  }
+                },
+                "schedule_unset": {
+                  "nodeId": "928:18534",
+                  "frameSize": {
+                    "width": 390,
+                    "height": 844
+                  }
+                },
+                "other_schedule_unset": {
+                  "nodeId": "928:18711",
+                  "frameSize": {
+                    "width": 390,
+                    "height": 844
+                  }
+                },
+                "all_schedules_valid": {
+                  "nodeId": "928:18886",
+                  "frameSize": {
+                    "width": 390,
+                    "height": 844
+                  }
+                },
+                "edit_location": {
+                  "nodeId": "928:19061",
+                  "frameSize": {
+                    "width": 390,
+                    "height": 844
+                  }
+                },
+                "create_location_error": {
+                  "nodeId": "928:19280",
+                  "frameSize": {
+                    "width": 390,
+                    "height": 844
+                  }
+                },
+                "invalid_schedule": {
+                  "nodeId": "928:19489",
+                  "frameSize": {
+                    "width": 390,
+                    "height": 844
+                  }
+                },
+                "save_error": {
+                  "nodeId": "928:19666",
+                  "frameSize": {
+                    "width": 390,
+                    "height": 844
+                  }
+                },
+                "saving": {
+                  "nodeId": "928:19848",
+                  "frameSize": {
+                    "width": 390,
+                    "height": 844
+                  }
+                },
+                "other_location_error": {
+                  "nodeId": "928:20031",
+                  "frameSize": {
+                    "width": 390,
+                    "height": 844
+                  }
+                },
+                "loading": {
+                  "nodeId": "928:20208",
+                  "frameSize": {
+                    "width": 390,
+                    "height": 844
+                  }
+                }
+              }
+            }
+          },
+          "overviewFrames": {
+            "desktop": {
+              "empty": "477:8024",
+              "invalid_schedule": "479:11001",
+              "saving": "479:11203",
+              "loading": "479:11409"
+            },
+            "tablet": {
+              "empty": "479:13034",
+              "invalid_schedule": "479:13715",
+              "saving": "479:13917",
+              "loading": "479:14123"
+            },
+            "phone": {
+              "empty": "477:8939",
+              "invalid_schedule": "479:16531",
+              "saving": "479:16753",
+              "loading": "479:16980"
+            }
+          },
+          "prototype": {
+            "nodeId": "479:8418",
+            "device": "desktop",
+            "state": "all_schedules_valid",
+            "note": "Sequence prototype uses filled example data; initial empty state is devices.desktop.frames.empty."
+          },
+          "components": {
+            "pointCard": {
+              "nodeId": "940:18891",
+              "height": 76,
+              "instanceWidths": {
+                "desktop": 272,
+                "tablet": 248
+              },
+              "editHitArea": {
+                "width": 44,
+                "height": 44
+              },
+              "nameTypography": {
+                "fontSize": 16,
+                "lineHeight": 22
+              },
+              "statusTypography": {
+                "fontSize": 14,
+                "lineHeight": 20
+              },
+              "phone": "Use the point selector; do not introduce desktop cards."
+            },
+            "addPoint": {
+              "componentSetId": "943:18896",
+              "defaultId": "943:18890",
+              "disabledId": "943:18893",
+              "size": {
+                "width": 46,
+                "height": 46
+              },
+              "disabledStates": ["saving", "loading"],
+              "colors": "Primary UI Kit fill and white plus; Disabled uses Primary-disabled colors."
+            }
+          },
+          "interactionRules": {
+            "draftScope": "per_location_within_open_step",
+            "allowSwitchWithInvalidDraft": true,
+            "discardDraftOnSwitch": false,
+            "autosaveOnSwitch": false,
+            "confirmDiscardOnSwitch": false,
+            "invalidStatus": "График заполнен неверно",
+            "saveScope": "all_locations_in_current_step_list",
+            "saveBlockedBy": [
+              "no_locations",
+              "initialization_unconfirmed",
+              "invalid_schedule",
+              "loading",
+              "saving"
+            ],
+            "reloadRestoreScope": "server_confirmed_data",
+            "settingsGuard": "US-M02-06 settings confirmations remain separate.",
+            "creation": "POST location → PUT default full week; initialization is separate from autosave of edited drafts.",
+            "retryAfterConfirmedPost": "PUT existing locationId only; never repeat POST as schedule recovery.",
+            "defaultSchedule": "10:00–19:00 on working days of the existing startup-template mask; no compulsory manual edit.",
+            "reloadInitializationRecovery": "Fresh GET when the step is opened; existing ID with no week gets default and manual PUT recovery. Server resume rule remains unchanged."
+          },
+          "behaviorClarification": {
+            "date": "2026-10-30",
+            "status": "accepted",
+            "source": "User decision: no backend changes; prefill 10:00–19:00, create via POST → PUT, retry only PUT after confirmed POST.",
+            "implementationStatus": "REQUIRED_NOT_VERIFIED",
+            "solution": "Lidradar/docs/engineering/US-M02-04-IMPLEMENTATION.md",
+            "workingHours": {
+              "opensAt": "10:00",
+              "closesAt": "19:00",
+              "dayMask": "Existing startup-template working/closed-day mask is unchanged; apply these hours to its working days only."
+            },
+            "normalCreatedState": "Valid prefilled week; confirmed after initialization PUT. User may continue without editing the default.",
+            "creationSequence": [
+              "POST /api/v1/locations",
+              "PUT /api/v1/locations/{locationId}/business-hours"
+            ],
+            "initializationFailure": "Keep confirmed locationId and valid draft; retry only PUT of that ID. No repeated POST or rollback of the created location.",
+            "unknownPost": "Reconcile the list first; do not automatically repeat POST or infer command identity from a name match.",
+            "backend": "Unchanged. ADR 0045 LOCATION uses LocationsWithSchedule > 0; ADR 0069 is Withdrawn.",
+            "resumeLimit": "POST and PUT are not one transaction. Recover an existing empty schedule when the step is opened; server resume is not forced to each unfinished initialization.",
+            "figmaStatus": "No Figma writes in this update. Original state keys, node IDs, figmaName and measured bounds are retained. States 03/04 have outdated unset copy and require this behavior clarification; they are not evidence of an empty normal schedule."
+          }
+        }
+      }
+    },
+    "radar": {
+      "pageNodeId": "21:2",
+      "policy": "NO_MAJOR_CHANGES",
+      "indexSectionSHA256": "1c5523f4472f2a3049f9c6cc69677fc6943f8a1d8ec2ab845d1b480af4b9e6f1",
+      "indexSection": {
+        "status": "canonical originals are references; distinct proposals are not automatically selected",
+        "source": "radar-adaptive-accent-2026-10-26/REPORT.md",
+        "shellSelection": {
+          "date": "2026-10-30",
+          "status": "Variant C selected by user and promoted to main Radar frames",
+          "sourceScreenNodeId": "1026:9425",
+          "sourceSidebarNodeId": "1026:9426",
+          "evidence": "docs/frontend-v2/evidence/radar-shell-c-2026-10-30.md",
+          "runtimeStatus": "Not changed or tested by this Figma update",
+          "currentSourceAvailability": {
+            "verifiedAt": "2026-10-30",
+            "note": "Historical proposals/test overview1021/1026/1050 and accent632 sections are no longer present. Preserve historical IDs as provenance; use canonical Radar sources below for current shell work.",
+            "desktopFrameNodeId": "27:2765",
+            "sidebarNodeId": "27:2766",
+            "desktopHeaderNodeId": "27:2809",
+            "tabletFeedNodeId": "630:6182",
+            "tabletAppBarNodeId": "1048:9337",
+            "phoneFeedNodeId": "630:7204",
+            "phoneAppBarNodeId": "1048:9359",
+            "evidence": "docs/frontend-v2/evidence/settings-admin-shell-rollout-2026-10-30.md"
+          },
+          "sidebar": "One white navigation panel with separators and a soft selected row. Compact workspace at the bottom, 24 px inset. Telegram status card removed.",
+          "header": "Desktop: name, account link and icon-only settings beside context/date; organization role label removed. Latest tablet/phone policy is defined in adaptiveRework.",
+          "preserved": "Canonical frame IDs, risk content and existing back/menu/close/logout actions. Desktop logout placement is defined in desktopLogout. Experimental sections and accent proposal unchanged.",
+          "rolloutVerification": {
+            "date": "2026-10-30",
+            "sourcePageNodeId": "21:2",
+            "sourceAdaptiveSectionNodeId": "1050:16001",
+            "status": "User clarified Adaptive C as the rollout source. Live Figma confirms it is already applied to all nine desktop, twelve tablet/phone screens and two navigation drawers; no additional canvas mutations were required.",
+            "evidence": "docs/frontend-v2/evidence/radar-layout-rollout-2026-10-30.md",
+            "validation": "Structural checks: no findings. Independent CANVAS desktop/tablet/phone PASS on six PNG; 7/7 hashes unchanged. Runtime and browser UI not run.",
+            "scopeClarification": "This verifies the selected Radar shell. It does not migrate screens to the separate draft UI Kit App/Slot masters or approve that unrelated library task."
+          },
+          "desktopLogout": {
+            "date": "2026-10-30",
+            "status": "Moved to desktop headers after settings at user request",
+            "sourceNodeId": "201:6630",
+            "evidence": "docs/frontend-v2/evidence/radar-desktop-logout-2026-10-30.md",
+            "scope": "All nine canonical desktop frames; five existing buttons moved with IDs retained, four matching instances added to feed headers. Compact and experimental frames unchanged.",
+            "appearance": "Settings → 1×20 px vertical divider #CCCCD1 → plain logout text #4D5159, Inter Regular 14/20, 64×44 px target, no fill or border. Matches user screenshot; no runtime changes."
+          },
+          "adaptiveRework": {
+            "date": "2026-10-30",
+            "status": "Reworked in Figma at user request; representative CANVAS DESIGN reviewed; runtime unchanged",
+            "evidence": "docs/frontend-v2/evidence/radar-adaptive-rework-2026-10-30.md",
+            "appBar": "Tablet 72 px: menu, brand, full name, account button, settings. Phone 64 px: menu, brand, 44 px account initials button with full accessible name, settings. Context and full original date/time/timezone occupy one 20 px row below.",
+            "drawer": "Tablet width 360 px, phone 344 px. One brand in the 72 px header; close 44×44. Navigation rows 52 px with 17 px labels. Workspace card 68 px, bottom inset 24 px.",
+            "phoneFeed": "Compact metric padding and toolbar, 16 px section gaps; all metric text/value nodes retained. Existing financial columns preserved. Risk cards unchanged. List/tiles switch omitted on phone by user decision; sorting and filters remain.",
+            "accountContrast": "Phone initials: #0071E3 on #FFFFFF = 4.70:1, circular button. Tablet account link follows desktop transparent, borderless appearance by user decision.",
+            "userRefinement": {
+              "date": "2026-10-30",
+              "sourceNodes": ["1050:16114", "1050:16017"],
+              "changes": "Remove phone list/tiles switch from both source feeds and viewport; tablet account link matches desktop on six source screens and viewport.",
+              "evidence": "docs/frontend-v2/evidence/radar-adaptive-refinement-2026-10-30.md"
+            },
+            "viewportSectionNodeId": "1050:16001",
+            "viewports": [
+              {
+                "nodeId": "1050:16004",
+                "sourceNodeId": "630:6182",
+                "width": 834,
+                "height": 1194
+              },
+              {
+                "nodeId": "1050:16073",
+                "sourceNodeId": "630:7204",
+                "width": 390,
+                "height": 844
+              }
+            ],
+            "limits": "Static Figma evidence at 834/390; 320 px, zoom/font scaling, screen-reader behavior and runtime interactions remain unverified. Responsive context must wrap when content exceeds available space."
+          },
+          "appliedFrames": {
+            "desktop": [
+              "27:2765",
+              "21:1825",
+              "21:1982",
+              "21:1753",
+              "199:11280",
+              "220:2548",
+              "226:8826",
+              "226:9036",
+              "226:9242"
+            ],
+            "tabletFeeds": ["630:6182", "630:6708"],
+            "phoneFeeds": ["630:7204", "630:7726"],
+            "tabletRiskStates": ["220:2755", "226:10670", "226:10838", "226:11002"],
+            "phoneRiskStates": ["220:2970", "226:10126", "226:10293", "226:10456"],
+            "drawers": ["630:8277", "630:8361"]
+          }
+        },
+        "canonical": [
+          {
+            "name": "Full tile feed",
+            "nodeId": "21:1982"
+          },
+          {
+            "name": "Full list feed",
+            "nodeId": "21:1753"
+          },
+          {
+            "name": "Risk detail",
+            "nodeId": "199:11280"
+          }
+        ],
+        "adaptiveCandidates": [
+          {
+            "name": "Tiles tablet",
+            "nodeId": "630:6182",
+            "viewport": {
+              "width": 834,
+              "height": 1194
+            }
+          },
+          {
+            "name": "List tablet",
+            "nodeId": "630:6708",
+            "viewport": {
+              "width": 834,
+              "height": 1194
+            }
+          },
+          {
+            "name": "Tiles phone",
+            "nodeId": "630:7204",
+            "viewport": {
+              "width": 390,
+              "height": 844
+            }
+          },
+          {
+            "name": "List phone",
+            "nodeId": "630:7726",
+            "viewport": {
+              "width": 390,
+              "height": 844
+            }
+          }
+        ],
+        "adaptiveSelection": "User selected Adaptive C overview 1050:16001 for the main Radar page 21:2 on 2026-10-30. Live verification confirms the selected shell across the main adaptive feeds, risk states and drawers. Other proposals and runtime acceptance remain separate.",
+        "finalDeliverables": "radar-adaptive-accent-2026-10-26/final-deliverables.json",
+        "separateAccentProposal": {
+          "nodeId": "632:8092",
+          "status": "not selected; keep canonical detail unless user chooses accent"
+        },
+        "excludedHistoricalReviews": ["502", "503", "510", "515"],
+        "exclusionMeaning": "Rejected review families from the design documentation, not a prefix matching rule for all node IDs in Figma.",
+        "canonicalAdaptives": [
+          {
+            "name": "Risk detail tablet",
+            "nodeId": "220:2755",
+            "documentNodeId": "220:2959",
+            "viewport": {
+              "width": 834,
+              "height": 1194
+            },
+            "documentSize": {
+              "width": 834,
+              "height": 2950
+            },
+            "verifiedAt": "2026-10-30",
+            "verification": "Original frame/document IDs and menu actions preserved during shell C promotion. Live Figma metadata and representative screenshot inspected; risk content structurally unchanged. Runtime acceptance not run."
+          },
+          {
+            "name": "Risk detail phone",
+            "nodeId": "220:2970",
+            "documentNodeId": "220:3174",
+            "viewport": {
+              "width": 390,
+              "height": 844
+            },
+            "documentSize": {
+              "width": 390,
+              "height": 3797
+            },
+            "verifiedAt": "2026-10-30",
+            "verification": "Original frame/document IDs and menu actions preserved during shell C promotion. Live Figma metadata and representative screenshot inspected; risk content structurally unchanged. Runtime acceptance not run."
+          }
+        ],
+        "mediumSeverityReference": {
+          "textNodeId": "27:2667",
+          "badgeNodeId": "267:3796",
+          "withinNodeId": "21:1982",
+          "textColor": "#6e6e73",
+          "backgroundColor": "#f2f2f5",
+          "verifiedAt": "2026-10-27",
+          "verification": "Live text/parent fills; same values confirmed in mobile 630:7204."
+        }
+      }
+    }
+  }
+}

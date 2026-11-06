@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { ApiError } from '@/shared/api'
 import { routes } from '@/app/router/routes'
 import {
   fetchMe,
+  logout,
   resendEmailVerification,
   resetPassword,
   useSessionStore,
@@ -70,9 +72,12 @@ async function mountAt(component: object, path: string) {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(path)
   await router.isReady()
-  const wrapper = mount(component, { global: { plugins: [router] } })
+  const queryClient = new QueryClient()
+  const wrapper = mount(component, {
+    global: { plugins: [router, [VueQueryPlugin, { queryClient }]] },
+  })
   await settle()
-  return { wrapper, router }
+  return { wrapper, router, queryClient }
 }
 
 beforeEach(() => {
@@ -92,7 +97,10 @@ describe('страница нового пароля', () => {
       `/reset-password?x=1#token=${TOKEN}`,
     )
     expect(wrapper.find('input[name="new-password"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Придумайте новый пароль')
+    expect(wrapper.get('h1').text()).toBe('Новый пароль')
+    expect(wrapper.text()).toContain(
+      'Сеансы восстанавливаемого аккаунта будут завершены. Для входа используйте новый пароль.',
+    )
     expect(router.currentRoute.value.hash).toBe('')
     expect(router.currentRoute.value.fullPath).not.toContain(TOKEN)
     expect(router.currentRoute.value.query.x).toBe('1') // прочие параметры остаются
@@ -212,12 +220,326 @@ describe('страница подтверждения почты', () => {
       .mockResolvedValueOnce(undefined)
     vi.mocked(fetchMe).mockRejectedValue(Object.assign(new Error('401'), { httpStatus: 401 }))
     const { wrapper } = await mountAt(VerifyEmailPage, `/verify-email#token=${TOKEN}`)
-    expect(wrapper.text()).toContain('Не удалось подтвердить')
-    const retry = wrapper.findAll('button').find((button) => button.text() === 'Повторить')
+    expect(wrapper.get('h1').text()).toBe('Подтверждение почты')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(true)
+    const retry = wrapper.findAll('button').find((button) => button.text() === 'Повторить проверку')
     await retry!.trigger('click')
     await settle()
     expect(verifyEmail).toHaveBeenCalledTimes(2)
     expect(wrapper.text()).toContain('Почта подтверждена')
+    wrapper.unmount()
+  })
+})
+
+describe('подтверждение почты: нет связи с сервером', () => {
+  it('показывает «Нет соединения» из макета и повторяет проверку', async () => {
+    vi.mocked(verifyEmail)
+      .mockRejectedValueOnce(new ApiError({ httpStatus: 0, code: 'NETWORK_ERROR' }))
+      .mockResolvedValueOnce(undefined)
+    vi.mocked(fetchMe).mockRejectedValue(Object.assign(new Error('401'), { httpStatus: 401 }))
+    const { wrapper } = await mountAt(VerifyEmailPage, `/verify-email#token=${TOKEN}`)
+    expect(wrapper.get('[role="alert"]').text()).toContain('Нет соединения')
+    expect(wrapper.get('[role="alert"]').text()).toContain(
+      'Не удалось связаться с сервером. Проверьте подключение.',
+    )
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Повторить проверку')!
+      .trigger('click')
+    await settle()
+    expect(wrapper.text()).toContain('Почта подтверждена')
+    wrapper.unmount()
+  })
+})
+
+describe('страницы по ссылкам: красный признак отклонённой ссылки и каркасы загрузки', () => {
+  it('ссылку без токена объясняет спокойно, отклонённую сервером — красной надписью и рамкой', async () => {
+    const quiet = await mountAt(ResetPasswordPage, '/reset-password')
+    expect(quiet.wrapper.html()).not.toContain('border-danger/25')
+    expect(quiet.wrapper.get('p.text-meta').classes()).toContain('text-secondary')
+    quiet.wrapper.unmount()
+
+    vi.mocked(resetPassword).mockRejectedValue(apiError(400, 'RESET_TOKEN_INVALID'))
+    const rejected = await mountAt(ResetPasswordPage, `/reset-password#token=${TOKEN}`)
+    await rejected.wrapper.get('input[name="new-password"]').setValue('another-secure-password')
+    await rejected.wrapper.get('input[name="confirm-password"]').setValue('another-secure-password')
+    await rejected.wrapper.get('form').trigger('submit')
+    await settle()
+    expect(rejected.wrapper.html()).toContain('border-danger/25')
+    expect(rejected.wrapper.get('p.text-meta').classes()).toContain('text-danger')
+    expect(rejected.wrapper.get('h1').text()).toBe('Ссылка недействительна')
+    rejected.wrapper.unmount()
+  })
+
+  it('кнопка «Запросить новую ссылку» занята, пока открывается страница запроса, и называется прежним именем', async () => {
+    const router = createRouter({ history: createMemoryHistory(), routes })
+    await router.push('/reset-password')
+    await router.isReady()
+    let finish: () => void = () => {}
+    const slow = new Promise<void>((resolve) => (finish = resolve))
+    router.beforeEach(async (to) => {
+      if (to.name === 'forgot-password') await slow
+    })
+    const wrapper = mount(ResetPasswordPage, {
+      global: { plugins: [router, [VueQueryPlugin, { queryClient: new QueryClient() }]] },
+    })
+    await settle()
+    const button = wrapper
+      .findAll('button')
+      .find((b) => b.text().includes('Запросить новую ссылку'))!
+    await button.trigger('click')
+    await settle()
+    expect(button.attributes('aria-busy')).toBe('true')
+    expect(button.text()).toContain('Открываем форму…')
+    expect(button.get('.sr-only').text()).toBe('Запросить новую ссылку')
+    finish()
+    await settle()
+    expect(router.currentRoute.value.name).toBe('forgot-password')
+    wrapper.unmount()
+  })
+
+  it('первичная загрузка: с токеном — каркас формы, без токена — «Проверяем ссылку…»; токен из адреса не убирается и запросов нет', async () => {
+    const withToken = await mountAtLoading(ResetPasswordPage, `#token=${TOKEN}`)
+    expect(withToken.text()).toContain('Новый пароль')
+    expect(withToken.find('input').exists()).toBe(false)
+    withToken.unmount()
+    const without = await mountAtLoading(ResetPasswordPage, '')
+    expect(without.get('h1').text()).toBe('Проверяем ссылку…')
+    expect(without.text()).toContain('Загружаем форму восстановления…')
+    expect(without.text()).not.toContain('срок действия')
+    expect(without.find('button').exists()).toBe(false)
+    without.unmount()
+    expect(resetPassword).not.toHaveBeenCalled()
+  })
+
+  it('подтверждение почты: каркас первой загрузки не отправляет подтверждение', async () => {
+    const wrapper = await mountAtLoading(VerifyEmailPage, `#token=${TOKEN}`)
+    expect(wrapper.get('h1').text()).toBe('Подтверждаем почту…')
+    expect(wrapper.text()).toContain('Результат появится здесь автоматически.')
+    expect(verifyEmail).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+})
+
+async function mountAtLoading(component: object, hash: string) {
+  window.history.replaceState(null, '', `/x${hash}`)
+  const router = createRouter({ history: createMemoryHistory(), routes })
+  const wrapper = mount(component, {
+    props: { loading: true },
+    global: { plugins: [router, [VueQueryPlugin, { queryClient: new QueryClient() }]] },
+  })
+  await settle()
+  window.history.replaceState(null, '', '/')
+  return wrapper
+}
+
+describe('вошедший пользователь на страницах сброса пароля', () => {
+  async function submitReset(wrapper: ReturnType<typeof mount>) {
+    await wrapper.get('input[name="new-password"]').setValue('another-secure-password')
+    await wrapper.get('input[name="confirm-password"]').setValue('another-secure-password')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+  }
+  const unauthenticated = apiError(401, 'UNAUTHENTICATED')
+
+  it('после смены пароля сервер вернул 401: сессия и кэш очищены, вход открывается с «Пароль изменён», а не Radar', async () => {
+    vi.mocked(resetPassword).mockResolvedValue(undefined)
+    const session = await signIn('2026-10-13T08:00:00Z')
+    expect(session.isAuthenticated).toBe(true)
+    const { wrapper, router, queryClient } = await mountAt(
+      ResetPasswordPage,
+      `/reset-password#token=${TOKEN}`,
+    )
+    queryClient.setQueryData(['tenant', 'tenant-a', 'risks'], { secret: 'данные прежней сессии' })
+    // Сервер завершил все сессии: следующая проверка сессии отвечает 401.
+    vi.mocked(fetchMe).mockRejectedValue(unauthenticated)
+    await submitReset(wrapper)
+    expect(useSessionStore().isAuthenticated).toBe(false)
+    expect(useSessionStore().signOutReason).toBeNull()
+    expect(queryClient.getQueryData(['tenant', 'tenant-a', 'risks'])).toBeUndefined()
+    expect(router.currentRoute.value.name).toBe('login')
+    expect(router.currentRoute.value.query.reset).toBe('done')
+    wrapper.unmount()
+  })
+
+  it('перечитать сессию не удалось: успех сброса сохраняется, сессия завершается локально, вход говорит об этом отдельным текстом', async () => {
+    vi.mocked(resetPassword).mockResolvedValue(undefined)
+    await signIn('2026-10-13T08:00:00Z')
+    const { wrapper, router, queryClient } = await mountAt(
+      ResetPasswordPage,
+      `/reset-password#token=${TOKEN}`,
+    )
+    queryClient.setQueryData(['tenant', 'tenant-a', 'risks'], { secret: 'прежняя сессия' })
+    vi.mocked(fetchMe).mockRejectedValue(new Error('network'))
+    await submitReset(wrapper)
+    expect(resetPassword).toHaveBeenCalledTimes(1) // повторная отправка автоматически не уходит
+    expect(useSessionStore().isAuthenticated).toBe(false)
+    expect(queryClient.getQueryData(['tenant', 'tenant-a', 'risks'])).toBeUndefined()
+    expect(router.currentRoute.value.name).toBe('login')
+    expect(router.currentRoute.value.query.reset).toBe('local') // не «done»: отзыв сервером не утверждается
+    wrapper.unmount()
+  })
+
+  it('сброс успешен, /auth/me вернул действующую сессию: сессия и кэш целы, результат виден без редиректа', async () => {
+    vi.mocked(resetPassword).mockResolvedValue(undefined)
+    await signIn('2026-10-13T08:00:00Z')
+    const { wrapper, router, queryClient } = await mountAt(
+      ResetPasswordPage,
+      `/reset-password#token=${TOKEN}`,
+    )
+    queryClient.setQueryData(['tenant', 'tenant-a', 'risks'], { keep: true })
+    await submitReset(wrapper) // fetchMe по-прежнему отдаёт текущего пользователя
+    const done = wrapper.get('[data-testid="reset-done-signed-in"]')
+    expect(done.text()).toContain('Пароль изменён')
+    expect(done.text()).toContain(
+      'Пароль по ссылке успешно изменён. В этом браузере вы вошли как owner@example.test.',
+    )
+    expect(wrapper.find('form').exists()).toBe(false)
+    expect(useSessionStore().isAuthenticated).toBe(true)
+    expect(queryClient.getQueryData(['tenant', 'tenant-a', 'risks'])).toEqual({ keep: true })
+    // Гостевой маршрут не перехватил результат: автоматического выхода и перехода нет.
+    expect(router.currentRoute.value.name).toBe('reset-password')
+    expect(resetPassword).toHaveBeenCalledTimes(1)
+    const labels = wrapper.findAll('button').map((button) => button.text())
+    expect(labels).toEqual(['Продолжить работу', 'Выйти и войти в другой аккаунт'])
+    wrapper.unmount()
+  })
+
+  it('«Продолжить работу» остаётся в текущем аккаунте', async () => {
+    vi.mocked(resetPassword).mockResolvedValue(undefined)
+    await signIn('2026-10-13T08:00:00Z')
+    const { wrapper, router } = await mountAt(ResetPasswordPage, `/reset-password#token=${TOKEN}`)
+    await submitReset(wrapper)
+    await wrapper.findAll('button')[0]!.trigger('click')
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('radar'), { timeout: 3000 })
+    expect(useSessionStore().isAuthenticated).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('«Выйти и войти в другой аккаунт» использует существующий выход, чистит кэш и открывает вход', async () => {
+    vi.mocked(resetPassword).mockResolvedValue(undefined)
+    vi.mocked(logout).mockResolvedValue(undefined)
+    await signIn('2026-10-13T08:00:00Z')
+    const { wrapper, router, queryClient } = await mountAt(
+      ResetPasswordPage,
+      `/reset-password#token=${TOKEN}`,
+    )
+    queryClient.setQueryData(['tenant', 'tenant-a', 'risks'], { secret: 'до выхода' })
+    await submitReset(wrapper)
+    await wrapper.findAll('button')[1]!.trigger('click')
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('login'), { timeout: 3000 })
+    expect(logout).toHaveBeenCalledTimes(1)
+    expect(useSessionStore().isAuthenticated).toBe(false)
+    expect(queryClient.getQueryData(['tenant', 'tenant-a', 'risks'])).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('нет ответа на сам сброс: результат неизвестен — ни успеха, ни «данные не изменены»; повтор только по действию человека', async () => {
+    vi.mocked(resetPassword).mockRejectedValue(
+      new ApiError({ httpStatus: 0, code: 'NETWORK_ERROR' }),
+    )
+    await signIn('2026-10-13T08:00:00Z')
+    const { wrapper } = await mountAt(ResetPasswordPage, `/reset-password#token=${TOKEN}`)
+    await submitReset(wrapper)
+    const text = wrapper.get('[role="alert"]').text()
+    expect(text).toContain('Результат неизвестен')
+    expect(text).toContain('Пароль мог измениться, а мог остаться прежним')
+    expect(text).not.toMatch(/не изменены|успешно/i)
+    expect(wrapper.find('[data-testid="reset-done-signed-in"]').exists()).toBe(false)
+    expect(useSessionStore().isAuthenticated).toBe(true) // сессия не тронута: сброс не подтверждён
+    expect(resetPassword).toHaveBeenCalledTimes(1)
+    await settle()
+    expect(resetPassword).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('в соседней вкладке вошёл другой пользователь: кэш прежнего очищается, сообщение называет текущую почту', async () => {
+    vi.mocked(resetPassword).mockResolvedValue(undefined)
+    await signIn('2026-10-13T08:00:00Z')
+    const { wrapper, queryClient } = await mountAt(
+      ResetPasswordPage,
+      `/reset-password#token=${TOKEN}`,
+    )
+    queryClient.setQueryData(['account'], { owner: 'A' })
+    vi.mocked(fetchMe).mockResolvedValue({
+      canCreateOrganization: false,
+      user: {
+        id: 'user-2',
+        email: 'second@example.test',
+        displayName: 'Иван',
+        status: 'ACTIVE',
+        createdAt: '2026-10-13T00:00:00Z',
+        updatedAt: '2026-10-13T00:00:00Z',
+        emailVerifiedAt: '2026-10-13T08:00:00Z',
+        deletionDueAt: null,
+      },
+      memberships: [{ tenantId: 'tenant-a', organizationName: 'Студия', role: 'OWNER' }],
+    })
+    await submitReset(wrapper)
+    expect(wrapper.get('[data-testid="reset-done-signed-in"]').text()).toContain(
+      'вы вошли как second@example.test',
+    )
+    expect(queryClient.getQueryData(['account'])).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('«Выйти…» без подтверждения сервера: вход предупреждает, что сессия могла остаться', async () => {
+    vi.mocked(resetPassword).mockResolvedValue(undefined)
+    vi.mocked(logout).mockRejectedValue(new Error('network'))
+    await signIn('2026-10-13T08:00:00Z')
+    const { wrapper, router } = await mountAt(ResetPasswordPage, `/reset-password#token=${TOKEN}`)
+    await submitReset(wrapper)
+    await wrapper.findAll('button')[1]!.trigger('click')
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('login'), { timeout: 3000 })
+    expect(router.currentRoute.value.query.signout).toBe('unconfirmed')
+    expect(useSessionStore().isAuthenticated).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('после смены состояния фокус на заголовке результата, а не на удалённой кнопке', async () => {
+    vi.mocked(resetPassword).mockResolvedValue(undefined)
+    await signIn('2026-10-13T08:00:00Z')
+    const router = createRouter({ history: createMemoryHistory(), routes })
+    await router.push(`/reset-password#token=${TOKEN}`)
+    await router.isReady()
+    const wrapper = mount(ResetPasswordPage, {
+      attachTo: document.body,
+      global: { plugins: [router, [VueQueryPlugin, { queryClient: new QueryClient() }]] },
+    })
+    await settle()
+    await submitReset(wrapper)
+    expect(document.activeElement?.tagName).toBe('H1')
+    expect(document.activeElement?.textContent?.trim()).toBe('Пароль изменён')
+    wrapper.unmount()
+  })
+
+  it('отказ сервера (429, 5xx) сессию не трогает', async () => {
+    for (const error of [apiError(429, 'RATE_LIMITED'), apiError(500, 'INTERNAL_ERROR')]) {
+      setActivePinia(createPinia())
+      vi.mocked(resetPassword).mockReset()
+      vi.mocked(resetPassword).mockRejectedValue(error)
+      await signIn('2026-10-13T08:00:00Z')
+      const { wrapper } = await mountAt(ResetPasswordPage, `/reset-password#token=${TOKEN}`)
+      await submitReset(wrapper)
+      expect(useSessionStore().isAuthenticated).toBe(true)
+      expect(wrapper.find('form').exists()).toBe(true)
+      wrapper.unmount()
+    }
+  })
+
+  it('недействительная ссылка: вместо запроса письма (он только гостю) — настройки и «Продолжить работу», без «Запросите новое письмо»', async () => {
+    await signIn('2026-10-13T08:00:00Z')
+    const { wrapper, router } = await mountAt(ResetPasswordPage, '/reset-password')
+    expect(wrapper.get('[data-testid="reset-link-signed-in"]').text()).toContain(
+      'Настройки → Аккаунт',
+    )
+    expect(wrapper.text()).not.toContain('Запросить новую ссылку')
+    expect(wrapper.text()).not.toContain('Запросите новое письмо')
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Продолжить работу')!
+      .trigger('click')
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('radar'), { timeout: 3000 })
     wrapper.unmount()
   })
 })
@@ -241,10 +563,20 @@ describe('вход и восстановление', () => {
     wrapper.unmount()
   })
 
+  it('после локального завершения сессии вход говорит об этом и не утверждает отзыв сервером', async () => {
+    vi.mocked(fetchMe).mockRejectedValue(Object.assign(new Error('401'), { httpStatus: 401 }))
+    const { wrapper } = await mountAt(LoginPage, '/login?reset=local')
+    expect(wrapper.text()).toContain('Пароль изменён')
+    expect(wrapper.text()).toContain('завершили её здесь локально')
+    expect(wrapper.text()).not.toContain('На всех устройствах вы вышли из аккаунта')
+    wrapper.unmount()
+  })
+
   it('страница восстановления показывает форму запроса письма', async () => {
     vi.mocked(fetchMe).mockRejectedValue(Object.assign(new Error('401'), { httpStatus: 401 }))
     const { wrapper } = await mountAt(ForgotPasswordPage, '/forgot-password')
-    expect(wrapper.text()).toContain('Забыли пароль?')
+    expect(wrapper.get('h1').text()).toBe('Восстановить пароль')
+    expect(wrapper.text()).toContain('Укажите почту. Если адрес зарегистрирован')
     expect(wrapper.find('input[name="email"]').exists()).toBe(true)
     wrapper.unmount()
   })

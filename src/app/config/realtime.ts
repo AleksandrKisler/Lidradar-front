@@ -72,7 +72,12 @@ export function installRealtime(deps: RealtimeDependencies): RealtimeInstallatio
       },
       onResync: () => {
         if (activeTenant) {
-          void queryClient.invalidateQueries({ queryKey: tenantScope(activeTenant) })
+          // Reconnect must not cancel user pagination. The safety refresh above
+          // reconciles all loaded pages after an in-flight read completes.
+          void queryClient.invalidateQueries(
+            { queryKey: tenantScope(activeTenant) },
+            { cancelRefetch: false },
+          )
         }
       },
       onStateChange: (next) => {

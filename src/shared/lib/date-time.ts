@@ -5,8 +5,7 @@
  * организации, а не браузера: разные сотрудники одной организации должны
  * видеть одинаковое время.
  */
-import { formatDistanceStrict, isValid, parseISO } from 'date-fns'
-import { ru } from 'date-fns/locale'
+import { isValid, parseISO } from 'date-fns'
 
 /** Разбирает RFC 3339 и возвращает `null` для некорректной строки. */
 export function parseInstant(value: string | null | undefined): Date | null {
@@ -40,6 +39,77 @@ export function formatDateTime(
   }
 }
 
+/**
+ * Полная дата и время для контекста страницы: `23 октября 2026 · 15:40 МСК`.
+ * Неизвестный часовой пояс не роняет интерфейс — используется UTC.
+ */
+export function formatLongDateTime(value: Date, timeZone: string): string {
+  const format = (zone: string) => {
+    const date = new Intl.DateTimeFormat('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: zone,
+    }).format(value)
+    const time = new Intl.DateTimeFormat('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZoneName: 'short',
+      timeZone: zone,
+    }).format(value)
+    const clock = time
+      .replace(',', '')
+      .replace(/GMT\+3$/, zone === 'Europe/Moscow' ? 'МСК' : 'GMT+3')
+    return `${date.replace(/\s*г\.$/, '')} · ${clock}`
+  }
+  try {
+    return format(timeZone)
+  } catch {
+    return format('UTC')
+  }
+}
+
+/** Дата без года и время для карточек: `23 октября, 14:22`. */
+export function formatDayTime(
+  value: string | Date | null | undefined,
+  timeZone: string,
+): string | null {
+  const date = value instanceof Date ? value : parseInstant(value)
+  if (!date) return null
+  const format = (zone: string) =>
+    new Intl.DateTimeFormat('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: zone,
+    })
+      .format(date)
+      .replace(' в ', ', ')
+  try {
+    return format(timeZone)
+  } catch {
+    return format('UTC')
+  }
+}
+
+/**
+ * Длительность между моментами: `2 ч 18 мин`, `3 дн 4 ч`, `менее минуты`. Это
+ * календарное время, а не рабочие минуты политики риска.
+ */
+export function formatElapsed(from: string | Date | null | undefined, now: Date): string | null {
+  const start = from instanceof Date ? from : parseInstant(from)
+  if (!start) return null
+  const minutes = Math.max(0, Math.floor((now.getTime() - start.getTime()) / 60_000))
+  if (minutes < 1) return 'менее минуты'
+  const days = Math.floor(minutes / 1440)
+  const hours = Math.floor((minutes % 1440) / 60)
+  const rest = minutes % 60
+  if (days > 0) return hours > 0 ? `${days} дн ${hours} ч` : `${days} дн`
+  if (hours > 0) return rest > 0 ? `${hours} ч ${rest} мин` : `${hours} ч`
+  return `${rest} мин`
+}
+
 /** Только время `13:41` в часовом поясе организации. */
 export function formatTime(
   value: string | Date | null | undefined,
@@ -58,18 +128,72 @@ export function formatTime(
   }
 }
 
-/**
- * Относительное время без округления до «около»: `2 часа назад`,
- * `через 15 минут`. Относительная подпись всегда дополняется абсолютным
- * временем в подсказке, это делает вызывающий компонент.
+const relativeFormatter = new Intl.RelativeTimeFormat('ru-RU', { numeric: 'always' })
+
+/** date-fns 4.4.0 strict-distance semantics, specialized for our single Russian formatter.
+ * Keeping the unit/DST calculation here avoids bundling the unused default en-US locale.
+ * The independent date-fns + ru oracle remains in date-time-relative.test.ts.
  */
+function offsetMilliseconds(date: Date): number {
+  const utc = new Date(
+    Date.UTC(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      date.getHours(),
+      date.getMinutes(),
+      date.getSeconds(),
+      date.getMilliseconds(),
+    ),
+  )
+  utc.setUTCFullYear(date.getFullYear())
+  return date.getTime() - utc.getTime()
+}
+
+/** Относительное календарное время с суффиксом; callers retain the absolute-time tooltip. */
 export function formatRelative(
   value: string | Date | null | undefined,
   now: Date = new Date(),
 ): string | null {
   const date = value instanceof Date ? value : parseInstant(value)
   if (!date) return null
-  return formatDistanceStrict(date, now, { addSuffix: true, locale: ru })
+  const delta = date.getTime() - now.getTime()
+  if (!Number.isFinite(delta)) throw new RangeError('Invalid time value')
+  const [earlier, later] = delta > 0 ? [now, date] : [date, now]
+  const elapsed = Math.abs(delta)
+  const minutes = elapsed / 60_000
+  const normalized = (elapsed - (offsetMilliseconds(later) - offsetMilliseconds(earlier))) / 60_000
+  let unit: Intl.RelativeTimeFormatUnit, amount: number
+  if (minutes < 1) {
+    unit = 'second'
+    amount = elapsed / 1000
+  } else if (minutes < 60) {
+    unit = 'minute'
+    amount = minutes
+  } else if (minutes < 1440) {
+    unit = 'hour'
+    amount = minutes / 60
+  } else if (normalized < 43200) {
+    unit = 'day'
+    amount = normalized / 1440
+  } else if (normalized < 525600) {
+    unit = 'month'
+    amount = normalized / 43200
+    if (Math.round(amount) === 12) {
+      unit = 'year'
+      amount = 1
+    }
+  } else {
+    unit = 'year'
+    amount = normalized / 525600
+  }
+  const count = Math.round(amount)
+  // Preserve negative zero for equal/past moments and the absence of digit grouping.
+  return relativeFormatter
+    .formatToParts(delta > 0 ? count : -count, unit)
+    .filter((part) => part.type !== 'group')
+    .map((part) => part.value)
+    .join('')
 }
 
 /** Ключ календарного дня `YYYY-MM-DD` в часовом поясе организации. */

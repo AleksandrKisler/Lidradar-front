@@ -7,6 +7,7 @@
 import { computed } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { UiCard, UiEmptyState, UiIcon, UiPageHeader } from '@/shared/ui'
+import { sanitizeReturnPath } from '@/shared/lib'
 import { useSessionStore } from '@/entities/session'
 import { useOrganizationQuery } from '@/entities/organization'
 import type { ConversationFilters } from '@/entities/conversation'
@@ -37,6 +38,10 @@ const conversationId = computed(() =>
     : null,
 )
 const detailOpen = computed(() => rawConversationId.value !== null)
+const analyticsReturn = computed(() => {
+  const path = sanitizeReturnPath(route.query.returnTo)
+  return session.can('analytics.read') && path && /^\/analytics(?:[?#]|$)/.test(path) ? path : null
+})
 
 function setFilters(next: ConversationFilters): void {
   void router.replace({ query: conversationFiltersToQuery(next) })
@@ -45,6 +50,13 @@ function setFilters(next: ConversationFilters): void {
 
 <template>
   <div class="flex flex-col gap-6">
+    <RouterLink
+      v-if="analyticsReturn"
+      :to="analyticsReturn"
+      class="inline-flex min-h-11 items-center gap-2 self-start rounded-button border border-line bg-paper px-4 text-sm font-medium"
+    >
+      <UiIcon name="arrow-back" class="size-4" />К аналитике
+    </RouterLink>
     <UiPageHeader
       title="Диалоги"
       subtitle="Переписка и связанные риски: контекст перед ответом клиенту"

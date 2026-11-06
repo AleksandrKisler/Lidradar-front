@@ -67,14 +67,19 @@ const screens: Screen[] = [
     action: (page) => page.getByRole('button', { name: 'Добавить точку' }),
   },
   {
+    name: 'уведомления',
+    path: '/settings/notifications',
+    action: (page) => page.getByRole('list', { name: 'Настройки по типам рисков' }),
+  },
+  {
     name: 'команда',
     path: '/settings/team',
-    action: (page) => page.getByRole('button', { name: 'Пригласить' }),
+    action: (page) => page.getByRole('button', { name: 'Пригласить участника' }),
   },
   {
     name: 'аналитика',
     path: '/analytics',
-    action: (page) => page.getByRole('list', { name: 'Главные показатели' }),
+    action: (page) => page.getByRole('list', { name: 'Показатели рисков' }),
   },
   {
     name: 'мёртвые письма',

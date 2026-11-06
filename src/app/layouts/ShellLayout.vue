@@ -31,10 +31,11 @@ function onWorkspaceSwitched(): void {
 <template>
   <AppShell @logged-out="onLoggedOut" @workspace-switched="onWorkspaceSwitched">
     <UiAccessDenied
-      v-if="denied"
+      v-if="denied && !['settings-team', 'integrations'].includes(String(route.name))"
       back-label="Вернуться в Radar"
       @back="router.push({ name: 'radar' })"
     />
+    <!-- These pages own a read-only denied view and gate their queries and actions. -->
     <RouterView v-else />
   </AppShell>
 </template>

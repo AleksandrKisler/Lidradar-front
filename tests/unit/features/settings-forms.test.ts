@@ -10,7 +10,8 @@ import type { ServiceCatalogItem } from '@/entities/service'
 import { OrganizationForm } from '@/features/edit-organization'
 import { BusinessHoursEditor } from '@/features/edit-business-hours'
 import { ServiceForm } from '@/features/manage-services'
-import { LocationForm } from '@/features/manage-locations'
+import { LocationForm, locationSchema } from '@/features/manage-locations'
+import * as v from 'valibot'
 
 vi.mock('@/entities/session/api/auth-api', () => ({
   fetchMe: vi.fn(),
@@ -110,8 +111,9 @@ describe('формы настроек', () => {
     await wrapper.get('form').trigger('submit')
     await settle()
     expect(fetchMock).not.toHaveBeenCalled()
+    await vi.waitFor(() => expect(body().find('[role="dialog"]').exists()).toBe(true))
     const dialog = body().get('[role="dialog"]')
-    expect(dialog.text()).toContain('Исторические суммы не конвертируются')
+    expect(dialog.text()).toContain('Новая валюта не пересчитывает прежние суммы')
     await dialog
       .findAll('button')
       .find((button) => button.text() === 'Сохранить изменения')!
@@ -120,6 +122,30 @@ describe('формы настроек', () => {
     const patch = fetchMock.mock.calls.find(([request]) => request.method === 'PATCH')!
     expect(await patch[0].json()).toEqual({ defaultCurrency: 'KZT' })
     expect(wrapper.text()).toContain('Настройки компании сохранены.')
+    wrapper.unmount()
+  })
+
+  it('организация: «Оставить прежние» возвращает пояс и валюту, название остаётся', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ ...organization }))
+    const wrapper = mountWith(OrganizationForm, { tenantId: 'tenant-a', organization })
+    await wrapper.get('input[name="organizationName"]').setValue('Другое имя')
+    await wrapper.get('select[name="organizationCurrency"]').setValue('KZT')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    await vi.waitFor(() => expect(body().find('[role="dialog"]').exists()).toBe(true))
+    const dialog = body().get('[role="dialog"]')
+    await dialog
+      .findAll('button')
+      .find((button) => button.text() === 'Оставить прежние')!
+      .trigger('click')
+    await settle()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(
+      wrapper.get<HTMLSelectElement>('select[name="organizationCurrency"]').element.value,
+    ).toBe(organization.defaultCurrency)
+    expect(wrapper.get<HTMLInputElement>('input[name="organizationName"]').element.value).toBe(
+      'Другое имя',
+    )
     wrapper.unmount()
   })
 
@@ -181,6 +207,88 @@ describe('формы настроек', () => {
     edit.unmount()
   })
 
+  it('M-1 / US-M02-02 B1–B3: в настройках оба порога дают ошибки US-M02-02 без PATCH; границы 1 и 1440 уходят', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ ...location })))
+    const edit = mountWith(LocationForm, {
+      tenantId: 'tenant-a',
+      location,
+      defaultTimezone: 'Europe/Moscow',
+    })
+    const fieldError = (name: string) => {
+      const id = edit
+        .get(`input[name="${name}"]`)
+        .attributes('aria-describedby')
+        ?.split(' ')
+        .find((part) => part.endsWith('-error'))
+      return id ? document.getElementById(id)!.textContent?.trim() : null
+    }
+    const fields = ['responseThresholdMinutes', 'agreementThresholdMinutes'] as const
+    for (const field of fields) {
+      const other = fields.find((item) => item !== field)!
+      for (const [value, message] of [
+        ['0', 'От 1 до 1440 минут.'],
+        ['1441', 'От 1 до 1440 минут.'],
+        ['abc', 'Порог — целое число минут.'],
+      ] as const) {
+        await edit.get(`input[name="${field}"]`).setValue(value)
+        await edit.get('form').trigger('submit')
+        await settle()
+        expect(fieldError(field), `${field} = ${value}`).toBe(message)
+        expect(fieldError(other)).toBeNull()
+        expect(fetchMock).not.toHaveBeenCalled()
+      }
+      // Значение можно исправить: ошибка уходит вместе с неверным вводом.
+      await edit.get(`input[name="${field}"]`).setValue(String(location[field]))
+      await edit.get('form').trigger('submit')
+      await settle()
+      expect(fieldError(field)).toBeNull()
+    }
+    await edit.get('input[name="responseThresholdMinutes"]').setValue('1')
+    await edit.get('input[name="agreementThresholdMinutes"]').setValue('1440')
+    await edit.get('form').trigger('submit')
+    await settle()
+    const patches = fetchMock.mock.calls.filter(([request]) => request.method === 'PATCH')
+    expect(patches).toHaveLength(1)
+    expect(await patches[0]![0].json()).toEqual({
+      responseThresholdMinutes: 1,
+      agreementThresholdMinutes: 1440,
+    })
+    edit.unmount()
+  })
+
+  it('точка в окне: подписи макета, состояние выбирается списком, форма сообщает о занятости', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ ...location, active: false }, 200))
+    const wrapper = mountWith(LocationForm, {
+      tenantId: 'tenant-a',
+      location,
+      defaultTimezone: 'Europe/Moscow',
+      variant: 'dialog',
+      formId: 'dialog-form',
+    })
+    expect(wrapper.get('form').attributes('id')).toBe('dialog-form')
+    expect(wrapper.text()).toContain('Нет ответа')
+    expect(wrapper.text()).toContain('Следующий шаг')
+    expect(wrapper.text()).toContain('От 1 до 1 440 рабочих минут')
+    expect(wrapper.text()).toContain('График этой точки настраивается отдельно')
+    // Собственных кнопок нет: форму отправляет кнопка нижней панели окна.
+    expect(wrapper.find('button[type=submit]').exists()).toBe(false)
+    await wrapper.get('select[name="locationActive"]').setValue('inactive')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(await fetchMock.mock.calls[0]![0].json()).toEqual({ active: false })
+    expect(wrapper.emitted('busy')?.map(([busy]) => busy)).toEqual([true, false])
+    wrapper.unmount()
+
+    const create = mountWith(LocationForm, {
+      tenantId: 'tenant-a',
+      location: null,
+      defaultTimezone: 'Europe/Moscow',
+      variant: 'dialog',
+    })
+    expect(create.find('select[name="locationActive"]').exists()).toBe(false)
+    create.unmount()
+  })
+
   it.each(['create', 'update'] as const)(
     'точка: %s защищена от повторного submit во время валидации и запроса',
     async (kind) => {
@@ -213,6 +321,106 @@ describe('формы настроек', () => {
     },
   )
 
+  it.each(['create', 'update'] as const)(
+    'F-01: точка %s начата в A, контекст сменился на B до отправки — запрос и инвалидация в A, поздний ответ не применяется',
+    async (kind) => {
+      fetchMock.mockImplementation(async () =>
+        jsonResponse({ ...location, name: 'Новая точка' }, kind === 'create' ? 201 : 200),
+      )
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+      const wrapper = mount(LocationForm, {
+        props: {
+          tenantId: 'tenant-a',
+          location: kind === 'update' ? location : null,
+          defaultTimezone: 'Europe/Moscow',
+        },
+        global: { plugins: [[VueQueryPlugin, { queryClient }]] },
+        attachTo: document.body,
+      })
+      await wrapper.get('input[name="locationName"]').setValue('Новая точка')
+      // Команда начата в A; выбранная организация меняется до dispatch запроса.
+      const submitted = wrapper.get('form').trigger('submit')
+      await wrapper.setProps({ tenantId: 'tenant-b' })
+      await submitted
+      await settle()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      const request = fetchMock.mock.calls[0]![0]
+      expect(request.method).toBe(kind === 'create' ? 'POST' : 'PATCH')
+      expect(request.headers.get('X-Tenant-ID')).toBe('tenant-a')
+      const keys = invalidate.mock.calls.map(
+        ([filters]) => (filters as { queryKey?: readonly unknown[] } | undefined)?.queryKey,
+      )
+      expect(keys.length).toBeGreaterThan(0)
+      expect(keys.every((key) => key?.includes('tenant-a') && !key.includes('tenant-b'))).toBe(true)
+      // Ответ команды A не обновляет интерфейс организации B.
+      expect(wrapper.emitted('saved')).toBeUndefined()
+      wrapper.unmount()
+    },
+  )
+
+  it('график в настройках: ошибка у дня, красным только «до», сохранение ждёт исправления', async () => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(jsonResponse({ ...location, businessHours: [] })),
+    )
+    const wrapper = mountWith(BusinessHoursEditor, {
+      tenantId: 'tenant-a',
+      location,
+      appearance: 'settings',
+      intro: 'Часы ниже — черновик.',
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Скопировать часы первого рабочего дня')
+    await wrapper.get('input[name="closes-2"]').setValue('08:00')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(wrapper.text()).toContain('Вторник: окончание рабочего дня должно быть позже начала.')
+    expect(wrapper.get('input[name="closes-2"]').attributes('aria-invalid')).toBe('true')
+    expect(wrapper.get('input[name="opens-2"]').attributes('aria-invalid')).toBeUndefined()
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+    expect(fetchMock).not.toHaveBeenCalled()
+    // Правка поля снимает ошибку и возвращает кнопку.
+    await wrapper.get('input[name="closes-2"]').setValue('20:00')
+    expect(wrapper.text()).not.toContain('окончание рабочего дня')
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('график в настройках: ошибку дня снимают «Скопировать…» и выходной; правка порога точки не стирает часы', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ ...location, businessHours: [] }))
+    const wrapper = mountWith(BusinessHoursEditor, {
+      tenantId: 'tenant-a',
+      location,
+      appearance: 'settings',
+      intro: 'Часы ниже — черновик.',
+    })
+    await flushPromises()
+    await wrapper.get('input[name="closes-2"]').setValue('08:00')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(wrapper.text()).toContain('Вторник:')
+    // «Скопировать часы первого рабочего дня» выравнивает вторник по понедельнику и снимает ошибку.
+    await wrapper
+      .findAll('button[type="button"]')
+      .find((button) => button.text().includes('Скопировать'))!
+      .trigger('click')
+    expect(wrapper.text()).not.toContain('Вторник:')
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+    // Выходной день тоже снимает ошибку.
+    await wrapper.get('input[name="closes-3"]').setValue('08:00')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(wrapper.text()).toContain('Среда:')
+    await wrapper.get('input[name="day-3"]').setValue(false)
+    expect(wrapper.text()).not.toContain('Среда:')
+    // Правка порога точки (новый объект без изменения графика) черновик не сбрасывает.
+    await wrapper.get('input[name="opens-1"]').setValue('07:00')
+    await wrapper.setProps({ location: { ...location, responseThresholdMinutes: 50 } })
+    expect(wrapper.get<HTMLInputElement>('input[name="opens-1"]').element.value).toBe('07:00')
+    wrapper.unmount()
+    expect(wrapper.emitted('update:dirty')?.at(-1)).toEqual([false])
+  })
+
   it('график: локальная проверка, атомарный PUT и признак несохранённых изменений', async () => {
     fetchMock.mockImplementation(() =>
       Promise.resolve(jsonResponse({ ...location, businessHours: [] })),
@@ -221,11 +429,16 @@ describe('формы настроек', () => {
     await flushPromises()
     // Стартовая неделя новой точки — не «несохранённые изменения»: уход без правок не пугает.
     expect(wrapper.emitted('update:dirty')?.at(-1)).toEqual([false])
+    await wrapper.get('input[name="opens-1"]').setValue('09:00 PM')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(wrapper.text()).toContain('Укажите время открытия и закрытия')
+    expect(fetchMock).not.toHaveBeenCalled()
     await wrapper.get('input[name="opens-1"]').setValue('21:00')
     expect(wrapper.emitted('update:dirty')?.at(-1)).toEqual([true])
     await wrapper.get('form').trigger('submit')
     await settle()
-    expect(wrapper.text()).toContain('Открытие должно быть раньше закрытия')
+    expect(wrapper.text()).toContain('Время окончания должно быть позже начала.')
     expect(fetchMock).not.toHaveBeenCalled()
     await wrapper.get('input[name="opens-1"]').setValue('09:00')
     await wrapper.get('input[name="day-7"]').setValue(true)
@@ -259,9 +472,9 @@ describe('формы настроек', () => {
   it('график: «Применить время» копирует образец на рабочие дни и исчезает, когда всё одинаково', async () => {
     const wrapper = mountWith(BusinessHoursEditor, { tenantId: 'tenant-a', location })
     const apply = () =>
-      wrapper.findAll('button').find((button) => button.text().startsWith('Применить время'))
-    // В стартовой неделе суббота короче будней: выравнивать есть что, образец — понедельник.
-    expect(apply()?.text()).toBe('Применить время понедельника ко всем рабочим дням')
+      wrapper.findAll('button').find((button) => button.text().startsWith('Применить ко всем'))
+    // В стартовой неделе суббота короче будней: выравнивать есть что, образец — первый рабочий день.
+    expect(apply()?.text()).toBe('Применить ко всем рабочим дням')
     await wrapper.get('input[name="opens-1"]').setValue('08:00')
     await wrapper.get('input[name="closes-1"]').setValue('19:00')
     await apply()!.trigger('click')
@@ -276,7 +489,10 @@ describe('формы настроек', () => {
     // Если понедельник выходной, образцом служит первый рабочий день.
     await wrapper.get('input[name="day-1"]').setValue(false)
     await wrapper.get('input[name="opens-3"]').setValue('10:00')
-    expect(apply()?.text()).toBe('Применить время вторника ко всем рабочим дням')
+    expect(apply()?.text()).toBe('Применить ко всем рабочим дням')
+    // Образцом служит вторник: его время копируется на остальные рабочие дни.
+    await apply()!.trigger('click')
+    expect((wrapper.get('input[name="opens-3"]').element as HTMLInputElement).value).toBe('08:00')
     wrapper.unmount()
   })
 
@@ -295,7 +511,7 @@ describe('формы настроек', () => {
     await wrapper.get('input[name="opens-1"]').setValue('21:00')
     expect(await save()).toBe(false)
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(wrapper.text()).toContain('Открытие должно быть раньше закрытия')
+    expect(wrapper.text()).toContain('Время окончания должно быть позже начала.')
     // Исправили: неделя уходит одним PUT, результат true.
     await wrapper.get('input[name="opens-1"]').setValue('09:00')
     expect(await save()).toBe(true)
@@ -330,6 +546,125 @@ describe('формы настроек', () => {
     wrapper.unmount()
   })
 
+  it('график: повторная отправка во время PUT не дублирует команду, ошибка сохраняет часы для повтора', async () => {
+    let rejectRequest!: (response: Response) => void
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          rejectRequest = resolve
+        }),
+    )
+    const wrapper = mountWith(BusinessHoursEditor, {
+      tenantId: 'tenant-a',
+      location,
+      appearance: 'settings',
+    })
+    await wrapper.get('input[name="opens-1"]').setValue('07:00')
+    const first = wrapper.get('form').trigger('submit')
+    await flushPromises()
+    await wrapper.get('form').trigger('submit')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(wrapper.emitted('busy')?.at(-1)).toEqual([true])
+    rejectRequest(
+      jsonResponse({ error: { code: 'INTERNAL', message: 'x', traceId: 'schedule-retry' } }, 500),
+    )
+    await first
+    await settle()
+    expect(wrapper.get<HTMLInputElement>('input[name="opens-1"]').element.value).toBe('07:00')
+    expect(wrapper.emitted('update:dirty')?.at(-1)).toEqual([true])
+    expect(wrapper.emitted('busy')?.at(-1)).toEqual([false])
+    fetchMock.mockImplementation(async (request) => {
+      const body = (await request.clone().json()) as { days: Location['businessHours'] }
+      return jsonResponse({ ...location, businessHours: body.days })
+    })
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(await fetchMock.mock.calls[1]![0].json()).toMatchObject({
+      days: [
+        { weekday: 1, opensAt: '07:00', closesAt: '20:00', closed: false },
+        ...Array.from({ length: 6 }, () => expect.anything()),
+      ],
+    })
+    expect(wrapper.text()).toContain('График сохранён.')
+    expect(wrapper.emitted('update:dirty')?.at(-1)).toEqual([false])
+    wrapper.unmount()
+  })
+
+  it('график: изменённая серверная неделя при обновлении не стирает локальный черновик', async () => {
+    const wrapper = mountWith(BusinessHoursEditor, {
+      tenantId: 'tenant-a',
+      location,
+      appearance: 'settings',
+    })
+    await wrapper.get('input[name="opens-1"]').setValue('07:00')
+    await wrapper.setProps({
+      location: {
+        ...location,
+        businessHours: [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
+          weekday,
+          closed: false,
+          opensAt: '11:00',
+          closesAt: '19:00',
+        })),
+      },
+    })
+    expect(wrapper.get<HTMLInputElement>('input[name="opens-1"]').element.value).toBe('07:00')
+    expect(wrapper.emitted('update:dirty')?.at(-1)).toEqual([true])
+    wrapper.unmount()
+  })
+
+  it('график: поздний ответ A инвалидирует только A и не подтверждает неделю B', async () => {
+    const invalidate = vi.spyOn(QueryClient.prototype, 'invalidateQueries')
+    let finish!: (response: Response) => void
+    fetchMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    const wrapper = mountWith(BusinessHoursEditor, {
+      tenantId: 'tenant-a',
+      location,
+      appearance: 'settings',
+    })
+    await wrapper.get('input[name="opens-1"]').setValue('07:00')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    const request = fetchMock.mock.calls[0]![0]
+    expect(request.headers.get('X-Tenant-ID')).toBe('tenant-a')
+    const sent = (await request.clone().json()) as { days: Location['businessHours'] }
+    await wrapper.setProps({
+      tenantId: 'tenant-b',
+      location: { ...location, name: 'Другая компания' },
+    })
+    finish(jsonResponse({ ...location, businessHours: sent.days }))
+    await settle()
+    expect(wrapper.get<HTMLInputElement>('input[name="opens-1"]').element.value).toBe('09:00')
+    expect(wrapper.emitted('saved')).toBeUndefined()
+    expect(wrapper.text()).not.toContain('График сохранён.')
+    const keys = invalidate.mock.calls.map(([filters]) =>
+      typeof filters === 'function' ? undefined : filters?.queryKey,
+    )
+    expect(keys.length).toBeGreaterThan(0)
+    expect(keys.every((key) => key?.includes('tenant-a') && !key.includes('tenant-b'))).toBe(true)
+    invalidate.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('график в настройках: неверный первый рабочий интервал нельзя скопировать', async () => {
+    const wrapper = mountWith(BusinessHoursEditor, {
+      tenantId: 'tenant-a',
+      location,
+      appearance: 'settings',
+    })
+    await wrapper.get('input[name="closes-1"]').setValue('08:00')
+    const copy = wrapper.findAll('button').find((button) => button.text().includes('Скопировать'))!
+    expect(copy.attributes('disabled')).toBeDefined()
+    expect(wrapper.get<HTMLInputElement>('input[name="closes-2"]').element.value).toBe('20:00')
+    wrapper.unmount()
+  })
+
   it('услуга: пустая цена уходит null, нижняя граница не выше верхней', async () => {
     fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ id: 'svc-1' }, 201)))
     const wrapper = mountWith(ServiceForm, {
@@ -343,7 +678,7 @@ describe('формы настроек', () => {
     await wrapper.get('input[name="priceTo"]').setValue('50000')
     await wrapper.get('form').trigger('submit')
     await settle()
-    expect(wrapper.text()).toContain('Нижняя граница не может быть выше верхней')
+    expect(wrapper.text()).toContain('Цена «до» не может быть меньше цены «от».')
     expect(fetchMock).not.toHaveBeenCalled()
     await wrapper.get('input[name="priceTo"]').setValue('')
     await wrapper.get('select[name="serviceLocation"]').setValue('loc-1')
@@ -486,5 +821,52 @@ describe('формы настроек', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3)
     expect(wrapper.emitted('saved')).toHaveLength(2)
     wrapper.unmount()
+  })
+})
+
+/** AC-M02-04-04: название точки 1..200 символов, как в контракте (символы, а не UTF-16). */
+describe('схема точки: длина названия', () => {
+  const values = (name: string) => ({
+    name,
+    timezone: 'Europe/Moscow',
+    responseThresholdMinutes: '45',
+    agreementThresholdMinutes: '120',
+    active: true,
+  })
+  const issues = (name: string) =>
+    v.safeParse(locationSchema, values(name)).issues?.map((issue) => issue.message) ?? []
+
+  it('200 символов допустимо, 201 — нет; эмодзи считаются одним символом', () => {
+    expect(issues('а'.repeat(200))).toEqual([])
+    expect(issues('а'.repeat(201))).toEqual(['Слишком длинное название'])
+    expect(issues('🏠'.repeat(200))).toEqual([])
+    expect(issues('🏠'.repeat(201))).toEqual(['Слишком длинное название'])
+    expect(issues('   ')).toEqual(['Введите название точки.'])
+  })
+})
+
+/** M-1: тексты ошибок порогов — US-M02-02, ветка B (B1–B3), одинаковые для обоих полей. */
+describe('схема точки: пороги', () => {
+  const issues = (field: string, value: string) =>
+    v
+      .safeParse(locationSchema, {
+        name: 'Студия',
+        timezone: 'Europe/Moscow',
+        responseThresholdMinutes: '45',
+        agreementThresholdMinutes: '120',
+        active: true,
+        [field]: value,
+      })
+      .issues?.map((issue) => issue.message) ?? []
+
+  it.each(['responseThresholdMinutes', 'agreementThresholdMinutes'])('%s', (field) => {
+    expect(issues(field, '0')).toEqual(['От 1 до 1440 минут.'])
+    expect(issues(field, '1441')).toEqual(['От 1 до 1440 минут.'])
+    expect(issues(field, 'abc')[0]).toBe('Порог — целое число минут.')
+    expect(issues(field, '-5')[0]).toBe('Порог — целое число минут.')
+    expect(issues(field, '1.5')[0]).toBe('Порог — целое число минут.')
+    expect(issues(field, '1')).toEqual([])
+    expect(issues(field, '1440')).toEqual([])
+    expect(issues(field, ' 45 ')).toEqual([])
   })
 })

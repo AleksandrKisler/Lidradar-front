@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, ref } from 'vue'
 import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { notificationKeys } from '@/entities/notification'
@@ -47,12 +47,15 @@ describe('useTelegramLink', () => {
     document.body.innerHTML = ''
   })
 
-  function mountLink(options: Parameters<typeof useTelegramLink>[1]) {
+  function mountLink(
+    options: Parameters<typeof useTelegramLink>[1],
+    tenantId: Parameters<typeof useTelegramLink>[0] = 'tenant-a',
+  ) {
     let link!: ReturnType<typeof useTelegramLink>
     const wrapper = mount(
       defineComponent({
         setup() {
-          link = useTelegramLink('tenant-a', options)
+          link = useTelegramLink(tenantId, options)
           return () => h('div')
         },
       }),
@@ -162,6 +165,47 @@ describe('useTelegramLink', () => {
     expect(invalidate).toHaveBeenCalledWith({
       queryKey: ['tenant', 'tenant-a', 'telegram-link'],
     })
+    wrapper.unmount()
+  })
+
+  it('смена tenant забывает token и игнорирует поздний выпуск прежней организации', async () => {
+    let release!: (response: Response) => void
+    fetchMock.mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = resolve
+        }),
+    )
+    const tenant = ref('tenant-a'),
+      { link, wrapper } = mountLink({}, tenant)
+    link.issue.mutate()
+    await flushPromises()
+    tenant.value = 'tenant-b'
+    release(jsonResponse(futureToken(), 201))
+    await flushPromises()
+    expect(link.token.value).toBeNull()
+    expect(fetchMock.mock.calls[0]![0].headers.get('X-Tenant-ID')).toBe('tenant-a')
+    expect(queryClient.getQueryData(notificationKeys.link('tenant-b'))).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('поздняя проверка старого tenant не объявляет новую привязку', async () => {
+    let release!: (response: Response) => void
+    fetchMock.mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = resolve
+        }),
+    )
+    const tenant = ref('tenant-a'),
+      { link, wrapper } = mountLink({}, tenant)
+    link.check.mutate()
+    await flushPromises()
+    tenant.value = 'tenant-b'
+    release(jsonResponse({ linked: true, linkedAt: '2026-11-01T10:00:00Z' }))
+    await flushPromises()
+    expect(queryClient.getQueryData(notificationKeys.link('tenant-b'))).toBeUndefined()
+    expect(link.check.data.value).not.toBe(true)
     wrapper.unmount()
   })
 })

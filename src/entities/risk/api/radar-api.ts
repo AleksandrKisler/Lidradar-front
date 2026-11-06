@@ -8,7 +8,15 @@
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
 import { apiClient, normalizeFilters, tenantScope, unwrap } from '@/shared/api'
-import type { RadarSummary, RiskDetail, RiskFilters, RiskSeverity, RiskType } from '../model/types'
+import type {
+  RadarSummary,
+  RiskDetail,
+  RiskFeedStatus,
+  RiskFilters,
+  RiskSeverity,
+  RiskStatus,
+  RiskType,
+} from '../model/types'
 
 /** Размер страницы ленты: достаточно для первого экрана, немного для сети. */
 export const RISK_PAGE_SIZE = 20
@@ -21,10 +29,26 @@ export interface RiskPage {
 export const riskKeys = {
   summary: (tenantId: string, filters: RiskFilters) =>
     [...tenantScope(tenantId), 'radar', normalizeFilters(filters)] as const,
-  activeFeed: (tenantId: string, filters: RiskFilters) =>
-    [...tenantScope(tenantId), 'risks', { ...normalizeFilters(filters), active: true }] as const,
+  /** Без статуса — все активные (`active`); со статусом — только он: параметры несовместимы. */
+  activeFeed: (tenantId: string, filters: RiskFilters, status?: RiskFeedStatus | null) =>
+    [
+      ...tenantScope(tenantId),
+      'risks',
+      {
+        ...normalizeFilters(filters),
+        ...(status ? { status: feedGroupStatuses(status) } : { active: true }),
+      },
+    ] as const,
   /** Карточка риска; префикс `risk` отличается от лент `risks`, чтобы инвалидация была точечной. */
   detail: (tenantId: string, riskId: string) => [...tenantScope(tenantId), 'risk', riskId] as const,
+}
+
+/**
+ * Группа вкладки → статусы API. «В работе» включает ACTED: после записи действия
+ * карточка остаётся в группе. Группировка на клиенте, серверная политика не меняется.
+ */
+export function feedGroupStatuses(group: RiskFeedStatus): RiskStatus[] {
+  return group === 'ACKNOWLEDGED' ? ['ACKNOWLEDGED', 'ACTED'] : [group]
 }
 
 /** Параметры запроса из контракта, общие для сводки и ленты. */
@@ -61,12 +85,16 @@ export function fetchRadarSummary(
   )
 }
 
-/** Страница активных рисков в серверном порядке приоритета. */
+/**
+ * Страница активных рисков в серверном порядке приоритета. Вкладка статуса
+ * заменяет `active=true` на `status`: сервер не принимает оба параметра сразу.
+ */
 export function fetchActiveRisks(
   tenantId: string,
   filters: RiskFilters,
   cursor: string | null,
   signal?: AbortSignal,
+  status?: RiskFeedStatus | null,
 ): Promise<RiskPage> {
   return unwrap(
     apiClient.GET('/api/v1/risks', {
@@ -74,7 +102,7 @@ export function fetchActiveRisks(
         header: { 'X-Tenant-ID': tenantId },
         query: {
           ...toQuery(filters),
-          active: true,
+          ...(status ? { status: feedGroupStatuses(status) } : { active: true }),
           limit: RISK_PAGE_SIZE,
           ...(cursor ? { cursor } : {}),
         },
@@ -98,11 +126,14 @@ export function useRadarSummaryQuery(
 export function useActiveRisksQuery(
   tenantId: MaybeRefOrGetter<string | null>,
   filters: MaybeRefOrGetter<RiskFilters>,
+  status: MaybeRefOrGetter<RiskFeedStatus | null | undefined> = null,
 ) {
   return useInfiniteQuery({
-    queryKey: computed(() => riskKeys.activeFeed(toValue(tenantId) ?? '', toValue(filters))),
+    queryKey: computed(() =>
+      riskKeys.activeFeed(toValue(tenantId) ?? '', toValue(filters), toValue(status)),
+    ),
     queryFn: ({ pageParam, signal }) =>
-      fetchActiveRisks(toValue(tenantId)!, toValue(filters), pageParam, signal),
+      fetchActiveRisks(toValue(tenantId)!, toValue(filters), pageParam, signal, toValue(status)),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: computed(() => toValue(tenantId) !== null),

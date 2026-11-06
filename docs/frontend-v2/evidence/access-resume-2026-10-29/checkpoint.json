@@ -1,0 +1,171 @@
+{
+  "createdAtUTC": "2026-10-29T16:01:47.379827+00:00",
+  "frontendHead": "38446811c8ee4b74a66e48e10add3e8ba1c5347f",
+  "snapshotSha256": "44b0b3e6e040cb696a2afa41570667847daedfad38c71e09d2b96cb067a8e037",
+  "archive": "artifacts/frontend-v2/access-resume-2026-10-29/working-tree-44b0b3e6e040.tar.gz",
+  "archiveSha256": "f2926db3de8e9b364b31c3e4bdb76feaa1ae05632ac2e2ce22442508b8948b5f",
+  "count": 32,
+  "inputs": [
+    {
+      "path": "contracts/openapi.yaml",
+      "sha256": "9f9766cc4d23e398268aabc68d8adae6db9bf3358bf14953b151f36c617e3027",
+      "bytes": 213594
+    },
+    {
+      "path": "contracts/source.json",
+      "sha256": "8ae95ca4910cd123ab4c865e23c37c8ae962cc4371c09df33397789a89910915",
+      "bytes": 108
+    },
+    {
+      "path": "src/app/layouts/AuthLayout.vue",
+      "sha256": "f349b76c8859bbbf5970abcb61f8d308bc196c89cbb214b7507fcfa161b03b0b",
+      "bytes": 4677
+    },
+    {
+      "path": "src/entities/session/api/registration-api.ts",
+      "sha256": "f3c41232284ab8437be2f2064341f8e2553f408efc39b11df9f1c03ad72bc739",
+      "bytes": 3359
+    },
+    {
+      "path": "src/entities/session/index.ts",
+      "sha256": "ebe61c622bf98d84f6be4dd0474f9e30ef6b48d154e30a4aa82f3ef3d85122e8",
+      "bytes": 1200
+    },
+    {
+      "path": "src/features/auth-session/index.ts",
+      "sha256": "f9e86cc600e270a04c1525efc1b69cdf9cb277da2b964c5d8742f6ead8b069fc",
+      "bytes": 2295
+    },
+    {
+      "path": "src/features/auth-session/model/invitation-context.ts",
+      "sha256": "f9636e400bb7e9c2f12a8537104f0e2c590bdaeb3cfe545e8e8c67377b7db5d4",
+      "bytes": 4605
+    },
+    {
+      "path": "src/features/auth-session/model/registration-errors.ts",
+      "sha256": "c7e92678f5b16ff4194a792c43f5bfdbdc73ccd2150f129b37ef0b24dddb9047",
+      "bytes": 3501
+    },
+    {
+      "path": "src/features/auth-session/model/schemas.ts",
+      "sha256": "1cd949f0d574a24cc38bc4056b06b158c6ed634e758a1da6befca41604ae1f4c",
+      "bytes": 5582
+    },
+    {
+      "path": "src/features/auth-session/model/use-registration-flow.ts",
+      "sha256": "c0b8dc8ddd2556036f750833d1e274dc39374a894ae724b2808bbb5059153d9c",
+      "bytes": 23941
+    },
+    {
+      "path": "src/features/auth-session/ui/InvitationCodeForm.vue",
+      "sha256": "528da6e05e0199bd20db7e3e4fa67fe856c378528d46a6c20bbfbd4c93023471",
+      "bytes": 8165
+    },
+    {
+      "path": "src/features/auth-session/ui/LogoutButton.vue",
+      "sha256": "bbb4d39f9e4ddbd573387e5bfbe77fcbb2a256279c114001f6b8bdd96a1167ee",
+      "bytes": 1590
+    },
+    {
+      "path": "src/features/auth-session/ui/RegisterForm.vue",
+      "sha256": "eac9e95678b2a08d3019bc7925d653fd45795cc5ab490b6977026fa8aa6c3307",
+      "bytes": 13402
+    },
+    {
+      "path": "src/pages/login/ui/LoginPage.vue",
+      "sha256": "da2dadb036affe2608f9f4a7dc6a59c7605512e0246e9ba9021c31156b1ea041",
+      "bytes": 5338
+    },
+    {
+      "path": "src/pages/register/ui/RegisterPage.vue",
+      "sha256": "fe08879c47951de11550acab7aabd2ea3bb127e59ebf2e9965b314882f161fe3",
+      "bytes": 7678
+    },
+    {
+      "path": "src/shared/api/client/messages.ts",
+      "sha256": "a385161f0550204d2de8f1af04596c0d1203c8dfc2033b11de06887c761f48ab",
+      "bytes": 12182
+    },
+    {
+      "path": "src/shared/api/client/scope.ts",
+      "sha256": "abc3b8485109d4882c3150113d21b35b55dac363701d6fab1bf59c0be024b25a",
+      "bytes": 2490
+    },
+    {
+      "path": "src/shared/api/generated/schema.d.ts",
+      "sha256": "7c63809e48ca2085dc7e82a5a821a7051069399b5f73c63ef79ceabda7511f2f",
+      "bytes": 288052
+    },
+    {
+      "path": "src/shared/ui/icons.ts",
+      "sha256": "7828080a7463adbdebc268120cba588b2660e6cf7999b5303d035229165d8a3c",
+      "bytes": 6821
+    },
+    {
+      "path": "tests/e2e/access.spec.ts",
+      "sha256": "a95f7fe581771ebe25fc7104c23c606d486aeea0cf70de36959b521ac4b47fcb",
+      "bytes": 78351
+    },
+    {
+      "path": "tests/unit/features/invitation-code-form.test.ts",
+      "sha256": "479169f5ac5bc55e0038556067b0fd126e42d4ddff334bb1dbe76ef12ff2a5f1",
+      "bytes": 9710
+    },
+    {
+      "path": "tests/unit/features/invitation-context.test.ts",
+      "sha256": "a314d97fc7d5442fbbdb9abd0595e934f71f6bc1a83555655a8edd7e948d75fe",
+      "bytes": 10927
+    },
+    {
+      "path": "tests/unit/features/register-form.test.ts",
+      "sha256": "ef2d7b1d7e42143cb9d78979c402a884f82704a16b08922e649f1b4d4fafc1a3",
+      "bytes": 13939
+    },
+    {
+      "path": "tests/unit/features/registration-flow.test.ts",
+      "sha256": "d6c3f72b6d50e8d8aceff8559842967039738b8dec993e51fe8a7146cfb378d3",
+      "bytes": 40176
+    },
+    {
+      "path": "tests/unit/pages/invitation-registration.test.ts",
+      "sha256": "4d502469e1d9bc07ca901e30221c58619c6252eb73bdfd8f09c6482cbb1b4336",
+      "bytes": 17062
+    },
+    {
+      "path": "tests/unit/shared/api-error.test.ts",
+      "sha256": "caa78a558525ee86ccd6cd3b18cf57c981ad3c681a6dc11fb16a9a10b64c3267",
+      "bytes": 9452
+    },
+    {
+      "path": "tests/unit/shared/client.test.ts",
+      "sha256": "9eab00efd005728f7a2f1220082397d5fc9a134ef4adf5273e97ee1e979d49d1",
+      "bytes": 9869
+    },
+    {
+      "path": "tooling/visual/README.md",
+      "sha256": "6db470e6fe1fe1a8fe2e8d86e7e9cf0028fe52354d233077560ced109edfb6ad",
+      "bytes": 3736
+    },
+    {
+      "path": "tooling/visual/capture.spec.ts",
+      "sha256": "7ecac4c93688ff302c33d124dbbacdda52885277c8362fed7dea8052cff9c4c0",
+      "bytes": 55277
+    },
+    {
+      "path": "tooling/visual/pairs.json",
+      "sha256": "47d9d1c6adff473a433c8e2e0f8f1ffd67ea25d1a3da87ad1d71bee1e8c4139f",
+      "bytes": 28166
+    },
+    {
+      "path": "tooling/visual/us-m01-01-compare.mjs",
+      "sha256": "8d5b28ed7d6ca2f3daffbad54532a4ad1f9648dff76615989de26623bcfc2263",
+      "bytes": 12645
+    },
+    {
+      "path": "tooling/visual/us-m01-01.capture.spec.ts",
+      "sha256": "a84b834ba62c6abda6768738a7975abd2427a2e81f40df6772196a2c653d87e0",
+      "bytes": 17418
+    }
+  ],
+  "note": "Source/test/contract/tooling checkpoint only. No ENV, credentials or user/session data. No product tests run in this preparation."
+}

@@ -441,8 +441,10 @@ describe('ExportOrganizationCard', () => {
       fileResponse('lidradar-organization-20261014.zip', 'application/zip', 'x'.repeat(2048)),
     )
     const wrapper = mount(ExportOrganizationCard, { props: { tenantId: 'tenant-a' } })
-    expect(wrapper.text()).toContain('Не входят: ключи и секреты')
-    expect(wrapper.text()).toContain('Не чаще трёх раз в час')
+    expect(wrapper.text()).toContain(
+      'Пароли и ключи доступа, служебные данные и личные данные участников.',
+    )
+    expect(wrapper.text()).toContain('Не чаще 3 раз в час')
     await wrapper.get('[data-testid="export-organization"]').trigger('click')
     await settle()
 
@@ -455,7 +457,8 @@ describe('ExportOrganizationCard', () => {
     const saved = wrapper.get('[data-testid="export-organization-saved"]')
     expect(saved.text()).toContain('lidradar-organization-20261014.zip')
     expect(saved.text()).toContain('2\u00a0КБ')
-    expect(saved.text()).toContain('manifest.json')
+    expect(saved.text()).toContain('Файл передан браузеру для скачивания.')
+    expect(saved.text()).not.toContain('manifest.json')
     wrapper.unmount()
   })
 
@@ -484,42 +487,65 @@ describe('ExportOrganizationCard', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
     release(fileResponse('a.zip', 'application/zip'))
     await settle()
-    expect(button.text()).toBe('Скачать архив')
+    expect(button.text()).toBe('Скачать архив ZIP')
     wrapper.unmount()
   })
 
-  it('предел и занятость показывают срок повтора, нехватка права — обычное объяснение', async () => {
+  it('предел и занятость запрещают ранний повтор; после Retry-After проверяется право', async () => {
+    vi.useFakeTimers()
     const wrapper = mount(ExportOrganizationCard, { props: { tenantId: 'tenant-a' } })
-    fetchMock.mockResolvedValueOnce(
-      errorResponse(429, 'RATE_LIMITED', { headers: { 'Retry-After': '2460' } }),
-    )
-    await wrapper.get('[data-testid="export-organization"]').trigger('click')
-    await settle()
-    expect(wrapper.get('[data-testid="export-organization-error"]').text()).toContain(
-      'Слишком много попыток',
-    )
-    expect(wrapper.get('[data-testid="export-organization-error"]').text()).toContain(
-      'Повторите через 41 мин',
-    )
+    const action = wrapper.get('[data-testid="export-organization"]')
+    const settleExport = async () => {
+      await vi.advanceTimersByTimeAsync(30)
+      await flushPromises()
+    }
+    try {
+      fetchMock.mockResolvedValueOnce(
+        errorResponse(429, 'RATE_LIMITED', { headers: { 'Retry-After': '2460' } }),
+      )
+      await action.trigger('click')
+      await settleExport()
+      expect(wrapper.get('[data-testid="export-organization-error"]').text()).toContain(
+        'Лимит выгрузок достигнут',
+      )
+      expect(wrapper.get('[data-testid="export-organization-error"]').text()).toContain(
+        'Повторите через 41 минуту',
+      )
+      expect(action.attributes('aria-disabled')).toBe('true')
+      await action.trigger('click')
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(2460000)
+      expect(action.attributes('aria-disabled')).toBeUndefined()
 
-    fetchMock.mockResolvedValueOnce(
-      errorResponse(429, 'EXPORT_BUSY', { headers: { 'Retry-After': '30' } }),
-    )
-    await wrapper.get('[data-testid="export-organization"]').trigger('click')
-    await settle()
-    expect(wrapper.get('[data-testid="export-organization-error"]').text()).toContain(
-      'Выгрузка уже выполняется',
-    )
-    expect(wrapper.get('[data-testid="export-organization-error"]').text()).toContain('30 с')
+      fetchMock.mockResolvedValueOnce(
+        errorResponse(429, 'EXPORT_BUSY', { headers: { 'Retry-After': '30' } }),
+      )
+      await action.trigger('click')
+      await settleExport()
+      expect(wrapper.get('[data-testid="export-organization-error"]').text()).toContain(
+        'Сейчас нельзя начать выгрузку',
+      )
+      expect(wrapper.get('[data-testid="export-organization-error"]').text()).toContain(
+        'Повторите через 30 секунд',
+      )
+      await action.trigger('click')
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      await vi.advanceTimersByTimeAsync(30000)
 
-    fetchMock.mockResolvedValueOnce(errorResponse(403, 'FORBIDDEN'))
-    await wrapper.get('[data-testid="export-organization"]').trigger('click')
-    await settle()
-    expect(wrapper.get('[data-testid="export-organization-error"]').text()).toContain(
-      'Раздел недоступен',
-    )
-    expect(downloads).toHaveLength(0)
-    expect(wrapper.find('[data-testid="export-organization-saved"]').exists()).toBe(false)
-    wrapper.unmount()
+      const refresh = vi.spyOn(useSessionStore(), 'refresh')
+      fetchMock.mockResolvedValueOnce(errorResponse(403, 'FORBIDDEN'))
+      await action.trigger('click')
+      await settleExport()
+      expect(wrapper.get('[data-testid="export-organization-error"]').text()).toContain(
+        'У вашей роли нет доступа к этому действию.',
+      )
+      expect(refresh).toHaveBeenCalledTimes(1)
+      expect(fetchMock).toHaveBeenCalledTimes(3)
+      expect(downloads).toHaveLength(0)
+      expect(wrapper.find('[data-testid="export-organization-saved"]').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
+      vi.useRealTimers()
+    }
   })
 })

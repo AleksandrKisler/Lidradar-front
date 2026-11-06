@@ -7,9 +7,11 @@
  * «возвращённой выручки» подставляется цепочка риск → действие → исход из
  * снимка карточки. Ключ идемпотентности создаётся до первого запроса, при
  * неизвестном результате повтор идёт тем же ключом, а пока запрос выполняется,
- * диалог нельзя закрыть. Конфликт атрибуции требует сверки истории оплаты.
+ * диалог нельзя закрыть. Конфликт атрибуции требует сверки: владельцу с правом
+ * аналитики — через существующую аналитику, менеджеру — через владельца.
  */
 import { computed, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { describeError, isApiError } from '@/shared/api'
@@ -24,6 +26,7 @@ import {
   type UiSelectOption,
 } from '@/shared/ui'
 import { CURRENCY_OPTIONS } from '@/entities/organization'
+import { useSessionStore } from '@/entities/session'
 import {
   ATTRIBUTION_TYPES,
   attributionDescription,
@@ -89,6 +92,10 @@ const submitLabel = computed(() => {
     : null
   return formatted ? `Подтвердить ${formatted}` : 'Подтвердить оплату'
 })
+
+const session = useSessionStore()
+// Менеджер аналитику не читает: ссылка ведёт только туда, где раздел доступен.
+const canOpenAnalytics = computed(() => session.can('analytics.read'))
 
 const alreadyAttributed = computed(
   () =>
@@ -324,9 +331,18 @@ watch(
         {{ errorView.description }}
       </UiAlert>
       <UiAlert v-if="alreadyAttributed" tone="warning" title="Возвращённая выручка уже учтена">
-        Сначала сверьте существующее подтверждение в истории оплат. Не записывайте тот же платёж
-        повторно. Для отдельного дополнительного платежа откройте новую форму и подтвердите его
-        сумму.
+        Не записывайте тот же платёж повторно. Для отдельного дополнительного платежа откройте новую
+        форму и подтвердите его сумму.
+        <template v-if="canOpenAnalytics">
+          Сверьте учтённую выручку в аналитике.
+          <RouterLink :to="{ name: 'analytics' }" class="mt-3 block font-medium text-link underline"
+            >Открыть аналитику</RouterLink
+          >
+        </template>
+        <template v-else>
+          Попросите владельца организации сверить учтённую выручку: у вашей роли нет доступа к
+          аналитике.
+        </template>
       </UiAlert>
       <UiAlert v-if="record.canRetry.value" tone="warning" title="Результат неизвестен">
         Сохранена незавершённая отправка: {{ record.draft.value?.body.amount }}

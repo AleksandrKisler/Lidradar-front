@@ -47,7 +47,7 @@ test('истёкший ключ требует сверки и блокируе�
     })
   })
   await page.goto(`/risks/${RISK_ID}`)
-  await page.getByLabel('Что сделано').selectOption('CALL')
+  await page.getByLabel('Что вы сделали').selectOption('CALL')
   await page.getByRole('button', { name: 'Записать действие' }).click()
   await expect(page.getByText('Срок ответа по ключу истёк')).toBeVisible()
   await expect(page.getByText(/Сверьте историю действия или оплаты/)).toBeVisible()

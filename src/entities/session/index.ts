@@ -13,6 +13,7 @@ export type {
 export { login, register, fetchMe, logout } from './api/auth-api'
 export type { LoginRequest, RegisterRequest, AuthResponse } from './api/auth-api'
 export {
+  checkRegistrationInvitation,
   fetchRegistrationMode,
   registrationKeys,
   useRegistrationModeQuery,

@@ -113,3 +113,24 @@ describe('LoginForm', () => {
     wrapper.unmount()
   })
 })
+
+describe('LoginForm: отправка (Figma 459:3312)', () => {
+  it('во время запроса поля заблокированы, кнопка показывает «Входим…» и сохраняет имя «Войти»', async () => {
+    setActivePinia(createPinia())
+    vi.mocked(login).mockReset()
+    let release: (value: never) => void = () => {}
+    vi.mocked(login).mockImplementation(() => new Promise((resolve) => (release = resolve)))
+    const wrapper = mount(LoginForm)
+    await fill(wrapper, 'owner@example.test', 'very-secure-password')
+    await wrapper.get('form').trigger('submit')
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    const button = wrapper.get('button[type="submit"]')
+    expect(button.attributes('aria-busy')).toBe('true')
+    expect(button.text()).toContain('Входим…')
+    expect(button.get('.sr-only').text()).toBe('Войти')
+    expect(wrapper.get('input[name="email"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('input[name="password"]').attributes('disabled')).toBeDefined()
+    release({ user: { id: 'u' } } as never)
+    wrapper.unmount()
+  })
+})

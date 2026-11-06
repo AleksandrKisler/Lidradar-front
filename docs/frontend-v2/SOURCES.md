@@ -1,0 +1,269 @@
+# Источники и приоритеты
+
+**Решение владельца 03.11.2026:** согласованы все три вкладки Аналитики и
+адаптивы: Обзор `1636:7923`, Риски и качество `1656:14471`, Оплаты `1690:31301`.
+Включены новая desktop-база Оплат, синхронизация C, общий KPI `ΣTP/(ΣTP+ΣFP)`
+и подпись «По дате действия». Текущие источники — approved-записи
+`otherAreas[analytics].{overviewStatesDraft,riskQualityStatesDraft,paymentsStatesDraft}`
+и их node tables. Старые pending-пометки ниже и в исторических отчётах
+заменены [согласованием](evidence/analytics-design-approval-2026-11-03.md).
+
+Подготовлен [промпт реализации](prompts/analytics-implementation-2026-11-03.md).
+Для этой разработки владелец прямо ограничил тесты аналитикой и конкретной
+выполненной работой; полный прогон приложения и финальная приёмка frontend
+отложены до завершения frontend. Это уточнение выше общих требований WORKFLOW
+о финальных gates, не требует отключать существующие тесты/CI и не означает
+runtime PASS. Текущее поручение — подготовка промпта, реализация ещё не начата.
+
+Оплаты, состояния03.11.2026: область1690:31301,66сценариев×3адаптива,198 viewport/документов. Pending-owner-approval; Desktop1440 — новая база, исходные328:17743/328:18019 и shared masters сохранены. Переиспользованы период/refresh/errors/guards, существующие назначения. Карта, синхронизацияC и ограничения: otherAreas[analytics].paymentsStatesDraft и [evidence](evidence/analytics-payments-states-2026-11-03.md). NO/NR используют независимые прежние fixtures только для сохранения периода; общего денежного snapshot не утверждают. Frontend не реализуется; runtime и playback UNVERIFIED.
+
+Риски и качество, состояния03.11.2026: новая область1656:14471,53сценария
+на1440/834/390 в отдельных viewport. Статус pending-owner-approval,
+US-M13-04 и общие US-M13-01/03; frontend не реализуется. Карта и ограничения:
+`otherAreas[analytics].riskQualityStatesDraft` и
+[evidence](evidence/analytics-risk-quality-states-2026-11-03.md).
+Оригинальные1606:7777/1622:7834/1622:8555, существующий Обзор1636:7923,
+shared masters/tokens сохранены. Общий KPI ΣTP/(ΣTP+ΣFP) и подпись
+«По дате действия» предложены для согласования, не утверждены.
+
+Обзор Аналитики02–03.11.2026: область состояний `1636:7923`,41сценарий
+×1440/834/390 =123кадра, только US-M13-01/02/03. Статус — на согласование,
+без реализации. `otherAreas[analytics].overviewStatesDraft` содержит карту,
+manifest и [evidence](evidence/analytics-overview-states-2026-11-03.md).
+Основные1606:7507/1622:7517/1622:8245 и shared masters сохранены. Это не
+заменяет source frames как утверждённый эталон и не присваивает runtime PASS.
+
+Фон6 новых макетов Аналитики исправлен02.11.2026 по замечанию владельца:
+canvas#F5F5F7 изRadar C27:2765. `otherAreas[analytics].backgroundCorrection`
+заменяет только root backgrounds в historical desktop/adaptive manifests;
+геометрия/содержимое прежние. [Evidence](evidence/analytics-background-2026-11-02.md).
+
+Адаптации Аналитики02.11.2026: tablet Обзор1622:7517, Риски1622:7834;
+mobile Обзор1622:8245, Риски1622:8555. Pending owner approval, точная карта
+`otherAreas[analytics].adaptiveLayoutComposition`; [evidence](evidence/analytics-adaptives-2026-11-02.md).
+Использованы текущие desktop content1606:7542/1606:7812: прежние content328:17122/
+328:17325 уже отсутствовали в Figma до начала этой итерации. Их historical ссылки
+ниже сохраняются как история. Runtime этой дизайн-задачей не менялся.
+
+Аналитика02.11.2026: два новых содержимых макета328:17122/328:17325 помещены
+в основной desktop layout C. Composed frames Обзор1606:7507(1440×1939),
+Риски и качество1606:7777(1440×2168) подготовлены к согласованию. Точная карта:
+`otherAreas[analytics].desktopLayoutComposition`; [evidence](evidence/analytics-desktop-layout-2026-11-02.md).
+Текст/геометрия контента равны исходникам, оригиналы и адаптивы сохранены. Это не запуск
+runtime и не автоматическое утверждение новых макетов.
+
+Уточнение владельца 01.11.2026: до фактического релиза соблюдать
+[DESIGN-FREEZE.md](DESIGN-FREEZE.md) и `releaseDesignFreeze` в design-index.
+Заморожены только макеты Доступа. Настройки, Аналитика и остальные разделы
+вне заморозки; реализация и QA используют текущие утверждённые источники.
+
+## Локальные корни
+
+Актуальные настройки: «Компания и график» утверждена на трёх адаптивах;
+«Услуги и цены» desktop `1307:13282`, планшет `1338:13676` и mobile `1352:14063`
+утверждены01.11.2026. Mobile approval R40 относится к12 кадрам R39:
+карточки услуг и полноэкранные попапы390×844. В R40 добавлены ещё два кадра
+подтверждения отключения на каждый адаптив (четвёртая строка).
+R41 добавляет по одному loading-состоянию отключения; успешный ответ закрывает
+окно без экрана успеха. Новые loading IDs и правило — в `dialogs.disable`.
+R42 завершает комплект error-состоянием с повтором в loading того же адаптива.
+Решением R43 от01.11.2026 владелец утвердил все normal/loading/error окна
+отключения на трёх адаптивах. Полный комплект услуг — по16 кадров — approved.
+Точные указатели и решения — `settingsCompanyAndScheduleSelection` и
+`settingsServicesSelection.tabletDraft` / `mobileDraft` в design-index. Утверждение источника
+настроек не вводит для него заморозку.
+
+- Frontend (единственная область правок): `/Users/aleksandrkisler/Develop/LidradarWorksapce/Lidradar-front`.
+- Backend documentation (чтение): `/Users/aleksandrkisler/Develop/LidradarWorksapce/Lidradar/docs` (по умолчанию `../Lidradar/docs` от корня frontend; переопределяется через `LIDRADAR_BACKEND_DOCS`).
+- Новый дизайн (чтение): `/Users/aleksandrkisler/Documents/LidRadar_MVP_v1.1_package/design`.
+- Figma: https://www.figma.com/design/jN8Hhzn6ObIAEi7FoY9kPu/LidRadar
+
+Launcher добавляет только два каталога источников. Не добавляй весь backend
+или домашний каталог. В Desktop при недоступности источников используй launcher.
+
+## Что чему отвечает
+
+1. Последние явные решения пользователя — область работы и выбор дизайна.
+2. Принятые ADR / API / политика — полномочия, деньги, lifecycle, данные.
+3. `docs/user-stories/` в backend — пользовательские пути и негативные проверки.
+4. Текущие выбранные Figma frames — внешний вид и адаптивы.
+5. Код, тесты, старые SVG и исторические QA — свидетельства, не новая политика.
+
+Конфликт фиксируй с обеими ссылками; не разрешай бизнес-конфликт догадкой.
+Цитаты UI в user stories могли относиться к старому интерфейсу: выбранный новый
+текст можно перенести, но эффект действия сохраняется. Записывай расхождение
+в отчёте; legal/security/money copy не переопределяй без авторитетного основания.
+
+## User stories (backend docs/user-stories)
+
+| Этап                   | Файлы                                                                               |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| Введение               | README.md, 01-start-here.md, 04-modules-map.md                                      |
+| Доступ                 | 10-access.md                                                                        |
+| Онбординг              | 11-onboarding.md, 12-services.md, 13-channels.md                                    |
+| Radar                  | 16-radar-risks.md, 15-opportunities.md, 17-actions-outcomes.md, 18-revenue.md       |
+| Диалоги / AI           | 14-conversations.md, 21-ai-analysis.md                                              |
+| Аналитика              | 22-analytics.md                                                                     |
+| Настройки / интеграции | 12-services.md, 13-channels.md, 19-notifications.md, 20-team.md, 23-privacy-data.md |
+| Admin                  | 24-platform-admin.md                                                                |
+| Общая регрессия        | 25-cross-cutting.md, 30-journeys.md                                                 |
+
+Для каждого сценария сохраняй точные US-Mxx-xx IDs и ссылки на тесты.
+Stories про email, Telegram, фоновые задачи и AI дели на проверенную frontend-часть
+и интеграционную проверку на разрешённом стенде; моки не закрывают весь story.
+
+## Контракты
+
+В frontend: `docs/architecture.md`, `docs/testing.md`, `contracts/openapi.yaml`,
+`contracts/source.json`, `src/shared/api/generated/schema.d.ts`.
+В backend docs: `front-end/01-architecture.md`, `02-entities.md`, `03-api.md`,
+`04-feature-blocks.md`, `05-sequence-map.md`, `07-quality.md`, `08-readiness-gaps.md`;
+читать по сценарию. Исторический `front-end/TASKS.md` не заменяет v2 очередь.
+
+В дизайн-пакете для Settings/Admin: `frontend-contract.md`, `backend-contract.md`,
+`STATES.md`, `RESPONSIVE.md`, `responsive-final.json`; для Dialogs/Analytics:
+`frontend-audit.md`, `backend-audit.md`, `DELIVERY.md`. Это полезная сверка,
+но позднейший принятый ADR/API имеет приоритет.
+
+## Карта дизайна
+
+`design-index.json` — компактный указатель, а не экспорт всех свойств Figma.
+Для настроек «Компания и график» 01.11.2026 утверждены desktop `1189:10891`,
+планшет `1246:10269` и полный мобильный комплект `1277:11797`, по 21 экрану/
+состоянию на адаптив. Точные узлы: `settingsCompanyAndScheduleSelection`,
+`tabletDraft` и `mobileDraft`, оба адаптивных ключа со status approved
+(имена ключей исторические). Мобильный эталон включает fullscreen попапы390×844
+и исправления R31. Решение — `r32.json`; удалённые макеты не использовать.
+Утверждение дизайна не присваивает реализации новый runtime PASS.
+Для «Услуг и цен» утверждены desktop `1307:13282`, планшет `1338:13676`
+и mobile `1352:14063`: `settingsServicesSelection`, `tabletDraft` и `mobileDraft`
+со status approved. Все `dialogs.disable` утверждены решением R43: desktop
+`1366:14735`, tablet `1366:15008`, phone `1366:15255` с открытыми host рядом.
+Loading R41: desktop `1370:15071`, tablet `1370:15094`, phone `1370:15117`.
+Error R42: desktop `1373:15125`, tablet `1373:15152`, phone `1373:15179`.
+Construction manifest `artifacts/frontend-v2/settings-polish/figma-2026-10-31/r42.json`,
+approval `artifacts/frontend-v2/settings-polish/figma-2026-10-31/r43.json`.
+«Уведомления» утверждены владельцем01.11.2026, R47: область `1392:15150`,
+desktop `1393:15150`, tablet `1393:15932`, mobile `1393:16559`, по29 кадров
+на адаптив. Точные состояния — `settingsNotificationsSelection`; эта запись
+заменяет старые визуальные эталоны только уведомлений. Утверждён итог R44–R46:
+редактор правил, личный Telegram, подтверждения и обратная связь, включая
+последние бордеры и оформление подключения. Состав и текущая геометрия —
+`artifacts/frontend-v2/settings-polish/figma-2026-10-31/notifications-redesign-r47/manifest.json`.
+Исторические manifests R44/R45/R46 сохранены; R44 PNG предшествуют финальным
+правкам. Выбор макетов не разрешает реализацию без отдельного поручения и не
+означает runtime TEST/FUNCTIONAL/UI PASS.
+«Команда и доступ» утверждена владельцем01.11.2026, R54: область `1426:18281`,
+desktop `1427:18286`, tablet `1428:19529`, mobile `1428:21909`, по47 кадров,
+всего141. Точные основные состояния, диалоги и открытые host —
+`settingsTeamSelection`. Утверждён итог R48–R53, включая компактный плюс,
+карандаш/корзину и правое выравнивание мобильных действий. Текущие имена,
+геометрия и контрольный снимок —
+`artifacts/frontend-v2/settings-polish/figma-2026-10-31/team-redesign-r54/manifest.json`.
+Превью основных экранов: desktop/tablet R50 и mobile R53; исходные R48 PNG
+предшествуют последним правкам. Старые team-визуалы остаются историческими;
+вкладка «Данные», Access и прочие утверждённые разделы не заменены.
+Утверждение дизайна не запускает реализацию и не присваивает runtime PASS.
+Очистка Настроек R55 по поручению владельца01.11.2026: старые128 экранов/
+диалогов этих четырёх разделов удалены. Исторические manifests/экспорты остаются
+evidence; старые notes о сохранении legacy-узлов на canvas больше не актуальны.
+Все8 approved областей визуально сохранены,140 prototype-ссылок обновлены;
+на US-странице `689:3915` исправлены39 ссылок на актуальные утверждённые кадры.
+«Данные» и «Аккаунт» сохранены. Карта — `settingsPageCleanup`, manifest —
+`artifacts/frontend-v2/settings-polish/figma-2026-10-31/settings-cleanup-r55/manifest.json`.
+«Данные и конфиденциальность» утверждены владельцем01.11.2026, R57:
+область `1499:23110`, desktop `1499:23486`, tablet `1499:25281`, mobile
+`1499:26740`, по22 кадра, всего66. Эталон — `settingsPrivacySelection`,
+исторический `settingsPrivacyDraft` заменён этой approved-записью.
+R57 уточняет12 окон отзыва и3 успешных состояния по выбранному владельцем
+тексту: новые включения прекращаются, Radar продолжает работу, история
+согласий сохраняется; успех сообщает только об отзыве согласия. Удаление
+созданных наборов этим решением не определено. Текущий снимок и текст —
+`artifacts/frontend-v2/settings-polish/figma-2026-10-31/privacy-redesign-r57/manifest.json`.
+Исходный R56/evidence сохранён как история. В R59 старый Privacy `531:4174`
+и40 других устаревших экранов/диалогов удалены из canvas, всего3155 узлов.
+Пять ссылок и превью US обновлены на утверждённый Privacy;124 prototype-перехода
+направлены на соответствующий адаптив. Все9 approved областей/адаптивов
+и49 Account/navigation кадров визуально сохранены; backend-контракт и runtime
+acceptance не изменены. Карта — `settingsPrivacySelection.canvasCleanup`,
+evidence —
+`artifacts/frontend-v2/settings-polish/figma-2026-10-31/privacy-cleanup-r59/manifest.json`.
+R58 синхронизирует названия областей «Уведомления», «Команда и доступ»,
+«Данные и конфиденциальность» и две обзорные подписи со статусом «Утверждено».
+Решения R47/R54/R57 и состав экранов сохранены; прежние снимки исторические.
+Точный diff пяти служебных узлов —
+`artifacts/frontend-v2/settings-polish/figma-2026-10-31/settings-status-labels-r58/manifest.json`.
+Поправка владельца01.11.2026 `N-SHELL-HEADER-01`: во всех48 desktop-хедерах
+трёх областей выше ссылка «Аккаунт» использует `hig/accent` (`#0071E3`),
+верхний отступ32px (`spacing/32`), эталон `1307:13352`. Auto layout сдвигает
+контент вниз8px; текущие полные desktop-экраны1238/1504/1222px по высоте.
+Tablet/mobile и общие masters сохранены. Используй `desktopHeaderCorrection`
+в трёх selections и [evidence](evidence/settings-desktop-header-2026-11-01.md)
+поверх исторических approval snapshots; это не новый runtime PASS.
+
+Новое решение владельца02.11.2026 `N-ACCOUNT-LINK-COLOR-01` заменяет только
+цвет: все текстовые «Аккаунт →» в текущих app headers используют `color/link`
+`#005BB5` (`text-link`),включаяtablet. Отступ32/1120×44/горизонтальный40 и
+типографика сохранены;brand/avatar/buttons прежние. Применяй
+`accountLinkColorCorrection` поверх прежних `desktopHeaderCorrection` и
+`approvedSnapshot`. Исторический #0071E3 не является текущим эталоном этой ссылки.
+Новые25nativePNG,включая18Privacyheaderstates,и source map — в
+`artifacts/frontend-v2/account-link-color/`; [отчёт](evidence/account-link-color-2026-11-02.md).
+Интеграции01.11.2026: правки6 замечаний владельца в403:3265/403:3266,
+включая3 адаптива. Источники: единые бейджи по1393:15640 и ошибки баннерами
+по1398:16378, FirstError без переноса после иконки, Telegram без Business,
+Empty-кнопка с логотипом. `otherAreas[integrations].designCorrection` содержит
+manifest и [отчёт](evidence/integrations-design-2026-11-01.md).
+Макеты R1+R2 утверждены владельцем01.11.2026; карточки историй M04 в Figma
+синхронизированы. `designCorrection.userStoriesCanvasUpdate` и
+[отчёт](evidence/integrations-stories-2026-11-01.md) фиксируют состав и проверку.
+Канонический backend Markdown и runtime в этой задаче не менялись;
+критерии REQUIRED_NOT_VERIFIED, продуктовый verdict не присваивается.
+
+Последующее поручение01.11.2026: канонические истории в
+`Lidradar/docs/user-stories/13-channels.md` синхронизированы с этим комплектом,
+одна связанная строка J1 исправлена в30-journeys.md.41 AC, все
+REQUIRED_NOT_VERIFIED; US-M04-03/06 сохранены. Backend/API не менялись.
+Состав — `designCorrection.canonicalStoryUpdate` и
+[отчёт](../proposals/us-m04-integrations-story-update-2026-11-01.md).
+
+Access/Onboarding: approved `id` из ledger, не legacy `sourceId` из plan.
+Для согласованных 30.10.2026 US-M01-03–08 используй также
+`access.userStoryFlows`: шесть точных путей, 47 desktop-сцен и версия
+канонических требований в `Lidradar/docs/user-stories/10-access.md`.
+Согласование этого пакета не означает новый runtime PASS или отдельное
+согласование tablet/mobile; сохранённые адаптивные эталоны продолжают действовать.
+Согласованные 30.10.2026 пути US-M02-01/02/03 указаны в
+`onboarding.userStoryFlows`: 25 desktop-сцен, версия требований и ссылки на
+`Lidradar/docs/user-stories/11-onboarding.md`. Для общих состояний шага 2,
+адаптивов и поведения US-M02-04 сохраняются `onboarding.step2` и его уточнение
+от 30.10; новые пути не отменяют этот пакет или открытые findings реализации.
+Onboarding: для второго шага используй `onboarding.step2` — 36 текущих кадров,
+согласованные правила и компактные компоненты; этот блок заменяет прежние
+ledger/correction/skeleton-эталоны только шага 2. Уточнение пользователя
+30.10.2026 в [US-M02-04](../../../Lidradar/docs/user-stories/11-onboarding.md#us-m02-04)
+и [решении](../../../Lidradar/docs/engineering/US-M02-04-IMPLEMENTATION.md)
+имеет приоритет над старыми подписями unset в кадрах 03/04: default 10:00–19:00,
+POST → PUT, повтор только PUT; backend/ADR 0045 прежние, ADR 0069 отозван.
+`onboarding.step2.behaviorClarification` фиксирует это расхождение без
+переименования живых кадров. Для остальных шагов учти `latestCorrection`
+и последующие исправления skeleton.
+Radar: действующие оригинальные эталоны и новые адаптивы указаны отдельно;
+не импортируй исторический radar-hig-review ledger как утверждённый пакет.
+30.10.2026 владелец выбрал оболочку C и поручил перенести её в основные макеты:
+белая панель навигации, аккаунт/шестерёнка в хедере, workspace внизу. Перенос
+на 23 desktop/tablet/phone экрана и меню записан в `radar.shellSelection`;
+[карта и ограничения](evidence/radar-shell-c-2026-10-30.md). Остальной контент
+канонических Radar frames сохранён; runtime этим дизайн-поручением не менялся.
+Следующая итерация того же дня переработала 14 tablet/phone frames: единый app bar,
+touch-меню и компактный layout. Текущая компактная оболочка —
+`radar.shellSelection.adaptiveRework`, [evidence](evidence/radar-adaptive-rework-2026-10-30.md).
+Обзор viewport: `1050:16004` (834×1194) и `1050:16073` (390×844). Desktop C прежний.
+Остальные разделы требуют выбора актуального финального frame в своих ledgers.
+
+В начале этапа получи metadata/design context/screenshot только выбранных nodes.
+Сохрани в `docs/frontend-v2/evidence/<stage>/` source-map с node, именем,
+состоянием, viewport, датой получения и локальным путём экспорта. PNG/diff/logs
+храни в игнорируемом `test-results/frontend-v2/<stage>/`; не загружай в git
+сырые огромные tool responses. При недоступном MCP запроси доступ или экспорт
+нужных frames; не называй текстовое описание pixel-perfect эталоном.

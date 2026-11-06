@@ -1,301 +1,325 @@
 <script setup lang="ts">
-/**
- * Редактор настройки уведомлений одного типа риска. Любое изменение
- * отправляется полным PUT; сброс возвращает серверное значение по умолчанию
- * через DELETE и перечитывание. Telegram-канал без личной привязки
- * сопровождается предупреждением, но окончательно проверяет сервер.
- */
-import { computed, ref, watch } from 'vue'
-import { useMutation, useQueryClient } from '@tanstack/vue-query'
+import { computed, nextTick, ref, watch, type CSSProperties } from 'vue'
 import { describeError, isApiError } from '@/shared/api'
-import {
-  UiAlert,
-  UiBadge,
-  UiButton,
-  UiDialog,
-  UiField,
-  UiInput,
-  UiSelect,
-  type UiSelectOption,
-} from '@/shared/ui'
+import { UiAlert, UiButton, UiField, UiInput, UiSelect, UiSheetDialog } from '@/shared/ui'
 import { formatDateTime } from '@/shared/lib'
+import { riskTypeLabel } from '@/entities/risk'
 import {
   DELIVERY_MODES,
   SEVERITY_THRESHOLDS,
-  deliveryModeDescription,
   deliveryModeLabel,
-  describeQuietHours,
-  draftFromPreference,
-  notificationKeys,
-  putPreference,
-  resetPreference,
-  sameDraft,
-  samePreference,
   severityThresholdLabel,
-  toPreferenceRequest,
-  validateDraft,
+  describeQuietHours,
+  notificationTimeZoneLabel,
   type NotificationPreference,
-  type PreferenceDraft,
-  type PreferenceField,
 } from '@/entities/notification'
-
+import { usePreferenceEditor } from '../model/use-preference-editor'
+import checkedBusy from './assets/checked-base.svg'
+import uncheckedBusy from './assets/unchecked-base.svg'
 const props = defineProps<{
   tenantId: string
   preference: NotificationPreference
   telegramLinked: boolean
   timeZone: string
+  formId?: string
+  dialog?: boolean
 }>()
-const emit = defineEmits<{ saved: [preference: NotificationPreference]; reset: [] }>()
-
-const queryClient = useQueryClient()
-const draft = ref<PreferenceDraft>(draftFromPreference(props.preference))
-const errors = ref<Partial<Record<PreferenceField, string>>>({})
-const saved = ref(false)
-const resetOpen = ref(false)
-
-// Перечитывание списка после сохранения другой строки не стирает черновик этой.
-watch(
-  () => props.preference,
-  (next, previous) => {
-    if (samePreference(next, previous)) return
-    draft.value = draftFromPreference(next)
-    errors.value = {}
-  },
-)
-
-const dirty = computed(() => !sameDraft(draft.value, draftFromPreference(props.preference)))
-watch(dirty, (isDirty) => {
-  if (isDirty) saved.value = false
+const emit = defineEmits<{
+  saved: [preference: NotificationPreference]
+  reset: []
+  state: [value: { dirty: boolean; busy: boolean; failed: boolean; blocked: boolean }]
+}>()
+const model = usePreferenceEditor(props, {
+  saved: (value) => emit('saved', value),
+  reset: () => emit('reset'),
 })
-
-const modeOptions: UiSelectOption[] = DELIVERY_MODES.map((value) => ({
-  value,
-  label: deliveryModeLabel(value),
-}))
-const thresholdOptions: UiSelectOption[] = SEVERITY_THRESHOLDS.map((value) => ({
+const {
+  baseline,
+  draft,
+  errors,
+  dirty,
+  busy,
+  saved,
+  error,
+  readError,
+  resetOpen,
+  resetAcknowledged,
+} = model
+watch(
+  [dirty, busy, error, resetAcknowledged],
+  () =>
+    emit('state', {
+      dirty: dirty.value,
+      busy: busy.value,
+      failed: !!error.value,
+      blocked: resetAcknowledged.value,
+    }),
+  { immediate: true },
+)
+const modes = DELIVERY_MODES.map((value) => ({ value, label: deliveryModeLabel(value) }))
+const thresholds = SEVERITY_THRESHOLDS.map((value) => ({
   value,
   label: severityThresholdLabel(value),
 }))
-
-async function refresh(): Promise<void> {
-  await queryClient.invalidateQueries({ queryKey: notificationKeys.preferences(props.tenantId) })
-}
-
-const save = useMutation({
-  mutationFn: () =>
-    putPreference(props.tenantId, props.preference.riskType, toPreferenceRequest(draft.value)),
-  onSuccess: async (preference) => {
-    await refresh()
-    saved.value = true
-    emit('saved', preference)
-  },
-})
-const reset = useMutation({
-  mutationFn: () => resetPreference(props.tenantId, props.preference.riskType),
-  onSuccess: async () => {
-    await refresh()
-    resetOpen.value = false
-    emit('reset')
-  },
-})
-
-const error = computed(() => save.error.value ?? reset.error.value)
-const errorView = computed(() => (error.value ? describeError(error.value) : null))
-const traceId = computed(() => (isApiError(error.value) ? error.value.traceId : ''))
-
-async function submit(): Promise<void> {
-  // Кнопка отключена без изменений, но форму можно отправить клавишей.
-  if (!dirty.value || save.isPending.value) return
-  saved.value = false
-  save.reset()
-  errors.value = validateDraft(draft.value)
-  if (Object.keys(errors.value).length > 0) return
-  await save.mutateAsync().catch(() => null)
-}
-
-// После первой неудачной отправки ошибки пересчитываются по мере правки.
-watch(
-  draft,
-  () => {
-    if (Object.keys(errors.value).length > 0) errors.value = validateDraft(draft.value)
-  },
-  { deep: true },
+const description = computed(
+  () =>
+    ({
+      IMMEDIATE: 'Новый риск — отдельным уведомлением, кроме тихих часов.',
+      DIGEST: 'Одно сообщение в выбранное время. В сводке — активные риски.',
+      DISABLED: 'Риски остаются в Radar. Уведомлений об этом типе не будет.',
+    })[draft.value.deliveryMode],
 )
-
 const quietHint = computed(() =>
   draft.value.quietHoursEnabled && !errors.value.quietHoursStart && !errors.value.quietHoursEnd
-    ? describeQuietHours(draft.value.quietHoursStart, draft.value.quietHoursEnd)
+    ? `${describeQuietHours(draft.value.quietHoursStart, draft.value.quietHoursEnd)}. Уведомления придут сводкой после тихих часов.`
     : null,
 )
+const failure = computed(() => (error.value ? describeError(error.value) : null))
+const validationElement = ref<HTMLElement | null>(null)
+const validationSummary = computed(() => {
+  if (!props.dialog || !Object.keys(errors.value).length) return null
+  if (errors.value.quietHoursStart || errors.value.quietHoursEnd) {
+    return {
+      title: 'Проверьте тихие часы',
+      description:
+        errors.value.quietHoursEnd === 'Границы тихих часов должны различаться'
+          ? 'Начало и конец должны различаться.'
+          : 'Укажите начало и конец в формате ЧЧ:ММ.',
+    }
+  }
+  return {
+    title: 'Проверьте настройки',
+    description: 'Исправьте выделенные поля и повторите сохранение.',
+  }
+})
+async function submitPreference() {
+  await model.submit()
+  if (!validationSummary.value) return
+  await nextTick()
+  validationElement.value?.scrollIntoView?.({ block: 'nearest' })
+}
+const busyControlStyle = computed(() =>
+  props.dialog && busy.value ? { opacity: 0.45 } : undefined,
+)
+function busyCheckboxStyle(checked: boolean): CSSProperties | undefined {
+  if (!props.dialog || !busy.value) return undefined
+  return {
+    appearance: 'none',
+    border: 0,
+    backgroundImage: `url("${checked ? checkedBusy : uncheckedBusy}")`,
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+    backgroundSize: '16px 16px',
+  }
+}
+const checks = [
+  { key: 'inAppEnabled', name: 'inapp', label: 'Внутри LidRadar' },
+  { key: 'telegramEnabled', name: 'telegram', label: 'Личные уведомления в Telegram' },
+  { key: 'quietHoursEnabled', name: 'quiet', label: 'Не беспокоить в тихие часы' },
+] as const
 </script>
-
 <template>
-  <form class="flex flex-col gap-5" novalidate @submit.prevent="submit">
-    <div class="flex flex-wrap items-center gap-2 text-sm text-muted">
-      <UiBadge :tone="preference.isDefault ? 'neutral' : 'brand'">
-        {{ preference.isDefault ? 'По умолчанию' : 'Настроено вами' }}
-      </UiBadge>
-      <span v-if="preference.updatedAt"
-        >изменено {{ formatDateTime(preference.updatedAt, timeZone) }}</span
+  <form
+    :id="formId"
+    class="flex min-w-0 flex-col gap-4"
+    novalidate
+    @submit.prevent="submitPreference"
+  >
+    <p v-if="dialog" class="text-base leading-[22px] font-semibold text-ink">
+      {{ riskTypeLabel(preference.riskType) }}
+    </p>
+    <p class="text-xs leading-[18px] text-muted">
+      {{ baseline.isDefault ? 'По умолчанию' : 'Настроено вами' }} ·
+      {{ notificationTimeZoneLabel(baseline.timezone) }}
+      <span v-if="!dialog && baseline.updatedAt">
+        · изменено {{ formatDateTime(baseline.updatedAt, timeZone) }}</span
       >
-      <span>· часовой пояс {{ preference.timezone }}</span>
+    </p>
+    <div v-if="validationSummary" ref="validationElement">
+      <UiAlert compact tone="danger" :title="validationSummary.title">{{
+        validationSummary.description
+      }}</UiAlert>
     </div>
-
-    <div class="grid gap-5 sm:grid-cols-2">
-      <UiField
-        v-slot="{ id, describedBy, invalid }"
-        label="Как уведомлять"
-        :description="deliveryModeDescription(draft.deliveryMode)"
-      >
-        <UiSelect
-          :id="id"
-          v-model="draft.deliveryMode"
-          :name="`mode-${preference.riskType}`"
-          :options="modeOptions"
-          :described-by="describedBy"
-          :invalid="invalid"
-          :disabled="save.isPending.value"
-        />
-      </UiField>
-      <UiField v-slot="{ id, describedBy, invalid }" label="Минимальная важность">
-        <UiSelect
-          :id="id"
-          v-model="draft.minimumSeverity"
-          :name="`severity-${preference.riskType}`"
-          :options="thresholdOptions"
-          :described-by="describedBy"
-          :invalid="invalid"
-          :disabled="save.isPending.value || draft.deliveryMode === 'DISABLED'"
-        />
-      </UiField>
-    </div>
-
+    <UiAlert v-if="saved" compact tone="success" title="✓ Настройка сохранена"
+      >Изменения применены только к этому типу риска.</UiAlert
+    >
+    <UiAlert
+      v-if="failure"
+      compact
+      tone="danger"
+      title="Не удалось сохранить правило"
+      :trace-id="isApiError(error) ? error.traceId : ''"
+      >Изменения остались в форме. Повторите сохранение.</UiAlert
+    >
+    <UiField v-slot="{ id, describedBy, invalid }" label="Как уведомлять" label-style="compact">
+      <UiSelect
+        :id="id"
+        v-model="draft.deliveryMode"
+        :style="busyControlStyle"
+        :name="`mode-${preference.riskType}`"
+        :options="modes"
+        :described-by="describedBy"
+        :invalid="invalid"
+        :disabled="busy || resetAcknowledged"
+      />
+    </UiField>
+    <p class="text-sm leading-5 text-muted">{{ description }}</p>
+    <UiField
+      v-slot="{ id, describedBy, invalid }"
+      label="Минимальная важность"
+      label-style="compact"
+    >
+      <UiSelect
+        :id="id"
+        v-model="draft.minimumSeverity"
+        :style="busyControlStyle"
+        :name="`severity-${preference.riskType}`"
+        :options="thresholds"
+        :described-by="describedBy"
+        :invalid="invalid"
+        :disabled="busy || resetAcknowledged || draft.deliveryMode === 'DISABLED'"
+      />
+    </UiField>
     <UiField
       v-if="draft.deliveryMode === 'DIGEST'"
       v-slot="{ id, describedBy, invalid }"
       label="Время сводки"
-      description="По часовому поясу организации."
+      label-style="compact"
       :error="errors.digestTime"
     >
       <UiInput
         :id="id"
         v-model="draft.digestTime"
+        :style="busyControlStyle"
         type="time"
         :name="`digest-${preference.riskType}`"
         :described-by="describedBy"
         :invalid="invalid"
-        :disabled="save.isPending.value"
+        :disabled="busy || resetAcknowledged"
       />
     </UiField>
-
-    <fieldset class="flex flex-col gap-2">
-      <legend class="mb-1 text-sm font-semibold text-ink">Куда отправлять</legend>
-      <label class="flex items-center gap-2 text-sm text-ink">
-        <input
-          v-model="draft.inAppEnabled"
-          type="checkbox"
-          :name="`inapp-${preference.riskType}`"
-          class="size-4 accent-brand"
-          :disabled="save.isPending.value"
-        />
-        Внутри LidRadar
-      </label>
-      <label class="flex items-center gap-2 text-sm text-ink">
-        <input
-          v-model="draft.telegramEnabled"
-          type="checkbox"
-          :name="`telegram-${preference.riskType}`"
-          class="size-4 accent-brand"
-          :disabled="save.isPending.value"
-        />
-        Личные уведомления в Telegram
-      </label>
-      <p v-if="draft.telegramEnabled && !telegramLinked" class="text-xs text-warning" role="status">
-        Telegram не привязан: сообщения туда не придут, пока вы не подключите бота выше.
-      </p>
-    </fieldset>
-
-    <fieldset class="flex flex-col gap-3">
-      <legend class="mb-1 text-sm font-semibold text-ink">Тихие часы</legend>
-      <label class="flex items-center gap-2 text-sm text-ink">
-        <input
-          v-model="draft.quietHoursEnabled"
-          type="checkbox"
-          :name="`quiet-${preference.riskType}`"
-          class="size-4 accent-brand"
-          :disabled="save.isPending.value"
-        />
-        Не беспокоить ночью
-      </label>
-      <div v-if="draft.quietHoursEnabled" class="grid gap-4 sm:grid-cols-2">
-        <UiField
-          v-slot="{ id, describedBy, invalid }"
-          label="Не беспокоить с"
-          :error="errors.quietHoursStart"
-        >
-          <UiInput
-            :id="id"
-            v-model="draft.quietHoursStart"
-            type="time"
-            :name="`quiet-start-${preference.riskType}`"
-            :described-by="describedBy"
-            :invalid="invalid"
-            :disabled="save.isPending.value"
-          />
-        </UiField>
-        <UiField v-slot="{ id, describedBy, invalid }" label="До" :error="errors.quietHoursEnd">
-          <UiInput
-            :id="id"
-            v-model="draft.quietHoursEnd"
-            type="time"
-            :name="`quiet-end-${preference.riskType}`"
-            :described-by="describedBy"
-            :invalid="invalid"
-            :disabled="save.isPending.value"
-          />
-        </UiField>
-      </div>
-      <p v-if="quietHint" class="text-xs text-muted">
-        Интервал {{ quietHint }} по поясу организации. Тихие часы ограничивают оповещения, а не учёт
-        рабочих часов точки.
-      </p>
-    </fieldset>
-
-    <UiAlert v-if="saved" tone="success">Настройка сохранена.</UiAlert>
-    <UiAlert v-if="errorView" tone="danger" :title="errorView.title" :trace-id="traceId">
-      {{ errorView.description }}
-    </UiAlert>
-
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <UiButton
-        v-if="!preference.isDefault"
-        variant="ghost"
-        size="sm"
-        :disabled="save.isPending.value"
-        @click="resetOpen = true"
+    <h3 class="text-base leading-[22px] font-semibold text-ink">Куда отправлять</h3>
+    <template v-for="check in checks" :key="check.key">
+      <label
+        class="flex min-h-[46px] items-center text-sm leading-5 text-ink"
+        :style="dialog && busy ? { opacity: 0.45 } : undefined"
       >
-        Вернуть по умолчанию
-      </UiButton>
-      <span v-else />
-      <UiButton type="submit" :disabled="!dirty" :loading="save.isPending.value"
-        >Сохранить</UiButton
-      >
-    </div>
-
-    <UiDialog
-      v-model:open="resetOpen"
-      title="Вернуть настройку по умолчанию?"
-      description="Ваши изменения для этого типа риска будут удалены, начнёт действовать значение сервера."
-      :dismissible="!reset.isPending.value"
-    >
-      <template #footer>
-        <UiButton variant="secondary" :disabled="reset.isPending.value" @click="resetOpen = false">
-          Отмена
-        </UiButton>
-        <UiButton variant="danger" :loading="reset.isPending.value" @click="reset.mutate()"
-          >Вернуть</UiButton
-        >
+        <span class="flex size-[46px] shrink-0 items-center justify-center"
+          ><input
+            v-model="draft[check.key]"
+            type="checkbox"
+            :name="`${check.name}-${preference.riskType}`"
+            class="size-4 accent-brand"
+            :style="busyCheckboxStyle(draft[check.key])"
+            :disabled="busy || resetAcknowledged || draft.deliveryMode === 'DISABLED'" /></span
+        >{{ check.label }}
+      </label>
+      <template v-if="check.key === 'telegramEnabled' && draft.telegramEnabled && !telegramLinked">
+        <p class="text-sm leading-5 text-ink" role="status">Telegram не подключён</p>
+        <p class="text-sm leading-5 text-muted">
+          Выбор можно сохранить. Сообщения начнут приходить после личной привязки бота.
+        </p>
       </template>
-    </UiDialog>
+    </template>
+    <div v-if="draft.quietHoursEnabled" class="grid grid-cols-2 gap-3">
+      <UiField
+        v-slot="{ id, describedBy, invalid }"
+        label="С"
+        label-style="compact"
+        :error="errors.quietHoursStart"
+      >
+        <UiInput
+          :id="id"
+          v-model="draft.quietHoursStart"
+          :style="busyControlStyle"
+          type="time"
+          :name="`quiet-start-${preference.riskType}`"
+          :described-by="describedBy"
+          :invalid="invalid"
+          :disabled="busy || resetAcknowledged || draft.deliveryMode === 'DISABLED'"
+        />
+      </UiField>
+      <UiField
+        v-slot="{ id, describedBy, invalid }"
+        label="До"
+        label-style="compact"
+        :error="errors.quietHoursEnd"
+      >
+        <UiInput
+          :id="id"
+          v-model="draft.quietHoursEnd"
+          :style="busyControlStyle"
+          type="time"
+          :name="`quiet-end-${preference.riskType}`"
+          :described-by="describedBy"
+          :invalid="invalid"
+          :disabled="busy || resetAcknowledged || draft.deliveryMode === 'DISABLED'"
+        />
+      </UiField>
+    </div>
+    <p class="text-sm leading-5 text-muted">
+      {{
+        quietHint ??
+        'Время — по часовому поясу организации. Тихие часы не меняют рабочий график точки.'
+      }}
+    </p>
+    <UiButton
+      v-if="!baseline.isDefault"
+      variant="ghost"
+      class="text-muted!"
+      :disabled="busy || resetAcknowledged"
+      @click="resetOpen = true"
+      >Вернуть по умолчанию</UiButton
+    >
+    <UiAlert
+      v-if="readError && !resetOpen"
+      tone="warning"
+      title="Данные сохранены, но список не обновлён"
+      >Повторите чтение. Повторно сохранять настройку не нужно.<UiButton
+        variant="ghost"
+        @click="model.retryRead"
+        >Обновить список</UiButton
+      ></UiAlert
+    >
+    <p v-if="!saved && !failure && !busy" class="text-sm leading-5 text-muted">
+      {{
+        dirty
+          ? 'Есть изменения. Сохраните, чтобы применить правило.'
+          : 'Изменений нет. Чтобы сохранить, измените настройку.'
+      }}
+    </p>
+    <UiButton v-if="!dialog" type="submit" :disabled="!dirty || resetAcknowledged" :loading="busy"
+      >Сохранить</UiButton
+    >
   </form>
+  <UiSheetDialog
+    v-model:open="resetOpen"
+    title="Вернуть по умолчанию?"
+    settings-redesign
+    footer-fill
+    size="sm"
+    :content-height="600"
+    :dismissible="!busy"
+  >
+    <div class="flex flex-col gap-4">
+      <h3 class="text-base leading-[22px] font-semibold text-ink">
+        {{ riskTypeLabel(preference.riskType) }}
+      </h3>
+      <p class="text-sm leading-5 text-ink">
+        Будет применено текущее значение сервера для этого типа. Другие правила не изменятся.
+      </p>
+      <UiAlert v-if="failure || readError" tone="danger">{{
+        resetAcknowledged
+          ? 'Сброс подтверждён. Не удалось прочитать настройку по умолчанию. Повторите чтение.'
+          : failure?.description
+      }}</UiAlert>
+    </div>
+    <template #footer
+      ><UiButton variant="secondary" :disabled="busy" @click="resetOpen = false"
+        >Оставить мои</UiButton
+      ><UiButton :loading="busy" @click="model.reset">{{
+        resetAcknowledged ? 'Повторить чтение' : 'Вернуть'
+      }}</UiButton></template
+    >
+  </UiSheetDialog>
 </template>

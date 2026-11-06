@@ -9,3 +9,9 @@ test-results/
 .DS_Store
 .idea
 .vscode
+artifacts/
+__pycache__/
+*.py[cod]
+
+# Локальные настройки Claude Code: только точный путь, остальной .claude версионируется
+.claude/settings.local.json

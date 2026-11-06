@@ -1563,7 +1563,10 @@ test('UI: менеджер — разделы по правам и нейтра�
     '/admin/dead-letters',
   ]) {
     await page.goto(path)
-    await expect(page.getByText('Раздел недоступен'), path).toBeVisible()
+    await expect(
+      page.getByText(path === '/settings/team' ? 'Раздел доступен владельцу' : 'Раздел недоступен'),
+      path,
+    ).toBeVisible()
   }
   expect([...new Set(adminRequests)], 'без права — только /admin/me').toEqual(['/api/v1/admin/me'])
   await page.goto('/settings/privacy')
@@ -1696,7 +1699,7 @@ test('UI: диалог услуги — двойная отправка и кл�
   })
   await page.goto('/settings/company')
   await page.getByRole('button', { name: 'Добавить точку' }).click()
-  const locationDialog = page.getByRole('dialog', { name: 'Новая точка' })
+  const locationDialog = page.getByRole('dialog', { name: 'Добавить точку' })
   await locationDialog.getByLabel('Название точки').fill('Точка двойного клика')
   const locationSubmit = locationDialog.getByRole('button', { name: /Создать|Сохранить|Добавить/ })
   await locationSubmit.dblclick()
@@ -1937,7 +1940,7 @@ test('UI: гонка при смене этапа сходится к серве
   await page.goto(`/risks/${candidate!.risk.id}`)
   const region = page.getByRole('region', { name: 'Переписка и сделка' })
   await expect(region.getByTestId('opportunity-stage')).toHaveText('Новая')
-  const select = region.getByLabel('Перевести на этап')
+  const select = region.getByLabel('Новый этап')
   await select.selectOption('ENGAGED')
   expect(
     (
@@ -1948,9 +1951,9 @@ test('UI: гонка при смене этапа сходится к серве
     ).status(),
   ).toBe(200)
   await region
-    .getByRole('button', { name: 'Перевести' })
+    .getByRole('button', { name: 'Изменить этап' })
     .click({ timeout: 5000 })
-    .catch(() => note('кнопка «Перевести» уже отключена: сигнал потока опередил клик'))
+    .catch(() => note('кнопка «Изменить этап» уже отключена: сигнал потока опередил клик'))
   await page.waitForTimeout(3000)
   const alerts = (await page.getByRole('alert').allTextContents())
     .map((t) => t.trim())

@@ -37,9 +37,9 @@ test.describe('стенд · небольшая студия', () => {
     await feed.getByRole('link').first().click()
     await expect(page).toHaveURL(/\/risks\/[0-9a-f-]{36}$/)
     await expect(page.getByRole('heading', { name: 'Почему это риск' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Этапы сделки' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Этап сделки' })).toBeVisible()
     await expect(
-      page.getByRole('list', { name: 'История этапов' }).getByRole('listitem').first(),
+      page.getByRole('list', { name: 'История' }).getByRole('listitem').first(),
     ).toBeVisible()
     await page.screenshot({ path: 'test-results/stand-risk.png', fullPage: true })
     // Диалог оплаты открывается и закрывается без записи.
@@ -48,7 +48,7 @@ test.describe('стенд · небольшая студия', () => {
     await expect(dialog).toBeVisible()
     await dialog.getByRole('button', { name: 'Отмена' }).click()
     await expect(dialog).toBeHidden()
-    await page.getByRole('link', { name: '← Radar' }).click()
+    await page.getByRole('link', { name: 'К рискам' }).click()
     await expect(page).toHaveURL(/severity=HIGH/)
     await stand.context.close()
   })
@@ -77,17 +77,19 @@ test.describe('стенд · небольшая студия', () => {
       page.getByRole('table', { name: 'Услуги организации' }).getByRole('row').nth(1),
     ).toBeVisible()
     await page.getByRole('link', { name: 'Уведомления' }).click()
-    await expect(page.getByRole('region', { name: 'Ваши уведомления в Telegram' })).toContainText(
-      /Не подключены|Подключены/,
+    await expect(page.getByRole('region', { name: 'Куда приходят уведомления' })).toContainText(
+      /Не подключён|Подключён/,
     )
     const preferenceRows = page
       .getByRole('list', { name: 'Настройки по типам рисков' })
       .locator(':scope > li')
-    await expect(preferenceRows).toHaveCount(5)
+    await expect(preferenceRows).toHaveCount(6)
     await page.screenshot({ path: 'test-results/stand-notifications.png', fullPage: true })
     await page.getByRole('link', { name: 'Команда' }).click()
-    const memberRows = page.getByRole('table', { name: 'Участники компании' }).locator('tbody tr')
-    await expect(memberRows.filter({ hasText: 'вы' })).toHaveCount(1)
+    const memberRows = page
+      .getByRole('region', { name: 'Участники с доступом' })
+      .getByRole('listitem')
+    await expect(memberRows.filter({ hasText: 'Вы' })).toHaveCount(1)
     await page.screenshot({ path: 'test-results/stand-team.png', fullPage: true })
     await page.getByRole('link', { name: 'Данные' }).click()
     await expect(

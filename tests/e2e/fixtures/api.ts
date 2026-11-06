@@ -7,6 +7,39 @@
  */
 import type { Page, Route } from '@playwright/test'
 
+/** Healthy long-lived SSE for command flows; reconnect tests keep their finite routes. */
+export async function keepEventStreamOpen(page: Page) {
+  await page.addInitScript(() => {
+    const networkFetch = window.fetch.bind(window)
+    window.fetch = async (input, init) => {
+      const request = input instanceof Request ? input : null
+      const url = new URL(request?.url ?? String(input), location.origin)
+      if (url.pathname !== '/api/v1/events') return networkFetch(input, init)
+      const signal = init?.signal ?? request?.signal
+      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(': connected\n\n'))
+            signal?.addEventListener(
+              'abort',
+              () => {
+                try {
+                  controller.close()
+                } catch {
+                  /* already closed */
+                }
+              },
+              { once: true },
+            )
+          },
+        }),
+        { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } },
+      )
+    }
+  })
+}
+
 export const TENANT_ID = '01990000-0000-7000-8000-000000000001'
 export const RISK_ID = '01990000-0000-7000-8000-000000000301'
 export const OPPORTUNITY_ID = '01990000-0000-7000-8000-000000000401'
@@ -291,10 +324,16 @@ export async function mockOwner(page: Page, options: OwnerMockOptions = {}): Pro
   await page.route('**/api/v1/radar**', (route) => json(route, 200, summary))
   await page.route('**/api/v1/risks**', (route) => {
     const url = new URL(route.request().url())
-    const items =
+    // Контракт: `active` и `status` несовместимы.
+    if (url.searchParams.has('active') && url.searchParams.has('status')) {
+      return json(route, 400, errorBody('INVALID_ARGUMENT', 'active и status несовместимы'))
+    }
+    const statuses = url.searchParams.getAll('status')
+    const all =
       url.searchParams.get('severity') === 'CRITICAL'
         ? [currentDetail()]
         : [currentDetail(), second()]
+    const items = statuses.length ? all.filter((item) => statuses.includes(item.risk.status)) : all
     return json(route, 200, { items, nextCursor: null })
   })
 
@@ -968,6 +1007,7 @@ export async function mockOwner(page: Page, options: OwnerMockOptions = {}): Pro
     [
       'NO_RESPONSE',
       'BOOKING_NOT_CONFIRMED',
+      'UNFINISHED_AGREEMENT',
       'PROMISE_NOT_FULFILLED',
       'CUSTOMER_SILENT_AFTER_PRICE',
       'FOLLOW_UP_CANDIDATE',

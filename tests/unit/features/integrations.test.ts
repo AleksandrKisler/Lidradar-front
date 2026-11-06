@@ -92,6 +92,7 @@ describe('интеграции', () => {
       global: { plugins: plugins() },
       attachTo: document.body,
     })
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(dialog().text()).toContain('Подключить Telegram')
     expect(dialog().find('select[name="provider"]').exists()).toBe(false)
@@ -119,7 +120,7 @@ describe('интеграции', () => {
       botToken: '123456789:AAHf1234567890abcdefghijklmnop',
     })
     expect(dialog().text()).toContain('Подключение создано')
-    expect(dialog().text()).toContain('Работает')
+    expect(dialog().text()).toContain('Активно')
     expect(dialog().text()).not.toContain('Секрет webhook')
     expect(wrapper.emitted('connected')).toHaveLength(1)
     wrapper.unmount()
@@ -132,18 +133,19 @@ describe('интеграции', () => {
       global: { plugins: plugins() },
       attachTo: document.body,
     })
+    await vi.dynamicImportSettled()
     await flushPromises()
-    // Поле называет источник токена, а раскрывающаяся инструкция идёт сразу за ним.
-    expect(dialog().text()).toContain('Токен выдаёт бот @BotFather')
+    // Поле называет источник токена, а панель с пятью шагами стоит рядом (макет «Подключить Telegram»).
+    expect(dialog().text()).toContain('Токен выдаёт @BotFather')
     const help = dialog().get('[data-testid="telegram-token-help"]')
-    expect(help.get('summary').text()).toBe('Где взять токен бота')
-    expect(help.text()).toContain('/newbot')
-    expect(help.text()).toContain('Business Mode')
+    expect(help.get('h3').text()).toBe('Где взять токен бота')
+    expect(help.findAll('li')).toHaveLength(5)
+    expect(help.text()).toContain('Create a New Bot')
+    expect(help.text()).toContain('Secretary Mode')
+    expect(help.text()).not.toContain('Business Mode')
     // Платной подписки Telegram для работы не требуется: инструкция её не упоминает.
     expect(help.text()).not.toMatch(/premium|премиум|подписк/i)
-    expect(help.text()).toContain('Токен никому не передавайте')
-    // Подсказка закрыта по умолчанию: форма не вырастает у тех, кому она не нужна.
-    expect(help.attributes('open')).toBeUndefined()
+    expect(help.text()).toContain('Никому не передавайте токен')
 
     await dialog().get('input[name="connectionName"]').setValue('Telegram · переписка')
     await dialog()
@@ -166,6 +168,7 @@ describe('интеграции', () => {
       global: { plugins: plugins() },
       attachTo: document.body,
     })
+    await vi.dynamicImportSettled()
     await flushPromises()
     await dialog().get('input[name="connectionName"]').setValue('Telegram · переписка')
     await dialog()
@@ -190,6 +193,7 @@ describe('интеграции', () => {
       global: { plugins: plugins() },
       attachTo: document.body,
     })
+    await vi.dynamicImportSettled()
     await flushPromises()
     await dialog().get('input[name="connectionName"]').setValue('Telegram · переписка')
     await dialog().get('input[name="botToken"]').setValue(token)
@@ -233,14 +237,15 @@ describe('интеграции', () => {
       global: { plugins: plugins() },
       attachTo: document.body,
     })
+    await vi.dynamicImportSettled()
     await flushPromises()
     await dialog().get('input[name="connectionName"]').setValue('Telegram · переписка')
 
     await dialog().get('input[name="botToken"]').setValue(token)
     await dialog().get('form').trigger('submit')
     await settle()
-    expect(dialog().text()).toContain('Telegram не принял токен')
-    expect(dialog().text()).toContain('@BotFather')
+    expect(dialog().text()).toContain('Токен не принят. Скопируйте его целиком из BotFather')
+    expect(dialog().get('input[name="botToken"]').attributes('aria-invalid')).toBe('true')
     expect(dialog().text()).not.toContain('raw')
     expect(dialog().get<HTMLInputElement>('input[name="botToken"]').element.value).toBe('')
 
@@ -263,6 +268,7 @@ describe('интеграции', () => {
       attachTo: document.body,
     })
     await wrapper.get('button').trigger('click')
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(dialog().text()).toContain('Telegram · переписка · Telegram · бизнес-бот')
     await dialog()

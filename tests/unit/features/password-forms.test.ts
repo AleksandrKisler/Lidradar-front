@@ -257,3 +257,110 @@ describe('ChangePasswordForm', () => {
     wrapper.unmount()
   })
 })
+
+describe('макеты Access: восстановление и новый пароль (Figma 462:5677, 462:5767)', () => {
+  it('восстановление: отправка блокирует поле и называет кнопку «Отправляем…», доступное имя прежнее', async () => {
+    let release: () => void = () => {}
+    vi.mocked(requestPasswordReset).mockImplementation(
+      () => new Promise<void>((resolve) => (release = resolve)),
+    )
+    const wrapper = mount(ForgotPasswordForm)
+    await wrapper.get('input[name="email"]').setValue('owner@example.test')
+    await wrapper.get('form').trigger('submit')
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    const button = wrapper.get('button[type="submit"]')
+    expect(button.attributes('aria-busy')).toBe('true')
+    expect(button.text()).toContain('Отправляем…')
+    expect(button.get('.sr-only').text()).toBe('Отправить ссылку')
+    expect(wrapper.get('input[name="email"]').attributes('disabled')).toBeDefined()
+    release()
+    await settle()
+    wrapper.unmount()
+  })
+
+  it('восстановление: нет связи с сервером — «Не удалось отправить письмо», фокус возвращается в поле', async () => {
+    vi.mocked(requestPasswordReset).mockRejectedValue(
+      new ApiError({ httpStatus: 0, code: 'NETWORK_ERROR' }),
+    )
+    const wrapper = mount(ForgotPasswordForm, { attachTo: document.body })
+    await wrapper.get('input[name="email"]').setValue('owner@example.test')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    const alert = wrapper.get('[role="alert"]')
+    expect(alert.text()).toContain('Не удалось отправить письмо')
+    expect(alert.text()).toContain('Проверьте подключение и попробуйте ещё раз.')
+    expect(document.activeElement).toBe(wrapper.get('input[name="email"]').element)
+    wrapper.unmount()
+  })
+
+  it('восстановление: ошибка сервера (не сети) — общее описание, а не подпись про связь', async () => {
+    vi.mocked(requestPasswordReset).mockRejectedValue(apiError(500, 'INTERNAL_ERROR'))
+    const wrapper = mount(ForgotPasswordForm)
+    await wrapper.get('input[name="email"]').setValue('owner@example.test')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(wrapper.get('[role="alert"]').text()).not.toContain('Проверьте подключение')
+    wrapper.unmount()
+  })
+
+  it('восстановление: каркас загрузки — подписи на месте, поля и отправки нет', () => {
+    const wrapper = mount(ForgotPasswordForm, { props: { loading: true } })
+    expect(wrapper.text()).toContain('Электронная почта')
+    expect(wrapper.text()).toContain('Отправить ссылку')
+    expect(wrapper.find('input').exists()).toBe(false)
+    expect(wrapper.find('button').exists()).toBe(false)
+    expect(wrapper.get('[role="status"]').attributes('aria-label')).toBe('Загрузка')
+    wrapper.unmount()
+  })
+
+  it('новый пароль: отправка — «Меняем пароль…», поля заблокированы, имя кнопки «Сменить пароль»', async () => {
+    let release: () => void = () => {}
+    vi.mocked(resetPassword).mockImplementation(
+      () => new Promise<void>((resolve) => (release = resolve)),
+    )
+    const wrapper = mount(ResetPasswordForm, { props: { token: TOKEN } })
+    await wrapper.get('input[name="new-password"]').setValue(NEW_PASSWORD)
+    await wrapper.get('input[name="confirm-password"]').setValue(NEW_PASSWORD)
+    await wrapper.get('form').trigger('submit')
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    const button = wrapper.get('button[type="submit"]')
+    expect(button.attributes('aria-busy')).toBe('true')
+    expect(button.text()).toContain('Меняем пароль…')
+    expect(button.get('.sr-only').text()).toBe('Сменить пароль')
+    expect(wrapper.get('input[name="new-password"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('input[name="confirm-password"]').attributes('disabled')).toBeDefined()
+    release()
+    await settle()
+    wrapper.unmount()
+  })
+
+  it('новый пароль: несовпадение — «Пароли не совпадают» у второго поля, запрос не уходит, фокус на нём', async () => {
+    const wrapper = mount(ResetPasswordForm, { props: { token: TOKEN }, attachTo: document.body })
+    await wrapper.get('input[name="new-password"]').setValue(NEW_PASSWORD)
+    await wrapper.get('input[name="confirm-password"]').setValue('another-secure-passwor')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(resetPassword).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Пароли не совпадают')
+    const confirm = wrapper.get('input[name="confirm-password"]')
+    expect(confirm.attributes('aria-invalid')).toBe('true')
+    expect(document.activeElement).toBe(confirm.element)
+    // Подсказка у первого поля остаётся: ошибки у него нет.
+    expect(wrapper.text()).toContain('Не меньше 12 символов')
+    wrapper.unmount()
+  })
+
+  it('новый пароль: каркас загрузки — подписи и подсказка на месте, полей нет', () => {
+    const wrapper = mount(ResetPasswordForm, { props: { token: TOKEN, loading: true } })
+    for (const text of [
+      'Новый пароль',
+      'Повторите пароль',
+      'Не меньше 12 символов',
+      'Сменить пароль',
+    ]) {
+      expect(wrapper.text()).toContain(text)
+    }
+    expect(wrapper.find('input').exists()).toBe(false)
+    wrapper.unmount()
+  })
+})

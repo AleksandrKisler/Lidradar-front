@@ -43,13 +43,13 @@ const revealed = ref(false)
       :aria-invalid="invalid || undefined"
       :aria-describedby="describedBy"
       :class="[
-        'h-input w-full rounded-field border bg-paper pr-12 pl-3.5 text-base text-ink disabled:cursor-not-allowed disabled:bg-canvas',
+        'h-input w-full rounded-field border bg-paper pr-12 pl-3.5 text-field text-ink disabled:cursor-not-allowed disabled:opacity-70',
         invalid ? 'border-danger' : 'border-line hover:border-muted/60',
       ]"
     />
     <button
       type="button"
-      class="absolute inset-y-0 right-1 my-auto flex size-10 items-center justify-center rounded-field text-muted hover:text-ink"
+      class="absolute inset-y-0 right-0 my-auto flex size-[46px] items-center justify-center rounded-field text-muted hover:text-ink"
       :aria-pressed="revealed"
       :aria-label="revealed ? 'Скрыть пароль' : 'Показать пароль'"
       :disabled="disabled"

@@ -1,5 +1,7 @@
 export { default as ServiceForm } from './ui/ServiceForm.vue'
 export { default as ServiceFormDialog } from './ui/ServiceFormDialog.vue'
 export { default as ServiceStatusButton } from './ui/ServiceStatusButton.vue'
+export { default as ServiceAddButton } from './ui/ServiceAddButton.vue'
 export { useServiceCommands } from './model/use-services-commands'
 export { serviceSchema } from './model/schema'
+export type { ServiceValues } from './model/schema'

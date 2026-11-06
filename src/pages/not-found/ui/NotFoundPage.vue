@@ -10,7 +10,7 @@
       <p class="mt-3 text-sm text-muted">Проверьте адрес или вернитесь к рабочему пространству.</p>
       <RouterLink
         to="/"
-        class="mt-6 inline-flex h-11 items-center rounded-control bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-dark"
+        class="mt-6 inline-flex h-input items-center rounded-control bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-dark"
       >
         Вернуться в Radar
       </RouterLink>

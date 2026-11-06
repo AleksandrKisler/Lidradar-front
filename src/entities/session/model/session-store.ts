@@ -29,6 +29,7 @@ export const useSessionStore = defineStore('session', () => {
    * это право даёт код платформы; без членства и без права путь один — принять код сотрудника.
    */
   const canCreateOrganization = ref(false)
+  const sandboxEnabled = ref(false)
   const tenantId = ref<string | null>(null)
   /** Ошибка загрузки `/auth/me`, если это не отсутствие сессии. */
   const bootError = ref<unknown>(null)
@@ -36,6 +37,9 @@ export const useSessionStore = defineStore('session', () => {
   const signOutReason = ref<SignOutReason | null>(null)
 
   let inflight: Promise<void> | null = null
+  // A self-role refresh must never restore an identity invalidated by logout,
+  // a newer login or an explicit workspace selection while that read was pending.
+  let identityVersion = 0
 
   const isAuthenticated = computed(() => status.value === 'authenticated')
   /**
@@ -70,6 +74,7 @@ export const useSessionStore = defineStore('session', () => {
     user.value = me.user
     memberships.value = me.memberships
     canCreateOrganization.value = me.canCreateOrganization === true
+    sandboxEnabled.value = me.sandbox === true
     const isValid = (id: string | null): id is string =>
       id !== null && me.memberships.some((item) => item.tenantId === id)
     const stored = readPreferredTenant(me.user.id)
@@ -86,9 +91,11 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   function becomeGuest(reason: SignOutReason | null): void {
+    identityVersion++
     user.value = null
     memberships.value = []
     canCreateOrganization.value = false
+    sandboxEnabled.value = false
     tenantId.value = null
     status.value = 'guest'
     bootError.value = null
@@ -100,9 +107,12 @@ export const useSessionStore = defineStore('session', () => {
    * гостя; любая другая ошибка пробрасывается вызывающему.
    */
   async function load(): Promise<void> {
+    const version = ++identityVersion
     try {
-      applyIdentity(await fetchMe())
+      const identity = await fetchMe()
+      if (version === identityVersion) applyIdentity(identity)
     } catch (error) {
+      if (version !== identityVersion) return
       if (isApiError(error) && error.isUnauthenticated) {
         becomeGuest(null)
         return
@@ -144,6 +154,7 @@ export const useSessionStore = defineStore('session', () => {
   /** Выбирает организацию из списка членств; чужой идентификатор отклоняется. */
   function selectTenant(id: string): boolean {
     if (!user.value || !memberships.value.some((item) => item.tenantId === id)) return false
+    identityVersion++
     tenantId.value = id
     rememberPreferredTenant(user.value.id, id)
     return true
@@ -151,6 +162,7 @@ export const useSessionStore = defineStore('session', () => {
 
   /** Снимает выбор организации, не трогая запомненное предпочтение. */
   function clearTenant(): void {
+    identityVersion++
     tenantId.value = null
   }
 
@@ -160,12 +172,21 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   /**
+   * Сервер завершил все сессии пользователя сам (сброс пароля, ADR 0058): локальное состояние
+   * очищается без запроса `logout` и без пометки «сессия истекла» — человек входит новым паролем.
+   */
+  function markSessionsEnded(): void {
+    becomeGuest(null)
+  }
+
+  /**
    * Выход. Локальное состояние очищается в любом случае, включая
    * запомненную организацию; `confirmed=false` означает, что сервер не
    * подтвердил отзыв сессии (сеть) и интерфейс должен об этом сказать.
    */
   async function logout(): Promise<{ confirmed: boolean }> {
     const userId = user.value?.id
+    const version = ++identityVersion
     let confirmed = true
     try {
       await logoutRequest()
@@ -173,7 +194,7 @@ export const useSessionStore = defineStore('session', () => {
       confirmed = false
     } finally {
       if (userId) forgetPreferredTenant(userId)
-      becomeGuest('manual')
+      if (version === identityVersion) becomeGuest('manual')
     }
     return { confirmed }
   }
@@ -184,6 +205,7 @@ export const useSessionStore = defineStore('session', () => {
     user,
     memberships,
     canCreateOrganization,
+    sandboxEnabled,
     tenantId,
     bootError,
     signOutReason,
@@ -199,6 +221,7 @@ export const useSessionStore = defineStore('session', () => {
     refresh,
     selectTenant,
     clearTenant,
+    markSessionsEnded,
     markExpired,
     logout,
   }

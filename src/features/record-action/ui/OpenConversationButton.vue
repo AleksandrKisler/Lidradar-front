@@ -54,7 +54,7 @@ async function retry(): Promise<void> {
       :href="url"
       target="_blank"
       rel="noopener noreferrer"
-      class="inline-flex h-11 items-center justify-center rounded-control bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-dark"
+      class="inline-flex h-input items-center justify-center rounded-control bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-dark"
       @click="onClick"
     >
       {{ label }}

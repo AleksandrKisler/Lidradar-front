@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { ApiError } from '@/shared/api'
 import { fetchMe, useSessionStore } from '@/entities/session'
@@ -64,7 +65,13 @@ async function mountDialog(overrides: Partial<RevenueEvidence> = {}) {
   const wrapper = mount(ConfirmRevenueDialog, {
     props: { evidence: { ...evidence, ...overrides }, open: true },
     global: {
-      plugins: [[VueQueryPlugin, { queryClient: new QueryClient() }]],
+      plugins: [
+        [VueQueryPlugin, { queryClient: new QueryClient() }],
+        createRouter({
+          history: createMemoryHistory(),
+          routes: [{ path: '/analytics', name: 'analytics', component: { render: () => null } }],
+        }),
+      ],
     },
     attachTo: document.body,
   })
@@ -157,6 +164,25 @@ describe('ConfirmRevenueDialog', () => {
     wrapper.unmount()
   })
 
+  it('409 для менеджера отправляет к владельцу, а не в недоступную аналитику', async () => {
+    vi.mocked(confirmRevenue).mockRejectedValueOnce(
+      new ApiError({ httpStatus: 409, code: 'RECOVERED_ALREADY_ATTRIBUTED', traceId: 't' }),
+    )
+    const session = useSessionStore()
+    session.$patch({
+      memberships: [{ tenantId: 'tenant-a', organizationName: 'A', role: 'MANAGER' }],
+    })
+    const wrapper = await mountDialog()
+    await dialog().get('input[name="confirmed"]').setValue(true)
+    await dialog().get('form').trigger('submit')
+    await settle()
+    expect(dialog().text()).toContain('Попросите владельца организации сверить учтённую выручку')
+    expect(dialog().find('a[href="/analytics"]').exists()).toBe(false)
+    expect(dialog().text()).not.toContain('Подтвердить как обычную оплату')
+    expect(confirmRevenue).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
   it('409 требует сверки истории и не предлагает повторить тот же платёж как ORGANIC', async () => {
     vi.mocked(confirmRevenue)
       .mockRejectedValueOnce(
@@ -179,7 +205,8 @@ describe('ConfirmRevenueDialog', () => {
     )
 
     expect(dialog().text()).not.toContain('Подтвердить как обычную оплату')
-    expect(dialog().text()).toContain('Сначала сверьте существующее подтверждение')
+    expect(dialog().text()).toContain('Сверьте учтённую выручку в аналитике')
+    expect(dialog().text()).not.toContain('Попросите владельца')
     expect(dialog().get('button[type="submit"]').attributes('disabled')).toBeDefined()
     expect(confirmRevenue).toHaveBeenCalledTimes(1)
     wrapper.unmount()

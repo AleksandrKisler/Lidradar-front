@@ -33,7 +33,7 @@ function dismiss(): void {
         Подтвердите адрес почты <strong class="break-all">{{ session.user?.email }}</strong
         >: мы отправили письмо со ссылкой. Пока можно работать как обычно.
       </p>
-      <div class="flex shrink-0 flex-wrap items-center gap-3">
+      <div class="flex min-w-0 max-w-full flex-wrap items-center gap-2 sm:gap-3">
         <ResendVerificationButton size="sm" />
         <button
           type="button"

@@ -11,6 +11,8 @@ export default tseslint.config(
       'coverage/**',
       'playwright-report/**',
       'test-results/**',
+      // Generated QA/browser evidence is not application or tooling source.
+      'artifacts/**',
       'src/shared/api/generated/**',
     ],
   },

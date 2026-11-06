@@ -21,7 +21,7 @@ async function onClick(): Promise<void> {
 
 <template>
   <div class="flex flex-col gap-2">
-    <UiButton variant="secondary" size="sm" :loading="command.isPending.value" @click="onClick">
+    <UiButton variant="secondary" block :loading="command.isPending.value" @click="onClick">
       Получить рекомендацию
     </UiButton>
     <UiAlert v-if="errorView" tone="danger" :title="errorView.title" :trace-id="traceId">

@@ -30,8 +30,19 @@ export type LoginValues = v.InferOutput<typeof loginSchema>
 /** Минимальная длина пароля по контракту регистрации. */
 export const PASSWORD_MIN_LENGTH = 12
 
+/**
+ * Данные аккаунта (US-M01-01 AC-G03): имя, почта и пароль. Код приглашения в эту форму не входит —
+ * его проверяет отдельный шаг, а форма получает уже проверенный контекст. Текст ошибки адреса —
+ * только для регистрации: формы входа и сброса пароля сохраняют свои подписи.
+ */
 export const registerSchema = v.object({
-  email,
+  email: v.pipe(
+    v.string(),
+    v.trim(),
+    v.nonEmpty('Введите электронную почту'),
+    v.maxLength(254, 'Слишком длинный адрес'),
+    v.email('Введите корректный адрес электронной почты.'),
+  ),
   displayName: v.pipe(
     v.string(),
     v.trim(),
@@ -43,20 +54,27 @@ export const registerSchema = v.object({
     v.minLength(PASSWORD_MIN_LENGTH, `Не меньше ${PASSWORD_MIN_LENGTH} символов`),
     v.maxLength(1024, 'Слишком длинный пароль'),
   ),
-  /**
-   * Код платформы или код сотрудника (ADR 0057). Формат проверяется здесь, чтобы опечатка не расходовала
-   * попытку: на сервере регистрации с адреса ограничены пятью в час. Обязательность зависит от режима
-   * сервера и проверяется формой.
-   */
-  inviteCode: v.pipe(
-    v.string(),
-    v.transform(normalizeInvitationCode),
-    v.check(
-      (value) => value === '' || INVITATION_CODE_PATTERN.test(value),
-      'Код состоит из 43 символов: латиница, цифры, «-» и «_»',
-    ),
-  ),
 })
+
+/** Тексты локальной проверки кода приглашения (US-M01-01 AC-B03). */
+export const INVITATION_CODE_MESSAGES = {
+  empty: 'Для регистрации нужен код приглашения',
+  format: 'Код состоит из 43 символов: латиница, цифры, «-» и «_»',
+} as const
+
+/**
+ * Локальная проверка кода приглашения без запроса: пробелы убираются, регистр сохраняется
+ * (правила кодов команды — `normalizeInvitationCode`, `INVITATION_CODE_PATTERN`). Формат не
+ * доказывает пригодность: её подтверждает только сервер.
+ */
+export function checkInvitationCodeFormat(raw: string): {
+  code: string
+  problem: keyof typeof INVITATION_CODE_MESSAGES | null
+} {
+  const code = normalizeInvitationCode(raw)
+  if (code === '') return { code, problem: 'empty' }
+  return { code, problem: INVITATION_CODE_PATTERN.test(code) ? null : 'format' }
+}
 
 export type RegisterValues = v.InferOutput<typeof registerSchema>
 

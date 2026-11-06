@@ -32,11 +32,14 @@ export interface RiskCardViewModel {
   typeLabel: string
   typeTone: Tone
   statusLabel: string
+  status: RiskStatus
   /** Причина риска — недоверенный текст, выводится только как текст. */
   reason: string
   contactName: string
   serviceName: string | null
   channelName: string | null
+  /** Точка риска: имя берёт витрина из списка точек организации. */
+  locationId: string | null
   /** Отформатированный потенциал сделки или `null`, если оценки нет. */
   potential: string | null
   currency: string | null
@@ -99,10 +102,12 @@ export function toRiskCard(detail: RiskDetail): RiskCardViewModel {
     typeLabel: riskTypeLabel(risk.type),
     typeTone: riskTypeTone(risk.type),
     statusLabel: riskStatusLabel(risk.status),
+    status: risk.status,
     reason: risk.reason,
     contactName: contact?.displayName?.trim() || UNNAMED_CONTACT,
     serviceName: service?.name ?? null,
     channelName: channel?.name ?? null,
+    locationId: risk.locationId ?? null,
     potential: currency ? formatMoney(opportunity?.potentialRevenue ?? null, currency) : null,
     currency,
     dueAt: risk.dueAt,
@@ -140,7 +145,7 @@ export function toRiskWorkspace(detail: RiskDetail): RiskWorkspaceViewModel {
       createdAt: detail.outcome.createdAt,
     })
   }
-  history.sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+  history.sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
   const currency = revenue?.currency ?? opportunity?.currency ?? null
   return {
     ...card,

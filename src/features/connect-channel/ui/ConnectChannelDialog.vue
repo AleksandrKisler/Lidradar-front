@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** Подключение Telegram. Токен очищается после отправки и закрытия диалога. */
-import { computed, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/valibot'
 import { describeError, isApiError } from '@/shared/api'
@@ -8,25 +8,32 @@ import {
   UiAlert,
   UiBadge,
   UiButton,
-  UiDialog,
+  UiChannelMark,
   UiField,
+  UiIcon,
   UiInput,
   UiPasswordInput,
   UiSelect,
+  UiSheetDialog,
+  UiSkeleton,
   type UiSelectOption,
 } from '@/shared/ui'
 import type { Location } from '@/entities/location'
 import {
   connectionErrorLabel,
   connectionStatusView,
-  providerLabel,
   type ConnectChannelRequest,
   type ConnectedChannel,
 } from '@/entities/integration'
 import { connectChannelSchema, type ConnectChannelValues } from '../model/schema'
 import { useConnectChannel } from '../model/use-connect-channel'
 
-const props = defineProps<{ tenantId: string; locations: Location[] }>()
+const props = defineProps<{
+  tenantId: string
+  locations: Location[]
+  loading?: boolean | undefined
+  adaptiveInstruction?: boolean | undefined
+}>()
 const emit = defineEmits<{ connected: [connection: ConnectedChannel] }>()
 const open = defineModel<boolean>('open', { default: false })
 
@@ -55,17 +62,31 @@ const [locationId] = defineField('locationId')
 const [botToken] = defineField('botToken')
 const result = ref<ConnectedChannel | null>(null)
 const resultStatus = computed(() =>
-  result.value ? connectionStatusView(result.value.provider, result.value) : null,
+  result.value?.status === 'ACTIVE'
+    ? { label: 'Активно', tone: 'success' as const }
+    : result.value
+      ? connectionStatusView(result.value.provider, result.value)
+      : null,
 )
 const errorView = computed(() => (connect.error.value ? describeError(connect.error.value) : null))
 const traceId = computed(() => (isApiError(connect.error.value) ? connect.error.value.traceId : ''))
+/** Telegram не принял токен: текст макета выводится под полем, а не отдельным сообщением. */
+const tokenRejected = computed(
+  () =>
+    isApiError(connect.error.value) && connect.error.value.code === 'CHANNEL_CREDENTIALS_REJECTED',
+)
 const unavailable = computed(
   () => isApiError(connect.error.value) && connect.error.value.httpStatus === 503,
 )
 
+// Новый токен снимает прежний отказ: сообщение относилось к прежнему значению.
+watch(botToken, (value) => {
+  if (value && tokenRejected.value) connect.reset()
+})
+
 /** Токен не переживает отправку — ни успешную, ни неудачную. */
 function clearToken(): void {
-  setFieldValue('botToken', '')
+  setFieldValue('botToken', '', false)
 }
 
 /**
@@ -74,66 +95,108 @@ function clearToken(): void {
  * два подключения: `isPending` запроса обновляется позже, чем нужно.
  */
 let inFlight = false
+let formGeneration = 0
+let submissionGeneration = 0
+let disposed = false
 
-const onSubmit = handleSubmit(async (formValues) => {
-  if (inFlight) return
+const submitValidated = handleSubmit(async (formValues) => {
+  if (submissionGeneration !== formGeneration || !open.value || !connect.canSubmit.value) return
+  await submitValues(formValues, submissionGeneration)
+})
+
+async function onSubmit(event?: Event): Promise<void> {
+  if (inFlight || !open.value || !connect.canSubmit.value) return
   inFlight = true
+  submissionGeneration = formGeneration
   try {
-    await submitValues(formValues)
+    await submitValidated(event)
   } finally {
     inFlight = false
   }
-})
+}
 
-async function submitValues(formValues: ConnectChannelValues): Promise<void> {
+async function submitValues(formValues: ConnectChannelValues, generation: number): Promise<void> {
   connect.reset()
   const body: ConnectChannelRequest = {
     name: formValues.name,
     locationId: formValues.locationId || null,
     botToken: formValues.botToken,
   }
-  const created = await connect.mutateAsync(body).catch(() => null)
+  // После начала отправки токен больше не нужен ни форме, ни её черновику.
   clearToken()
+  const created = await connect.mutateAsync(body).catch(() => null)
+  if (disposed || generation !== formGeneration || !open.value) return
   if (created) {
     result.value = created
     emit('connected', created)
   }
 }
 
+const TOKEN_REJECTED_TEXT =
+  'Токен не принят. Скопируйте его целиком из BotFather и проверьте Secretary Mode.'
+
+const TOKEN_STEPS = [
+  ['Создайте бота', 'Откройте @BotFather → Create a New Bot и заполните форму.'],
+  ['Получите токен', 'Скопируйте API-токен созданного бота целиком.'],
+  [
+    'Включите Secretary Mode',
+    'В BotFather откройте настройки созданного бота и включите Secretary Mode.',
+  ],
+  ['Выберите чаты в Telegram', 'Настройки → Изм. → Автоматизация чатов. Выберите бота.'],
+  ['Завершите подключение в LidRadar', 'Вставьте токен в поле слева и нажмите «Подключить».'],
+] as const
+
+const instructionOpen = ref(false)
+const instructionTrigger = ref<HTMLButtonElement | null>(null)
+const TelegramInstructionDialog = defineAsyncComponent(
+  () => import('./TelegramInstructionDialog.vue'),
+)
+
 function finish(): void {
   open.value = false
 }
 
-// Закрытие уничтожает черновик и токен.
-watch(open, (isOpen) => {
-  if (isOpen) return
+// Закрытие и смена контекста уничтожают черновик, включая скрытую форму инструкции.
+function resetContext(): void {
+  formGeneration++
   connect.reset()
   result.value = null
-  resetForm({
-    values: {
-      name: '',
-      locationId: '',
-      botToken: '',
-    },
-  })
+  instructionOpen.value = false
+  resetForm({ values: { name: '', locationId: '', botToken: '' } })
+}
+
+watch(
+  open,
+  (isOpen) => {
+    if (!isOpen) resetContext()
+  },
+  { flush: 'sync' },
+)
+watch(connect.contextKey, resetContext, { flush: 'sync' })
+onBeforeUnmount(() => {
+  disposed = true
+  resetContext()
 })
 </script>
 
 <template>
-  <UiDialog
+  <UiSheetDialog
     v-model:open="open"
     title="Подключить Telegram"
-    description="Подключите переписку бизнес-аккаунта Telegram через вашего бота."
+    description="Подключите переписку Telegram через своего бота."
     size="lg"
-    :dismissible="!connect.isPending.value"
+    :dismissible="!(connect.isPending.value || isSubmitting)"
+    :concealed="instructionOpen"
   >
+    <template #mark><UiChannelMark kind="telegram" /></template>
+
     <div v-if="result" class="flex flex-col gap-4">
       <UiAlert
         :tone="result.status !== 'ACTIVE' ? 'warning' : 'success'"
         title="Подключение создано"
       >
         <span class="flex flex-wrap items-center gap-2">
-          {{ result.name }} · {{ providerLabel(result.provider) }}
+          {{ result.name }} · Telegram
           <UiBadge v-if="resultStatus" :tone="resultStatus.tone">
             {{ resultStatus.label }}
           </UiBadge>
@@ -148,97 +211,155 @@ watch(open, (isOpen) => {
         Подключите этого бота к аккаунту Telegram: «Настройки» → «Изм.» → «Автоматизация чатов».
         Пока бот не подключён, сообщения не придут. Первое сообщение клиента появится в «Диалогах».
       </UiAlert>
-      <div class="flex justify-end">
-        <UiButton @click="finish">Готово</UiButton>
-      </div>
     </div>
 
-    <form v-else class="flex flex-col gap-5" novalidate @submit.prevent="onSubmit">
-      <UiField
-        v-slot="{ id, describedBy, invalid }"
-        label="Название подключения"
-        :error="errors.name"
+    <div
+      v-else
+      class="flex flex-col gap-6 max-md:mt-3 lg:grid lg:grid-cols-[352px_minmax(0,1fr)] lg:gap-7"
+    >
+      <form
+        id="connect-channel-form"
+        class="flex flex-col gap-5"
+        novalidate
+        @submit.prevent="onSubmit"
       >
-        <UiInput
-          :id="id"
-          v-model="name"
-          name="connectionName"
-          placeholder="Telegram · переписка клиентов"
-          :maxlength="200"
-          :described-by="describedBy"
-          :invalid="invalid"
-          :disabled="connect.isPending.value"
-        />
-      </UiField>
-      <UiField v-slot="{ id, describedBy, invalid }" label="Точка" :error="errors.locationId">
-        <UiSelect
-          :id="id"
-          v-model="locationId"
-          name="connectionLocation"
-          :options="locationOptions"
-          :described-by="describedBy"
-          :invalid="invalid"
-          :disabled="connect.isPending.value"
-        />
-      </UiField>
-      <UiField
-        v-slot="{ id, describedBy, invalid }"
-        label="Токен бота"
-        description="Токен выдаёт бот @BotFather. Передаётся один раз по защищённому соединению, шифруется и не показывается снова."
-        :error="errors.botToken"
-      >
-        <UiPasswordInput
-          :id="id"
-          v-model="botToken"
-          name="botToken"
-          autocomplete="new-password"
-          :described-by="describedBy"
-          :invalid="invalid"
-          :disabled="connect.isPending.value"
-        />
-      </UiField>
-      <details
-        class="rounded-control border border-line bg-canvas p-4 text-sm"
+        <div v-if="loading" class="flex flex-col gap-5" role="status" aria-label="Загружаем точки">
+          <div v-for="n in 3" :key="n" class="flex flex-col gap-3">
+            <UiSkeleton class="h-2.5 w-2/3" />
+            <UiSkeleton class="h-input w-full" />
+          </div>
+          <div class="flex flex-col gap-2 pl-6">
+            <UiSkeleton class="h-2.5 w-full" />
+            <UiSkeleton class="h-2.5 w-3/4" />
+            <UiSkeleton class="h-2.5 w-1/2" />
+          </div>
+        </div>
+        <template v-else>
+          <UiField
+            v-slot="{ id, describedBy, invalid }"
+            label="Название подключения"
+            :error="errors.name"
+          >
+            <UiInput
+              :id="id"
+              v-model="name"
+              name="connectionName"
+              placeholder="Telegram · переписка клиентов"
+              :maxlength="200"
+              :described-by="describedBy"
+              :invalid="invalid"
+              :disabled="connect.isPending.value"
+            />
+          </UiField>
+          <UiField v-slot="{ id, describedBy, invalid }" label="Точка" :error="errors.locationId">
+            <UiSelect
+              :id="id"
+              v-model="locationId"
+              name="connectionLocation"
+              :options="locationOptions"
+              :described-by="describedBy"
+              :invalid="invalid"
+              :disabled="connect.isPending.value"
+            />
+          </UiField>
+          <div class="flex flex-col gap-2">
+            <UiField
+              v-slot="{ id, describedBy, invalid }"
+              label="Токен бота"
+              :error="tokenRejected ? TOKEN_REJECTED_TEXT : errors.botToken"
+            >
+              <UiPasswordInput
+                :id="id"
+                v-model="botToken"
+                name="botToken"
+                autocomplete="new-password"
+                :described-by="describedBy"
+                :invalid="invalid"
+                :disabled="connect.isPending.value"
+              />
+            </UiField>
+            <p class="mt-[11px] flex items-start gap-2 text-xs text-secondary">
+              <UiIcon name="lock" class="mt-0.5 size-3.5 shrink-0" />
+              Токен выдаёт @BotFather. Передаётся один раз по защищённому соединению, шифруется и
+              снова не показывается.
+            </p>
+          </div>
+        </template>
+        <UiAlert v-if="unavailable" tone="warning" title="Подключение временно недоступно">
+          Не удалось связаться с Telegram, чтобы проверить токен, или подключение временно
+          недоступно. Черновик без токена сохранён, пока окно открыто: введите токен заново и
+          повторите попытку.
+        </UiAlert>
+        <UiAlert
+          v-else-if="errorView && !tokenRejected"
+          tone="danger"
+          :title="errorView.title"
+          :trace-id="traceId"
+        >
+          {{ errorView.description }}
+        </UiAlert>
+      </form>
+
+      <section
+        class="flex flex-col gap-4 rounded-[20px] bg-canvas p-6 lg:self-start"
         data-testid="telegram-token-help"
       >
-        <summary class="cursor-pointer font-medium text-brand-dark">Где взять токен бота</summary>
-        <ol class="mt-3 flex list-decimal flex-col gap-2 pl-5 text-ink">
-          <li>
-            В Telegram найдите бота <span class="font-medium">@BotFather</span> и отправьте ему
-            команду <code>/newbot</code>.
-          </li>
-          <li>
-            Придумайте имя и адрес нового бота. BotFather пришлёт токен: длинную строку вида
-            <code>123456789:AAH…</code>
-          </li>
-          <li>В BotFather откройте настройки этого бота и включите режим Business Mode.</li>
-          <li>Вставьте токен в поле выше и нажмите «Подключить».</li>
-          <li>
-            Затем подключите бота к аккаунту: в Telegram откройте «Настройки» → «Изм.» →
-            «Автоматизация чатов».
+        <h3 class="text-field font-semibold text-ink">Где взять токен бота</h3>
+        <ol class="flex flex-col gap-4">
+          <li v-for="([title, text], index) in TOKEN_STEPS" :key="title" class="flex gap-3">
+            <span
+              class="flex size-6 shrink-0 items-center justify-center rounded-full border border-line bg-paper text-xs text-secondary"
+              aria-hidden="true"
+              >{{ index + 1 }}</span
+            >
+            <span class="flex flex-col">
+              <span class="text-sm font-medium text-ink">{{ title }}</span>
+              <span class="mt-[3px] text-sm text-secondary">{{ text }}</span>
+            </span>
           </li>
         </ol>
-        <p class="mt-3 text-xs text-muted">
-          Названия пунктов зависят от версии Telegram. Токен никому не передавайте: он даёт полный
-          доступ к боту.
-        </p>
-      </details>
-      <UiAlert v-if="unavailable" tone="warning" title="Подключение временно недоступно">
-        Не удалось связаться с Telegram, чтобы проверить токен, или подключение временно недоступно.
-        Черновик без токена сохранён, пока окно открыто: введите токен заново и повторите попытку.
-      </UiAlert>
-      <UiAlert v-else-if="errorView" tone="danger" :title="errorView.title" :trace-id="traceId">
-        {{ errorView.description }}
-      </UiAlert>
+        <button
+          ref="instructionTrigger"
+          type="button"
+          class="self-start text-sm text-link underline"
+          @click="instructionOpen = true"
+        >
+          Подробная инструкция со скриншотами
+        </button>
+        <div class="flex flex-col gap-1.5 border-t border-line pt-4 text-xs">
+          <p class="text-secondary">Названия пунктов зависят от версии Telegram.</p>
+          <p class="text-ink">Никому не передавайте токен: он даёт полный доступ к боту.</p>
+        </div>
+      </section>
+    </div>
 
-      <div class="flex flex-wrap justify-end gap-3">
-        <UiButton variant="secondary" :disabled="connect.isPending.value" @click="finish"
+    <TelegramInstructionDialog
+      v-if="instructionOpen"
+      v-model:open="instructionOpen"
+      :adaptive="adaptiveInstruction"
+      :return-focus="() => instructionTrigger"
+    />
+
+    <template #footer>
+      <UiButton v-if="result" @click="finish">Готово</UiButton>
+      <template v-else>
+        <UiButton
+          variant="secondary"
+          class="!opacity-100 md:w-[100px]"
+          :disabled="connect.isPending.value"
+          @click="finish"
           >Отмена</UiButton
         >
-        <UiButton type="submit" :loading="connect.isPending.value || isSubmitting">
-          Подключить
+        <UiButton
+          type="submit"
+          class="md:min-w-[196px]"
+          form="connect-channel-form"
+          :disabled="loading || !connect.canSubmit.value"
+          :loading="connect.isPending.value || isSubmitting"
+        >
+          {{ connect.isPending.value || isSubmitting ? 'Подключаем…' : 'Подключить' }}
         </UiButton>
-      </div>
-    </form>
-  </UiDialog>
+      </template>
+    </template>
+  </UiSheetDialog>
 </template>

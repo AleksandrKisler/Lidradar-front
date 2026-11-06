@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * Кнопка действия по макету «Основы интерфейса»: высота 44, радиус 12,
+ * Кнопка действия по макету «Основы интерфейса»: высота 46, радиус 9,
  * варианты «основное», «вторичное», «опасное», «мягкое».
+ * Figma HIG / Button · Onboarding: 46 px, радиус 9, текст 17/20 medium.
  *
  * Состояние `loading` блокирует повторную отправку и объявляет занятость
  * (`aria-busy`), не меняя доступное имя кнопки.
@@ -10,7 +11,7 @@ import UiSpinner from './UiSpinner.vue'
 
 withDefaults(
   defineProps<{
-    variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
+    variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'plain' | 'outline'
     size?: 'md' | 'sm'
     type?: 'button' | 'submit' | 'reset'
     disabled?: boolean
@@ -22,15 +23,19 @@ withDefaults(
 )
 
 const variants = {
-  primary: 'bg-brand text-white hover:bg-brand-dark',
-  secondary: 'border border-line bg-paper text-ink hover:bg-canvas',
-  danger: 'bg-danger text-white hover:bg-[#b32420]',
+  primary: 'bg-brand font-medium text-white hover:bg-brand-dark',
+  secondary: 'border border-line bg-paper font-medium text-ink hover:bg-canvas',
+  danger: 'bg-danger font-medium text-white hover:bg-[#b32420]',
   // Тёмный оттенок: на серой канве и в подсветках контраст остаётся не ниже 4.5:1.
-  ghost: 'bg-transparent text-brand-dark hover:bg-brand-pale',
+  ghost: 'bg-transparent font-medium text-brand-dark hover:bg-brand-pale',
+  // Тихое действие в шапке без рамки («Выйти» в макетах Рабочих пространств).
+  plain: 'bg-transparent text-secondary hover:text-ink',
+  // Второстепенное действие синим по рамке («Добавить услугу» в мастере).
+  outline: 'border border-line bg-paper font-medium text-link hover:bg-action-pale',
 } as const
 
 const sizes = {
-  md: 'h-11 px-5 text-sm',
+  md: 'h-input px-6 text-field leading-5',
   sm: 'h-9 px-3.5 text-sm',
 } as const
 </script>
@@ -41,7 +46,8 @@ const sizes = {
     :disabled="disabled || loading"
     :aria-busy="loading || undefined"
     :class="[
-      'inline-flex items-center justify-center gap-2 rounded-control font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+      'inline-flex items-center justify-center gap-2 rounded-button whitespace-nowrap transition-colors disabled:cursor-not-allowed',
+      disabled && !loading ? 'opacity-45' : '',
       variants[variant],
       sizes[size],
       block ? 'w-full' : '',
